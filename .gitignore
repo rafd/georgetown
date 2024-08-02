@@ -1,0 +1,6 @@
+/target
+/.lein-repl-history
+/.nrepl-port
+/data
+/resources/public/css
+/resources/public/js
