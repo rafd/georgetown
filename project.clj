@@ -6,6 +6,8 @@
                  [io.bloomventures/commons "0.14.8"]
                  [io.github.escherize/huff "0.2.12"]
                  [ring/ring-defaults "0.5.0"]
+                 [com.hyperfiddle/rcf "20220926-202227"]
+                 [tada "0.2.2"]
 
                  ;; db
                  [datalevin "0.9.5"]

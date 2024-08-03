@@ -1,19 +1,85 @@
 (ns georgetown.schema
   (:require
-    [bloom.commons.uuid :as uuid]))
+    [bloom.commons.uuid :as uuid]
+    [malli.core :as m]
+    [malli.registry :as mr]))
+
+(def improvement-types
+  [{:id :improvement.type/house
+    :price 100
+    :offers
+    [{:id :offer.house/rental
+      :supply [1 :shelter]
+      :demand [:X :money]}]}
+   {:id :improvement.type/farm
+    :price 100
+    :offers
+    [{:id :offer/farm.food
+      :supply [5 :food]
+      :demand [:X :money]}
+     {:id :offer/farm.job
+      :supply [:X :money]
+      :demand [10 :labour]}]}])
 
 (def schema
-  {:user
+  {:entity/user
    {:user/id {:spec :uuid
               :default uuid/random
+              :db/unique :db.unique/identity}}
+
+   :entity/lot
+   {:lot/id {:spec :uuid
+             :default uuid/random
+             :db/unique :db.unique/identity}
+    :lot/x {:spec :pos-int}
+    :lot/y {:spec :pos-int}}
+
+   :entity/deed
+   {:deed/id {:spec :uuid
+              :default uuid/random
               :db/unique :db.unique/identity}
-    :user/handle {:spec :string}}})
+    :deed/rate {:spec :pos-int}
+    :deed/lot {:spec :entity/lot
+               :ref :lot/id}
+    :deed/owner {:spec :entity/user
+                 :ref :user/id}}
+
+   :entity/improvement
+   {:improvement/id {:spec :uuid
+                     :default uuid/random
+                     :db/unique :db.unique/identity}
+    :improvement/type {:spec (into [:enum]
+                                   (->> improvement-types
+                                        (map :id)))}
+    :improvement/lot {:spec :entity/lot
+                      :ref :lot/id}}
+
+   :entity/offer
+   {:offer/type {:spec :keyword}
+    :offer/amount {:spec :pos-int}}})
+
+
+(mr/set-default-registry!
+  (merge (mr/schemas m/default-registry)
+         {:neg-int (m/-simple-schema {:type :neg-int :pred neg-int?})
+          :pos-int (m/-simple-schema {:type :pos-int :pred pos-int?})}
+         (->> schema
+              (map (fn [[k vs]]
+                     [k (into [:map]
+                              (update-vals vs :spec))]))
+              (into {}))
+         (->> schema
+              (mapcat val)
+              (map (fn [[k v]]
+                     [k (:spec v)]))
+              (into {}))))
 
 ;; https://docs.datomic.com/schema/schema-reference.html
 ;; https://github.com/metosin/malli?tab=readme-ov-file#built-in-schemas
 (defn malli-type->datalog-type [x]
   (get (merge {:uuid :db.type/uuid
                :integer :db.type/long
+               :pos-int :db.type/long
                :string :db.type/string
                :float :db.type/float
                :keyword :db.type/keyword
