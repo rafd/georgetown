@@ -1,5 +1,6 @@
 (ns georgetown.client.state
   (:require
+    [com.rpl.specter :as x]
     [bloom.commons.ajax :as ajax]
     [reagent.core :as r]))
 
@@ -25,6 +26,17 @@
 (defonce lots (r/atom nil))
 
 (defonce user (r/atom nil))
+
+(defonce offers (r/reaction
+                  (->> @user
+                       (x/select
+                         [:deed/_owner
+                          x/ALL
+                          :deed/lot
+                          :improvement/_lot
+                          x/ALL
+                          :offer/_improvement
+                          x/ALL]))))
 
 (defn get-state []
   (ajax/request {:uri "/api/state"

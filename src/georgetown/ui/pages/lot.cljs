@@ -1,6 +1,5 @@
 (ns georgetown.ui.pages.lot
   (:require
-    [com.rpl.specter :as x]
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]))
@@ -98,21 +97,15 @@
                    [:div "🌽"])
                  [:div.action
                   (for [offerable (:blueprint/offerables blueprint)
-                        :let [offer (->> @state/user
-                                         (x/select-one
-                                           [:deed/_owner
-                                            x/ALL
-                                            :deed/lot
-                                            :improvement/_lot
-                                            x/ALL
-                                            :offer/_improvement
-                                            x/ALL
-                                            (fn [offer]
-                                              (and
-                                                (= (first (:offer/id offer))
-                                                   (:improvement/id improvement))
-                                                (= (:offer/type offer)
-                                                   (:offerable/id offerable))))]))]]
+                        :let [offer (->> @state/offers
+                                         (filter
+                                         (fn [offer]
+                                           (and
+                                             (= (first (:offer/id offer))
+                                                (:improvement/id improvement))
+                                             (= (:offer/type offer)
+                                                (:offerable/id offerable)))))
+                                         first)]]
                     [:div
                      ;; TODO demand / supply
                      [:div {:tw "border-1 p-1"}
