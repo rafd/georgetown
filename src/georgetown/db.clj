@@ -3,10 +3,17 @@
     [datalevin.core :as d]
     [georgetown.schema :as schema]))
 
-(def conn
-  (delay
-    (d/get-conn "data/datalevin"
-      (schema/->datalevin schema/schema))))
+(defonce conn-atom (atom nil))
+
+(defn connect! []
+  (reset! conn-atom
+          (d/get-conn "data/datalevin"
+            (schema/->datalevin schema/schema))))
+
+(defn conn []
+  (if (nil? @conn-atom)
+    (connect!)
+    @conn-atom))
 
 (defn remove-nil-vals [m]
   (->> m
@@ -15,19 +22,30 @@
        (into {})))
 
 (defn transact! [& args]
-  (apply d/transact @conn args))
+  (apply d/transact (conn) args))
 
 (defn q [query & args]
-  (apply d/q query @@conn args))
+  (apply d/q query @(conn) args))
 
+#_(connect!)
 
 ;; all
 #_(d/q '[:find [?e ...]
          :where [?e _ _]]
-       @@conn)
+       @(conn))
+
+#_(d/q '[:find [ (pull ?e [*
+                           { :offer/_improvement [ *]}
+                           ]) ...]
+         :where [?e :improvement/id _]]
+       @(conn))
 
 ;; drop all
-#_(d/clear @conn)
+#_(d/clear @conn-atom)
+
+;; TODO close when app closes
+;; or else lock gets stuck
+#_(d/close @conn-atom)
 
 (defn retract-all! []
   (transact!

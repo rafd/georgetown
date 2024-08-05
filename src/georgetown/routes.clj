@@ -26,4 +26,4 @@
       (dispatch-event!
         (get-in request [:body-params :command])
         (assoc (get-in request [:body-params :params])
-          :user-id #uuid "00000000-0000-0000-0000-000000000000")))]])
+          :user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a")))]])

@@ -1,7 +1,10 @@
 (ns georgetown.cqrs
   (:require
+    [bloom.commons.uuid :as uuid]
     [tada.events.malli :as tada]
-    [georgetown.state :as s]))
+    [georgetown.schema :as schema]
+    [georgetown.state :as s]
+    [georgetown.db :as db]))
 
 (def cqrs
   [
@@ -9,40 +12,39 @@
     :params {:user-id :user/id}
     :return
     (fn [{:keys [user-id]}]
-      (s/client-state))}
+      (s/client-state user-id))}
 
    {:id :command/create-user!
     :params {:id :user/id}
     :conditions
     (fn [{:keys [id]}]
-      ;; TODO doesn't exist
-      )
+      [[#(not (s/exists? :user/id id))]])
     :effect
     (fn [{:keys [id]}]
-      (s/create-user! id))}
+      (db/transact!
+        [{:user/id id}]))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
-             :lot-id :lot/id
-             :rate :deed/rate}
+             :lot-id :lot/id}
     :conditions
     (fn [{:keys [user-id lot-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
        [#(not (s/owns? user-id lot-id))]])
     :effect
-    (fn [{:keys [user-id lot-id rate]}]
-      (cond
-        (nil? (s/deed lot-id))
-        (s/assign! user-id lot-id rate)
+    (fn [{:keys [user-id lot-id]}]
+      (let [owned? (s/lot-deed lot-id)]
+        (when owned?
+          (s/refund! lot-id))
 
-        (<= (inc (:deed/rate (s/deed lot-id))) rate)
-        (do
-          (s/refund! lot-id)
-          (s/assign! user-id lot-id rate))
-
-        :else
-        nil))}
+        (db/transact!
+          [{:deed/id (uuid/random)
+            :deed/rate (if owned?
+                         (inc (:deed/rate (s/lot-deed lot-id)))
+                         1)
+            :deed/lot [:lot/id lot-id]
+            :deed/owner [:user/id user-id]}])))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id
@@ -52,19 +54,22 @@
     (fn [{:keys [user-id lot-id rate]}]
       [[#(s/owns? user-id lot-id)]])
     :effect
-    (fn [{:keys [user-id lot-id rate]}]
-      (s/set-rate! lot-id rate))}
+    (fn [{:keys [lot-id rate]}]
+      (let [d (s/lot-deed lot-id)]
+        (db/transact!
+          [[:db/add [:deed/id (:deed/id d)] :deed/rate rate]])))}
 
    {:id :command/abandon!
     :params {:user-id :user/id
              :lot-id :lot/id}
     :conditions
     (fn [{:keys [user-id lot-id]}]
-      [[#(s/owns? user-id lot-id)]])
+      [[#(s/owns? user-id lot-id)]
+       [#(nil? (s/lot-improvement lot-id))]])
     :effect
-    (fn [{:keys [user-id lot-id]}]
-      ;; TODO
-      )}
+    (fn [{:keys [lot-id]}]
+      (db/transact!
+        [[:db/retractEntity [:deed/id (:deed/id (s/lot-deed lot-id))]]]))}
 
    {:id :command/build!
     :params {:user-id :user/id
@@ -73,23 +78,30 @@
     :conditions
     (fn [{:keys [user-id lot-id improvement-type]}]
       [[#(s/owns? user-id lot-id)]
-       [#(nil? (s/improvement lot-id))]])
-    ;; TODO check that the improvement type is valid
+       [#(nil? (s/lot-improvement lot-id))]
+       [#(contains? schema/blueprints improvement-type)]])
     :effect
     (fn [{:keys [lot-id improvement-type]}]
-      (s/build! lot-id improvement-type))}
+      (db/transact!
+        [{:improvement/id (uuid/random)
+          :improvement/type improvement-type
+          :improvement/lot [:lot/id lot-id]}]))}
 
    {:id :command/demolish!
     :params {:user-id :user/id
              :improvement-id :improvement/id}
     :conditions
     (fn [{:keys [user-id improvement-id]}]
-      ;; TODO
-      )
+      (let [lot (s/improvement-lot improvement-id)]
+        [[#(s/owns? user-id (:lot/id lot))]]))
     :effect
-    (fn [{:keys [user-id improvement-id]}]
-      ;; TODO
-      )}
+    (fn [{:keys [improvement-id]}]
+      (db/transact!
+        (conj
+          (map (fn [offer-id]
+                 [:db/retractEntity [:offer/id offer-id]])
+               (s/improvement-offers improvement-id))
+          [:db/retractEntity [:improvement/id improvement-id]])))}
 
    {:id :command/set-offer!
     :params {:user-id :user/id
@@ -102,7 +114,11 @@
       )
     :effect
     (fn [{:keys [improvement-id offer-type offer-amount]}]
-      (s/set-offer! improvement-id offer-type offer-amount))}])
+      (db/transact!
+        [{:offer/id [improvement-id offer-type]
+          :offer/type offer-type
+          :offer/amount offer-amount
+          :offer/improvement [:improvement/id improvement-id]}]))}])
 
 (tada/register! cqrs)
 

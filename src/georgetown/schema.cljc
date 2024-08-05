@@ -4,39 +4,49 @@
     [malli.core :as m]
     [malli.registry :as mr]))
 
-(def improvement-types
-  [{:id :improvement.type/house
-    :price 100
-    :offers
-    [{:id :offer.house/rental
-      :supply [1 :shelter]
-      :demand [:X :money]}]}
-   {:id :improvement.type/farm
-    :price 100
-    :offers
-    [{:id :offer/farm.food
-      :supply [5 :food]
-      :demand [:X :money]}
-     {:id :offer/farm.job
-      :supply [:X :money]
-      :demand [10 :labour]}]}])
+(defn key-by [f coll]
+  (into {} (map (juxt f identity) coll)))
+
+(def blueprints
+  (->> [{:blueprint/id :improvement.type/house
+         :blueprint/label "House"
+         :blueprint/icon "🏠"
+         :blueprint/description "Provides shelter"
+         :blueprint/price 100
+         :blueprint/offerables
+         [{:offerable/id :offer/house.rental
+           :offerable/label "Rental"
+           :offerable/supply [1 :shelter]
+           :offerable/demand [:X :money]}]}
+        {:blueprint/id :improvement.type/farm
+         :blueprint/label "Farm"
+         :blueprint/icon "🌽"
+         :blueprint/description "Produces food"
+         :blueprint/price 100
+         :blueprint/offerables
+         [{:offerable/id :offer/farm.food
+           :offerable/label "Food"
+           :offerable/supply [5 :food]
+           :offerable/demand [:X :money]}
+          {:offerable/id :offer/farm.job
+           :offerable/label "Job"
+           :offerable/supply [:X :money]
+           :offerable/demand [10 :labour]}]}]
+       (key-by :blueprint/id)))
 
 (def schema
   {:entity/user
    {:user/id {:spec :uuid
-              :default uuid/random
               :db/unique :db.unique/identity}}
 
    :entity/lot
    {:lot/id {:spec :uuid
-             :default uuid/random
              :db/unique :db.unique/identity}
     :lot/x {:spec :pos-int}
     :lot/y {:spec :pos-int}}
 
    :entity/deed
    {:deed/id {:spec :uuid
-              :default uuid/random
               :db/unique :db.unique/identity}
     :deed/rate {:spec :pos-int}
     :deed/lot {:spec :entity/lot
@@ -46,18 +56,19 @@
 
    :entity/improvement
    {:improvement/id {:spec :uuid
-                     :default uuid/random
                      :db/unique :db.unique/identity}
     :improvement/type {:spec (into [:enum]
-                                   (->> improvement-types
-                                        (map :id)))}
+                                   (keys blueprints))}
     :improvement/lot {:spec :entity/lot
                       :ref :lot/id}}
 
    :entity/offer
-   {:offer/type {:spec :keyword}
+   {:offer/id {:spec [:vec :uuid :keyword]
+               :db/unique :db.unique/identity}
+    :offer/improvement {:spec :entity/improvement
+                        :ref :improvement/id}
+    :offer/type {:spec :keyword}
     :offer/amount {:spec :pos-int}}})
-
 
 (mr/set-default-registry!
   (merge (mr/schemas m/default-registry)
@@ -89,15 +100,11 @@
                       (repeat :db.type/ref)))
     x))
 
-(def by-key
+(defn ->datalevin
+  [schema]
   (->> schema
        vals
        (apply concat)
-       (into {})))
-
-(defn ->datalevin
-  [schema]
-  (->> by-key
        (map (fn [[k o]]
               [k
                {:db/unique (:db/unique o)
@@ -112,34 +119,4 @@
 
 #_(tap> (->datalevin schema))
 
-(defn ref-key [attr]
-  (-> by-key attr :ref))
-
-#_(ref-key :purchase/product)
-
-(defn ->type [entity]
-  (->> entity
-       (keep (fn [[k _v]]
-                 (when (:db/unique (by-key k))
-                   (namespace k))))
-       first))
-
-(defn ->ref
-  "{:entity/id 123 ...} => [:entity/id 123]"
-  [entity]
-  (->> entity
-       (keep (fn [[k v]]
-               (when (= (-> by-key k :db/unique)
-                        :db.unique/identity)
-                 [k v])))
-       first))
-
-#_(->ref {:purchase/id 123})
-
-(defn blank [entity-type]
-  (->> (schema entity-type)
-       (map (fn [[k v]]
-              [k (when-let [f (:default v)]
-                   (f))]))
-       (into {})))
 

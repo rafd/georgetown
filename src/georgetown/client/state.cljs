@@ -23,3 +23,11 @@
     a))
 
 
+(defonce lots (r/atom nil))
+
+(defonce user (r/atom nil))
+
+(-> (exec! :query/all {})
+    (.then (fn [client-state]
+             (reset! user (:client-state/user client-state))
+             (reset! lots (:client-state/lots client-state)))))

@@ -4,7 +4,7 @@
 
 (defn view []
   [:div
-   "home"])
+   "Welcome to Georgetown!"])
 
 (pages/register-page!
   {:page/id :page/home

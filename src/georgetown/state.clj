@@ -3,14 +3,6 @@
     [bloom.commons.uuid :as uuid]
     [georgetown.db :as db]))
 
-(defn create-user!
-  [id]
-  (db/transact!
-    [{:user/id id}]))
-
-(defn population [s]
-  (:state/population s))
-
 (defn initialize! []
   ;; create lots
   (db/transact!
@@ -19,14 +11,6 @@
       {:lot/id (uuid/random)
        :lot/x x
        :lot/y y})))
-
-(defn deed [lot-id]
-  (db/q '[:find (pull ?deed [*]) .
-          :in $ ?lot-id
-          :where
-          [?lot :lot/id ?lot-id]
-          [?deed :deed/lot ?lot]]
-        lot-id))
 
 (defn exists? [attr value]
   (some?
@@ -37,7 +21,18 @@
           attr
           value)))
 
-(defn improvement [lot-id]
+(defn population [s]
+  (:state/population s))
+
+(defn lot-deed [lot-id]
+  (db/q '[:find (pull ?deed [*]) .
+          :in $ ?lot-id
+          :where
+          [?lot :lot/id ?lot-id]
+          [?deed :deed/lot ?lot]]
+        lot-id))
+
+(defn lot-improvement [lot-id]
   (db/q '[:find (pull ?improvement [*]) .
           :in $ ?lot-id
           :where
@@ -57,63 +52,59 @@
           lot-id
           user-id)))
 
-(defn assign! [user-id lot-id rate]
-  (db/transact!
-    [{:deed/id (uuid/random)
-      :deed/rate rate
-      :deed/lot [:lot/id lot-id]
-      :deed/owner [:user/id user-id]}]))
-
-(defn set-rate! [lot-id rate]
-  (db/transact!
-    [[:db/add [:lot/id lot-id] :lot/rate rate]]))
-
-(defn refund! [lot-id]
-    ;;TODO
-
-    )
-
 (defn lots []
   (db/q '[:find [(pull ?lot [*]) ...]
           :where
           [?lot :lot/id _]]))
 
-(defn deeds []
-  (db/q '[:find [(pull ?deed [*]) ...]
+(defn improvement-offers
+  [improvement-id]
+  (db/q '[:find [(pull ?offer [*]) ...]
+          :in $ ?improvement-id
           :where
-          [?deed :deed/id _]]))
+          [?improvement :improvement/id ?improvement-id]
+          [?offer :offer/improvement ?improvement]]
+        improvement-id))
 
-#_(deeds)
-
-(defn improvement-on-lot
-  [lot-id]
-  (db/q '[:find (pull ?improvement [*]) .
-          :in $ ?lot-id
+(defn improvement-lot
+  [improvement-id]
+  (db/q '[:find (pull ?lot [*]) .
+          :in $ ?improvement-id
           :where
-          [?lot :lot/id ?lot-id]
+          [?improvement :improvement/id ?improvement-id]
           [?improvement :improvement/lot ?lot]]
-        lot-id))
+        improvement-id))
 
-(defn build!
-  [lot-id improvement-type]
-  (db/transact!
-    [{:improvement/id (uuid/random)
-      :improvement/type improvement-type
-      :improvement/lot [:lot/id lot-id]}]))
+;; ---
 
-(defn set-offer!
-  [improvement-id offer-type amount]
-  (db/transact!
-    [{:offer/type offer-type
-      :offer/amount amount
-      :offer/improvement [:improvement/id improvement-id]}]))
-
-(defn client-state []
-  (db/q '[:find [(pull ?lot [*
-                             {:deed/_lot [*
-                                          {:deed/owner [*
-                                                        :user/id]}]}
-                             {:improvement/_lot [*]}])
-                 ...]
-          :where
-          [?lot :lot/id _]]))
+(defn client-state
+  [user-id]
+  {;; public
+   :client-state/lots
+   (db/q '[:find [(pull ?lot [*
+                              {:deed/_lot [*
+                                           {:deed/owner [*
+                                                         :user/id]}]}
+                              {:improvement/_lot [*]}])
+                  ...]
+           :where
+           [?lot :lot/id _]])
+   ;; private
+   :client-state/user
+   (db/q '[:find (pull ?user
+                       [; user
+                        *
+                        {:deed/_owner
+                         [; deed
+                          {:deed/lot
+                           [; lot
+                            {:improvement/_lot
+                             [; improvement
+                              {:offer/_improvement
+                                 [; offer
+                                  *]}]}]}]
+                         }]) .
+           :in $ ?user-id
+           :where
+           [?user :user/id ?user-id]]
+         user-id)})

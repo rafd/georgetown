@@ -16,8 +16,7 @@
       (let [lot-id (get-in lots [0 :lot/id])]
         (exec! :command/buy-lot!
                {:user-id user-id
-                :lot-id lot-id
-                :rate 1})
+                :lot-id lot-id})
         (exec! :command/change-rate!
                {:user-id user-id
                 :lot-id lot-id
@@ -26,7 +25,7 @@
                {:user-id user-id
                 :lot-id lot-id
                 :improvement-type :improvement.type/house})
-        (let [house-id (:improvement/id (s/improvement-on-lot lot-id))]
+        (let [house-id (:improvement/id (s/lot-improvement lot-id))]
           (exec! :command/set-offer!
                  {:user-id user-id
                   :improvement-id house-id
@@ -36,13 +35,12 @@
       (let [lot-id (get-in lots [1 :lot/id])]
         (exec! :command/buy-lot!
                {:user-id user-id
-                :lot-id lot-id
-                :rate 1})
+                :lot-id lot-id})
         (exec! :command/build!
                {:user-id user-id
                 :lot-id lot-id
                 :improvement-type :improvement.type/farm})
-        (let [farm-id (:improvement/id (s/improvement-on-lot lot-id))]
+        (let [farm-id (:improvement/id (s/lot-improvement lot-id))]
           (exec! :command/set-offer!
                  {:user-id user-id
                   :improvement-id farm-id
@@ -52,38 +50,41 @@
                  {:user-id user-id
                   :improvement-id farm-id
                   :offer-type :offer/farm.food
-                  :offer-amount 1}))))
+                  :offer-amount 1})))
+      ;; lot 1.3 - empty
+      (let [lot-id (get-in lots [2 :lot/id])]
+        (exec! :command/buy-lot!
+               {:user-id user-id
+                :lot-id lot-id})))
     (let [user-id #uuid "856f5e27-f1ee-443d-884d-f398afe9b49d"]
       ;; user 2
       (exec! :command/create-user!
              {:id user-id})
       ;; lot 2.1 - home
-      (let [lot-id (get-in lots [2 :lot/id])]
+      (let [lot-id (get-in lots [3 :lot/id])]
         (exec! :command/buy-lot!
                {:user-id user-id
-                :lot-id lot-id
-                :rate 1})
+                :lot-id lot-id})
         (exec! :command/build!
                {:user-id user-id
                 :lot-id lot-id
                 :improvement-type :improvement.type/house})
-        (let [house-id (:improvement/id (s/improvement-on-lot lot-id))]
+        (let [house-id (:improvement/id (s/lot-improvement lot-id))]
           (exec! :command/set-offer!
                  {:user-id user-id
                   :improvement-id house-id
                   :offer-type :offer/house.rental
                   :offer-amount 1})))
       ;; lot 2 - farm
-      (let [lot-id (get-in lots [3 :lot/id])]
+      (let [lot-id (get-in lots [4 :lot/id])]
         (exec! :command/buy-lot!
                {:user-id user-id
-                :lot-id lot-id
-                :rate 1})
+                :lot-id lot-id})
         (exec! :command/build!
                {:user-id user-id
                 :lot-id lot-id
                 :improvement-type :improvement.type/farm})
-        (let [farm-id (:improvement/id (s/improvement-on-lot lot-id))]
+        (let [farm-id (:improvement/id (s/lot-improvement lot-id))]
           (exec! :command/set-offer!
                  {:user-id user-id
                   :improvement-id farm-id
