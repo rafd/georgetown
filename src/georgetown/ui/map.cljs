@@ -35,8 +35,8 @@
                              :background (if (pages/active? [:page/lot {:id (:lot/id lot)}])
                                            "#026002"
                                            "green")
-                             :border-right "1px solid gray"
-                             :border-bottom "1px solid gray"
+                             :border-right "1px solid #009600"
+                             :border-bottom "1px solid #009600"
                              :color "white"}}
                  (when deed
                    [:div {:tw "h-full block"
