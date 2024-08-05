@@ -8,12 +8,6 @@
 
 (def cqrs
   [
-   {:id :query/all
-    :params {:user-id :user/id}
-    :return
-    (fn [{:keys [user-id]}]
-      (s/client-state user-id))}
-
    {:id :command/create-user!
     :params {:id :user/id}
     :conditions
@@ -133,5 +127,3 @@
         (ex-data e))
       (throw e))))
 
-#_(exec! :query/all
-         {:user-id #uuid "00000000-0000-0000-0000-000000000000"})

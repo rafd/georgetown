@@ -22,12 +22,19 @@
                  (reset! a x))))
     a))
 
-
 (defonce lots (r/atom nil))
 
 (defonce user (r/atom nil))
 
-(-> (exec! :query/all {})
-    (.then (fn [client-state]
-             (reset! user (:client-state/user client-state))
-             (reset! lots (:client-state/lots client-state)))))
+(defn get-state []
+  (ajax/request {:uri "/api/state"
+                 :method :get
+                 :params (when (nil? @lots)
+                           {:force true})
+                 :on-error (fn [_]
+                             (js/setTimeout get-state 1000))
+                 :on-success (fn [client-state]
+                               (reset! user (:client-state/user client-state))
+                               (reset! lots (:client-state/lots client-state))
+                               (js/setTimeout get-state 0))}))
+

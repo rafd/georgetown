@@ -4,6 +4,7 @@
     [bloom.omni.reagent :as rdom]
     [bloom.commons.pages :as pages]
     [georgetown.ui.app :as app]
+    [georgetown.client.state :as state]
     ;; pull in pages:
     [georgetown.ui.pages]))
 
@@ -12,7 +13,8 @@
 
 (defn ^:export init []
   (pages/initialize! [])
-  (render))
+  (render)
+  (state/get-state))
 
 (defn ^:after-load reload
   []

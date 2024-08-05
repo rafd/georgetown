@@ -1,6 +1,7 @@
 (ns georgetown.routes
   (:require
-    [tada.events.malli :as tada]))
+    [tada.events.malli :as tada]
+    [georgetown.push :as push]))
 
 (defn dispatch-event!
   [event-id event-params]
@@ -26,4 +27,9 @@
       (dispatch-event!
         (get-in request [:body-params :command])
         (assoc (get-in request [:body-params :params])
-          :user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a")))]])
+          :user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a")))]
+
+   [[:get "/api/state"]
+    (fn [request]
+      (push/handler request))]])
+
