@@ -81,6 +81,7 @@
               [block {:label "Build..."}
                [:div
                 (for [blueprint (vals schema/blueprints)]
+                  ^{:key (:blueprint/id blueprint)}
                   [button {:on-click (fn []
                                        (state/exec!
                                          :command/build!
@@ -96,33 +97,35 @@
                    :improvement.type/farm
                    [:div "🌽"])
                  [:div.action
-                  (for [offerable (:blueprint/offerables blueprint)
-                        :let [offer (->> @state/offers
-                                         (filter
-                                         (fn [offer]
-                                           (and
-                                             (= (first (:offer/id offer))
-                                                (:improvement/id improvement))
-                                             (= (:offer/type offer)
-                                                (:offerable/id offerable)))))
-                                         first)]]
-                    [:div
-                     ;; TODO demand / supply
-                     [:div {:tw "border-1 p-1"}
-                      [:div.offer-type
-                       (:offerable/label offerable)]
-                      [:div.offer-amount
-                       [:input {:type "number"
-                                :name "offer-amount"
-                                :min 1
-                                :default-value (:offer/amount offer)
-                                :step 1
-                                :on-change (fn [e]
-                                             (state/exec!
-                                               :command/set-offer!
-                                               {:improvement-id (:improvement/id improvement)
-                                                :offer-type (:offerable/id offerable)
-                                                :offer-amount (js/parseInt (.. e -target -value))}))}]]]])
+                  (doall
+                    (for [offerable (:blueprint/offerables blueprint)
+                          :let [offer (->> @state/offers
+                                           (filter
+                                             (fn [offer]
+                                               (and
+                                                 (= (first (:offer/id offer))
+                                                    (:improvement/id improvement))
+                                                 (= (:offer/type offer)
+                                                    (:offerable/id offerable)))))
+                                           first)]]
+                      ^{:key (:offerable/id offerable)}
+                      [:div
+                       ;; TODO demand / supply
+                       [:div {:tw "border-1 p-1"}
+                        [:div.offer-type
+                         (:offerable/label offerable)]
+                        [:div.offer-amount
+                         [:input {:type "number"
+                                  :name "offer-amount"
+                                  :min 1
+                                  :default-value (:offer/amount offer)
+                                  :step 1
+                                  :on-change (fn [e]
+                                               (state/exec!
+                                                 :command/set-offer!
+                                                 {:improvement-id (:improvement/id improvement)
+                                                  :offer-type (:offerable/id offerable)
+                                                  :offer-amount (js/parseInt (.. e -target -value))}))}]]]]))
                   [button {:on-click
                            (fn []
                              (state/exec!
