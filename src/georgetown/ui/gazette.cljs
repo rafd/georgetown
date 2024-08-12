@@ -1,7 +1,29 @@
 (ns georgetown.ui.gazette
   (:require
+    [com.rpl.specter :as x]
+    [georgetown.client.state :as state]
     [georgetown.schema :as schema]
     [georgetown.ui.common :refer [resource-amount]]))
+
+(defn sparkline
+  [values]
+  (let [width 60
+        height 20
+        y-range (apply max values)
+        y-factor (/ height y-range)]
+    [:svg {:style {:width (str width "px")
+                   :height (str height "px")}}
+     (for [[i value] (map-indexed vector values)]
+       ^{:key i}
+       [:rect {:fill (if (odd? i) "#9999ff" "#0000ff")
+               :width 1
+               :height (* y-factor value)
+               :x i
+               :y (- height (* y-factor value))}])]))
+
+(defn stats-sparkline
+  [path]
+  [sparkline (x/select path @state/stats-history)])
 
 (defn bar-graph-view [& values]
   [:div {:tw "w-150px bg-white"}
@@ -57,26 +79,32 @@
         [:td "pop"]
         [:td [bar-graph-view
               (:sim.out/population stats)
-              (:sim.out/max-supported-population stats)]]]
-       (for [[k resource-id resource-b-id invert?]
-             [[:sim.out/food :resource/food :resource/money]
-              [:sim.out/shelter :resource/shelter :resource/money]
-              [:sim.out/money :resource/money :resource/labour true]]]
-         (let [resource (schema/resources resource-id)
-               {:keys [demand available-supply supply price tenders]} (k stats)]
-           [:tr
-            [:td (:resource/label resource)]
-            [:td
-             [bar-graph-view
-              supply
-              demand
-              available-supply]]
-            [:td
-
-             (if invert?
-               [resource-amount (/ 1 price) resource-id resource-b-id]
-               [resource-amount price resource-b-id resource-id])]
-            [:td [market-graph-view demand tenders]]]))
+              (:sim.out/max-supported-population stats)]]
+        [:td [stats-sparkline [x/ALL :sim.out/population]]]
+        [:td]
+        [:td]]
+       (doall
+         (for [[k resource-id resource-b-id invert?]
+               [[:sim.out/food :resource/food :resource/money]
+                [:sim.out/shelter :resource/shelter :resource/money]
+                [:sim.out/money :resource/money :resource/labour true]]]
+           (let [resource (schema/resources resource-id)
+                 {:keys [demand available-supply supply price tenders]} (k stats)]
+             ^{:key k}
+             [:tr
+              [:td (:resource/label resource)]
+              [:td
+               [bar-graph-view
+                supply
+                demand
+                available-supply]]
+              [:td [stats-sparkline [x/ALL k :price]]]
+              [:td
+               (if invert?
+                 [resource-amount (/ 1 price) resource-id resource-b-id]
+                 [resource-amount price resource-b-id resource-id])]
+              [:td [market-graph-view demand tenders]]
+              ])))
        (let [{:keys [demand available-supply supply price]} (:sim.out/labour stats)]
          [:tr
           [:td "labour"]
@@ -85,9 +113,11 @@
             supply
             demand
             available-supply]]
+          [:td]
           [:td price]])
        [:tr
         [:td "joy"]
         [:td [bar-graph-view
               (:sim.out/joy stats)
-              1]]]]])])
+              1]]
+        [:td [stats-sparkline [x/ALL :sim.out/joy]]]]]])])

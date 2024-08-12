@@ -23,6 +23,8 @@
                  (reset! a x))))
     a))
 
+(defonce stats-history (r/atom '()))
+
 (defonce island (r/atom nil))
 
 (defonce user (r/atom nil))
@@ -48,5 +50,7 @@
                  :on-success (fn [client-state]
                                (reset! user (:client-state/user client-state))
                                (reset! island (:client-state/island client-state))
+                               (swap! stats-history (fn [prev]
+                                                      (take 60 (conj prev (:island/simulator-stats (:client-state/island client-state))))))
                                (js/setTimeout get-state 0))}))
 
