@@ -129,37 +129,38 @@
         new-population (+ population population-decrease population-increase)]
 
     {:sim.out/max-supported-population max-supported-population
-     :sim.out/shelter {:demand shelter-demand
-                       :available-supply potential-shelter-supply
-                       :supply shelter-supplied
-                       :price shelter-market-price
+     :sim.out/resources
+     {:resource/shelter {:demand shelter-demand
+                         :available-supply potential-shelter-supply
+                         :supply shelter-supplied
+                         :price shelter-market-price
+                         :tenders
+                         (->> tenders
+                              (filter
+                                (fn [tender]
+                                  (= (first (:tender/supply tender)) :resource/shelter))))}
+      :resource/food {:demand food-demand
+                      :available-supply potential-food-supply
+                      :supply food-supplied
+                      :price food-market-price
+                      :tenders
+                      (->> tenders
+                           (filter
+                             (fn [tender]
+                               (= (first (:tender/supply tender)) :resource/food))))}
+      :resource/money {:demand money-demand
+                       :available-supply potential-money-supply
+                       :supply money-supplied
+                       :price money-market-price
                        :tenders
                        (->> tenders
                             (filter
                               (fn [tender]
-                                (= (first (:tender/supply tender)) :resource/shelter))))}
-     :sim.out/food {:demand food-demand
-                    :available-supply potential-food-supply
-                    :supply food-supplied
-                    :price food-market-price
-                    :tenders
-                    (->> tenders
-                         (filter
-                           (fn [tender]
-                             (= (first (:tender/supply tender)) :resource/food))))}
-     :sim.out/money {:demand money-demand
-                     :available-supply potential-money-supply
-                     :supply money-supplied
-                     :price money-market-price
-                     :tenders
-                     (->> tenders
-                          (filter
-                            (fn [tender]
-                              (= (first (:tender/supply tender)) :resource/money))))}
-     :sim.out/labour {:demand potential-labour-demand
-                      :available-supply potential-labour-supply
-                      :supply labour-supplied
-                      :price nil}
+                                (= (first (:tender/supply tender)) :resource/money))))}
+      :resource/labour {:demand potential-labour-demand
+                        :available-supply potential-labour-supply
+                        :supply labour-supplied
+                        :price nil}}
      :sim.out/joy joy
      :sim.out/population new-population}))
 
