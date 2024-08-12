@@ -29,6 +29,12 @@
 
 (defonce user (r/atom nil))
 
+(defonce residency
+  (r/reaction (first (:residency/_user @user))))
+
+(defonce money-balance
+  (r/reaction (:residency/money-balance @residency)))
+
 (defonce offers (r/reaction
                   (->> @user
                        (x/select

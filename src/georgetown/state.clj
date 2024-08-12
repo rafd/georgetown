@@ -111,6 +111,7 @@
    (db/q '[:find (pull ?user
                        [; user
                         *
+                        {:residency/_user [*]}
                         {:deed/_owner
                          [; deed
                           {:deed/lot

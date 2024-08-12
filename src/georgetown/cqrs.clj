@@ -32,7 +32,8 @@
       (db/transact!
         [{:residency/id (uuid/random)
           :residency/user [:user/id user-id]
-          :residency/island [:island/id island-id]}]))}
+          :residency/island [:island/id island-id]
+          :residency/money-balance 1000}]))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id

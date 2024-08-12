@@ -3,13 +3,17 @@
     [bloom.commons.pages :as pages]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]
-    [georgetown.ui.common :refer [resource-amount]]
+    [georgetown.ui.common :as ui]
     [georgetown.ui.gazette :as gazette]))
 
 (def tile-size 4)
 
 (defn ->color [x]
   (str "oklch(50% 70% " (hash x) ")"))
+
+(defn resident-view []
+  [:div {:tw "bg-white p-2"}
+   [ui/resource-amount @state/money-balance :resource/money]])
 
 (defn map-view []
   (when-let [island @state/island]
@@ -24,6 +28,8 @@
       [:div {:tw "relative"}
        [:div {:tw "absolute top-0 left-0 z-100 bg-white"}
         [gazette/stats-view island]]
+       [:div {:tw "absolute bottom-0 left-0"}
+        [resident-view]]
        [:div {:style {:width (str (* lot-count-width tile-size) "em")
                       :height (str (* lot-count-height tile-size) "em")}}
         (doall
@@ -80,11 +86,11 @@
                            [:div.offer
                             {:tw "hidden group-hover:block bg-black text-white py-0.5 px-1 tabular-nums"
                              :style {:font-size "0.5em"}}
-                            [resource-amount
+                            [ui/resource-amount
                              (or (:offerable/supply-amount offerable)
                                  (:offer/amount offer))
                              (:offerable/supply-unit offerable)]
-                            [resource-amount
+                            [ui/resource-amount
                              (or (:offerable/demand-amount offerable)
                                  (:offer/amount offer))
                              (:offerable/demand-unit offerable)]])]])])]))]))]])))

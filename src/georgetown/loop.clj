@@ -163,12 +163,56 @@
      :sim.out/joy joy
      :sim.out/population new-population}))
 
+(defn taxes
+  [island-id]
+  (->> (db/q '[:find ?residency-id ?rate ?deed-id
+               :in $ ?island-id
+               :where
+               [?island :island/id ?island-id]
+               [?lot :lot/island ?island]
+               [?deed :deed/lot ?lot]
+               [?deed :deed/id ?deed-id]
+               [?deed :deed/rate ?rate]
+               [?deed :deed/owner ?owner]
+               [?residency :residency/user ?owner]
+               [?residency :residency/island ?island]
+               [?residency :residency/id ?residency-id]]
+             island-id)
+       (reduce (fn [memo [owner-id rate _]]
+                 (update memo owner-id (fnil + 0) (- rate)))
+               {})))
 
-(defn tick! [island-id]
-  (let [result (simulate (extract-data-for-simulation island-id))]
+(defn balances
+  [island-id]
+  (->> (db/q '[:find ?residency-id ?balance
+               :in $ ?island-id
+               :where
+               [?island :island/id ?island-id]
+               [?residency :residency/island ?island]
+               [?residency :residency/money-balance ?balance]
+               [?residency :residency/id ?residency-id]]
+             island-id)
+       (reduce (fn [memo [owner-id rate _]]
+                 (update memo owner-id (fnil + 0) rate))
+               {})))
+
+(defn tick!
+  [island-id]
+  (let [result (simulate (extract-data-for-simulation island-id))
+        resident-balances (balances island-id)
+        resident-incomes {} ;; TODO
+        resident-taxes (taxes island-id)
+        new-balances (merge-with +
+                                 resident-balances
+                                 resident-incomes
+                                 resident-taxes)]
     (db/transact!
-      [[:db/add [:island/id island-id] :island/population (:sim.out/population result)]
-       [:db/add [:island/id island-id] :island/simulator-stats result]])))
+      (concat
+        [[:db/add [:island/id island-id] :island/population (:sim.out/population result)]
+         [:db/add [:island/id island-id] :island/simulator-stats result]]
+        (for [[residency-id balance] new-balances]
+          [:db/add [:residency/id residency-id]
+           :residency/money-balance balance])))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]
@@ -178,9 +222,9 @@
 
 #_(tick-all!)
 
-#_(db/q '[:find (pull ?island [*]) .
-          :where
-          [?island :island/id _]])
+#_(balances (:island/id (db/q '[:find (pull ?island [*]) .
+                                :where
+                                [?island :island/id _]])))
 
 (defn demo-tick [s]
   (let [c (simulate s)]
