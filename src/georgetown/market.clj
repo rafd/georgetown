@@ -37,17 +37,22 @@
                              (neg? remaining))
                          (reduced {:market/clearing-unit-price (::price tender)
                                    :market/amount-supplied demand-amount
+                                   ;; TODO handle partial tender success
+                                   :market/succesful-tenders (conj (::succesful-tenders memo)
+                                                                   (dissoc tender ::price))
                                    :market/total-cost (+ (::total-cost memo)
                                                          (* (- demand-amount (::amount-supplied memo))
                                                             (::price tender)))})
                          (pos? remaining)
                          (-> memo
+                             (update ::succesful-tenders conj (dissoc tender ::price))
                              (update ::amount-supplied
                                      + (get-in tender [:tender/supply 1]))
                              (update ::total-cost
                                      + (* (get-in tender [:tender/supply 1])
                                           (::price tender)))))))
                    {::amount-supplied 0
+                    ::succesful-tenders []
                     ::total-cost 0})))))
 
 (defn market-price

@@ -73,13 +73,15 @@
         food-demand (* 21 population)
         {food-market-price :market/clearing-unit-price
          food-supplied :market/amount-supplied
-         food-cost :market/total-cost}
+         food-cost :market/total-cost
+         food-succesful-tenders :market/succesful-tenders}
         (m/market :resource/food food-demand :resource/money tenders)
         ;; SHELTER
         shelter-demand population
         {shelter-market-price :market/clearing-unit-price
          shelter-supplied :market/amount-supplied
-         shelter-cost :market/total-cost}
+         shelter-cost :market/total-cost
+         shelter-succesful-tenders :market/succesful-tenders}
         (m/market :resource/shelter shelter-demand :resource/money tenders)
         ;; MONEY
         ;; int, b/c of weird transit encoding bug (?)
@@ -93,7 +95,8 @@
                                     (apply +))
         {money-market-price :market/clearing-unit-price
          money-supplied :market/amount-supplied
-         money-cost :market/total-cost}
+         money-cost :market/total-cost
+         money-succesful-tenders :market/succesful-tenders}
         (m/market :resource/money money-demand :resource/labour tenders)
 
         potential-labour-demand (->> tenders
@@ -138,7 +141,8 @@
                          (->> tenders
                               (filter
                                 (fn [tender]
-                                  (= (first (:tender/supply tender)) :resource/shelter))))}
+                                  (= (first (:tender/supply tender)) :resource/shelter))))
+                         :succesful-tenders shelter-succesful-tenders}
       :resource/food {:demand food-demand
                       :available-supply potential-food-supply
                       :supply food-supplied
@@ -147,7 +151,8 @@
                       (->> tenders
                            (filter
                              (fn [tender]
-                               (= (first (:tender/supply tender)) :resource/food))))}
+                               (= (first (:tender/supply tender)) :resource/food))))
+                      :succesful-tenders food-succesful-tenders}
       :resource/money {:demand money-demand
                        :available-supply potential-money-supply
                        :supply money-supplied
@@ -156,7 +161,8 @@
                        (->> tenders
                             (filter
                               (fn [tender]
-                                (= (first (:tender/supply tender)) :resource/money))))}
+                                (= (first (:tender/supply tender)) :resource/money))))
+                       :succesful-tenders money-succesful-tenders}
       :resource/labour {:demand potential-labour-demand
                         :available-supply potential-labour-supply
                         :supply labour-supplied

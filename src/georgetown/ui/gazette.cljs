@@ -40,14 +40,18 @@
              :tw "absolute top-0 h-1em left-0 bottom-0 bg-#0000ff55"}])]])
 
 (defn market-graph-view
-  [demand tenders]
+  [demand tenders succesful-tenders]
   (let [width 100
         height 20
+        succesful-tenders (set succesful-tenders)
         tenders (->> tenders
                      (map (fn [tender]
-                       (assoc tender :tender/price
-                         (/ (get-in tender [:tender/demand 1])
-                            (get-in tender [:tender/supply 1])))))
+                            (-> tender
+                                (assoc :tender/price
+                                  (/ (get-in tender [:tender/demand 1])
+                                     (get-in tender [:tender/supply 1])))
+                                (assoc :tender/success?
+                                  (contains? succesful-tenders tender)))))
                      (sort-by :tender/price))
         x-range (->> tenders
                      (map (fn [tender] (get-in tender [:tender/supply 1])))
@@ -60,7 +64,10 @@
                    :height (str height "px")}}
      (into [:<>]
            (for [tender tenders]
-             [:div {:tw "bg-gray-200 odd:bg-gray-300 shrink-0 grow-0"
+             [:div {:tw ["shrink-0 grow-0"
+                         (if (:tender/success? tender)
+                           "bg-green-300 odd:bg-green-400"
+                           "bg-gray-300 odd:bg-gray-400")]
                     :style {:width (str (* x-factor (get-in tender [:tender/supply 1])) "px")
                             :height (str (* y-factor (:tender/price tender)) "px")}}]))
      [:div {:tw "absolute grow-0 shrink-0"
@@ -89,7 +96,8 @@
                 [:resource/shelter :resource/money]
                 [:resource/money :resource/labour true]]]
            (let [resource (schema/resources resource-id)
-                 {:keys [demand available-supply supply price tenders]} (get-in stats [:sim.out/resources resource-id])]
+                 {:keys [demand available-supply supply price tenders succesful-tenders]}
+                 (get-in stats [:sim.out/resources resource-id])]
              ^{:key resource-id}
              [:tr
               [:td (:resource/label resource)]
@@ -103,7 +111,7 @@
                (if invert?
                  [resource-amount (/ 1 price) resource-id resource-b-id]
                  [resource-amount price resource-b-id resource-id])]
-              [:td [market-graph-view demand tenders]]])))
+              [:td [market-graph-view demand tenders succesful-tenders]]])))
        (let [{:keys [demand available-supply supply price]} (get-in stats [:sim.out/resources :resource/labour])]
          [:tr
           [:td "labour"]
