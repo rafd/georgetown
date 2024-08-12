@@ -4,13 +4,19 @@
     [georgetown.db :as db]))
 
 (defn initialize! []
-  ;; create lots
-  (db/transact!
-    (for [x (range 10)
-          y (range 10)]
-      {:lot/id (uuid/random)
-       :lot/x x
-       :lot/y y})))
+  (let [island-uuid (uuid/random)]
+    ;; create island
+    (db/transact!
+      [{:island/id island-uuid
+        :island/population 10}])
+    ;; create lots
+    (db/transact!
+      (for [x (range 10)
+            y (range 10)]
+        {:lot/id (uuid/random)
+         :lot/island [:island/id island-uuid]
+         :lot/x x
+         :lot/y y}))))
 
 (defn exists? [attr value]
   (some?
@@ -80,15 +86,18 @@
 (defn client-state
   [user-id]
   {;; public
-   :client-state/lots
-   (db/q '[:find [(pull ?lot [*
-                              {:deed/_lot [*
-                                           {:deed/owner [*
-                                                         :user/id]}]}
-                              {:improvement/_lot [*]}])
-                  ...]
+   :client-state/island
+   (db/q '[:find
+           ;; hardcoding single return result here for now
+           (pull ?island [*
+                          {:lot/_island
+                           [*
+                            {:deed/_lot [*
+                                         {:deed/owner [*
+                                                       :user/id]}]}
+                            {:improvement/_lot [*]}]}]) .
            :where
-           [?lot :lot/id _]])
+           [?island :island/id _]])
    ;; private
    :client-state/user
    (db/q '[:find (pull ?user

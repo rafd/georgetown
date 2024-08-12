@@ -47,6 +47,12 @@
 ;; or else lock gets stuck
 #_(d/close @conn-atom)
 
+;; reset
+#_(do
+    (d/clear @conn-atom)
+    (reset! conn-atom nil)
+    (connect!))
+
 (defn retract-all! []
   (transact!
     (map (fn [e] [:db/retractEntity e])

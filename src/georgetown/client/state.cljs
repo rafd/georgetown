@@ -23,7 +23,7 @@
                  (reset! a x))))
     a))
 
-(defonce lots (r/atom nil))
+(defonce island (r/atom nil))
 
 (defonce user (r/atom nil))
 
@@ -41,12 +41,12 @@
 (defn get-state []
   (ajax/request {:uri "/api/state"
                  :method :get
-                 :params (when (nil? @lots)
+                 :params (when (nil? @island)
                            {:force true})
                  :on-error (fn [_]
                              (js/setTimeout get-state 1000))
                  :on-success (fn [client-state]
                                (reset! user (:client-state/user client-state))
-                               (reset! lots (:client-state/lots client-state))
+                               (reset! island (:client-state/island client-state))
                                (js/setTimeout get-state 0))}))
 

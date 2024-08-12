@@ -18,7 +18,8 @@
 
 (defn view
   [[_ {:keys [id]}]]
-  (let [lot (->> @state/lots
+  (let [lot (->> @state/island
+                 :lot/_island
                  (filter (fn [lot]
                            (= id (:lot/id lot))))
                  first)
