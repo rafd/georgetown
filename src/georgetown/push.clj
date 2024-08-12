@@ -39,12 +39,12 @@
 
 (defn initialize!
   []
-  (add-watch
-    (db/conn)
-    ::state-watcher
+  (db/watch!
+    ::push
     (fn [_ _ _ _]
       (doseq [user-id (keys @subscriptions)]
-        (send-state-update! user-id)))))
+        (send-state-update! user-id))))
+  nil)
 
 #_(deref subscriptions)
 

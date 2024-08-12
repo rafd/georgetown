@@ -166,7 +166,6 @@
 
 (defn tick! [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))]
-    (prn (:population result))
     (db/transact!
       [[:db/add [:island/id island-id] :island/population (:sim.out/population result)]
        [:db/add [:island/id island-id] :island/simulator-stats result]])))
@@ -242,7 +241,7 @@
 
 (defonce scheduler (atom nil))
 
-(defn initialize-loop!
+(defn initialize!
   []
   (when @scheduler
     (.close @scheduler))
@@ -254,7 +253,8 @@
                 (tap> [:tick time])
                 (tick-all!))
               {:on-finished (fn []
-                              (tap> "Schedule finished."))})))
+                              (tap> "Schedule finished."))}))
+  nil)
 
-#_(initialize-loop!)
+#_(initialize!)
 #_(.close @scheduler)

@@ -59,3 +59,25 @@
          (q '[:find [?e ...]
               :where [?e _ _]])))
     nil)
+
+;; WATCHERS
+;; when either the conn or watchers change, re-register watchers
+
+(defonce watchers (atom {}))
+
+(defn watch! [k f]
+  (swap! watchers assoc k f))
+
+(add-watch watchers
+  ::watcher-watcher
+  (fn [_ _ _ _]
+    (doseq [[k f] @watchers]
+      (add-watch (conn) k f))))
+
+(add-watch conn-atom
+  ::conn-watcher
+  (fn [_ _ _ _]
+    (doseq [[k f] @watchers]
+      (add-watch (conn) k f))))
+
+
