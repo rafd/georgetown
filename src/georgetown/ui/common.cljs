@@ -9,11 +9,11 @@
     (if amount
       (.toLocaleString amount)
       "?")]
-   [:span
-    (interpose [:span {:style {:font-size "0.6em"}} " / "]
+   (into [:span]
+         (interpose [:span {:style {:font-size "0.6em"}} " / "]
                (for [resource-id resource-ids
                      :let [resource (schema/resources resource-id)]]
                  ^{:key resource-id}
                  [:span {:title (name resource-id)
                          :style {:font-size "0.65em"}}
-                  (:resource/icon resource)]))]])
+                  (:resource/icon resource)])))])
