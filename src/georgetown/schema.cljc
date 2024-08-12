@@ -60,6 +60,7 @@
            }
           {:offerable/id :offer/farm.job
            :offerable/label "Job"
+           :offerable/invert? true
            :offerable/supply-unit :resource/money
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour

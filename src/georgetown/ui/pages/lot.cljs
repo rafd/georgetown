@@ -2,7 +2,8 @@
   (:require
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
-    [georgetown.schema :as schema]))
+    [georgetown.schema :as schema]
+    [georgetown.ui.common :as ui]))
 
 (defn block [{:keys [label]} & content]
   [:div {:tw "border-1 relative"}
@@ -110,23 +111,47 @@
                                                     (:offerable/id offerable)))))
                                            first)]]
                       ^{:key (:offerable/id offerable)}
-                      [:div
-                       ;; TODO demand / supply
-                       [:div {:tw "border-1 p-1"}
-                        [:div.offer-type
-                         (:offerable/label offerable)]
-                        [:div.offer-amount
-                         [:input {:type "number"
-                                  :name "offer-amount"
-                                  :min 1
-                                  :default-value (:offer/amount offer)
-                                  :step 1
-                                  :on-change (fn [e]
-                                               (state/exec!
-                                                 :command/set-offer!
-                                                 {:improvement-id (:improvement/id improvement)
-                                                  :offer-type (:offerable/id offerable)
-                                                  :offer-amount (js/parseInt (.. e -target -value))}))}]]]]))
+                      [:div {:tw "border-1 p-1"}
+                       [:div.offer-type
+                        (:offerable/label offerable)]
+                       [:div {:tw "flex gap-2 items-center"}
+                        (->> (for [[amount-key unit-key] [[:offerable/supply-amount :offerable/supply-unit]
+                                                          [:offerable/demand-amount :offerable/demand-unit]]
+                                   :let [amount (offerable amount-key)
+                                         unit (offerable unit-key)]]
+                               ^{:key unit-key}
+                               [:div {:tw "flex items-center gap-1 bg-green-200 rounded p-2"}
+                                (or amount
+                                    [:div.offer-amount
+                                     [:input {:type "number"
+                                              :tw "border p-1 w-18 -m-1"
+                                              :name "offer-amount"
+                                              :min 1
+                                              :default-value (:offer/amount offer)
+                                              :step 1
+                                              :on-change (fn [e]
+                                                           (state/exec!
+                                                             :command/set-offer!
+                                                             {:improvement-id (:improvement/id improvement)
+                                                              :offer-type (:offerable/id offerable)
+                                                              :offer-amount (js/parseInt (.. e -target -value))}))}]])
+                                [ui/resource-icon unit]])
+                             (interpose
+                               ^{:key "<>"}
+                               [:div "<>"]))
+                        (let [[[a-unit-key a-amount-key]
+                               [b-unit-key b-amount-key]] ((if (:offerable/invert? offerable)
+                                                             reverse
+                                                             identity)
+                                                           [[:offerable/demand-unit :offerable/demand-amount]
+                                                            [:offerable/supply-unit :offerable/supply-amount]])]
+                          [ui/resource-amount
+                           (/ (or (a-amount-key offerable)
+                                  (:offer/amount offer))
+                              (or (b-amount-key offerable)
+                                  (:offer/amount offer)))
+                           (a-unit-key offerable)
+                           (b-unit-key offerable)])]]))
                   [button {:on-click
                            (fn []
                              (state/exec!
