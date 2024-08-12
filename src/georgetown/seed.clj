@@ -7,59 +7,54 @@
 (defn seed! []
   (db/retract-all!)
   (s/initialize!)
-  (let [lots (s/lots)]
+  (let [island (first (s/islands))
+        lots (s/lots (:island/id island))]
     (let [user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a"]
       ;; user 1
       (exec! :command/create-user!
              {:id user-id})
-      ;; lot 1.1 - home
-      (let [lot-id (get-in lots [0 :lot/id])]
-        (exec! :command/buy-lot!
-               {:user-id user-id
-                :lot-id lot-id})
-        (exec! :command/change-rate!
-               {:user-id user-id
-                :lot-id lot-id
-                :rate 2})
-        (exec! :command/build!
-               {:user-id user-id
-                :lot-id lot-id
-                :improvement-type :improvement.type/house})
-        (let [house-id (:improvement/id (s/lot-improvement lot-id))]
-          (exec! :command/set-offer!
+      (exec! :command/immigrate!
+             {:user-id user-id
+              :island-id (:island/id island)})
+      (doseq [[index improvement-type offers] [[0 :improvement.type/house {:offer/house.rental 100}]
+                                               [1 :improvement.type/house {:offer/house.rental 150}]
+                                               [2 :improvement.type/house {:offer/house.rental 200}]
+                                               [3 :improvement.type/house {:offer/house.rental 250}]
+                                               [4 :improvement.type/farm {:offer/farm.job 100
+                                                                          :offer/farm.food 10}]
+                                               [5 :improvement.type/farm {:offer/farm.job 200
+                                                                          :offer/farm.food 20}]
+                                               [6 :improvement.type/farm {:offer/farm.job 300
+                                                                          :offer/farm.food 30}]
+                                               [7 :improvement.type/farm {:offer/farm.job 400
+                                                                          :offer/farm.food 40}]
+                                               [8]
+                                               [9]
+                                               [10]]]
+        (let [lot-id (get-in lots [index :lot/id])]
+          (exec! :command/buy-lot!
                  {:user-id user-id
-                  :improvement-id house-id
-                  :offer-type :offer/house.rental
-                  :offer-amount 1})))
-      ;; lot 1.2 - farm
-      (let [lot-id (get-in lots [1 :lot/id])]
-        (exec! :command/buy-lot!
-               {:user-id user-id
-                :lot-id lot-id})
-        (exec! :command/build!
-               {:user-id user-id
-                :lot-id lot-id
-                :improvement-type :improvement.type/farm})
-        (let [farm-id (:improvement/id (s/lot-improvement lot-id))]
-          (exec! :command/set-offer!
-                 {:user-id user-id
-                  :improvement-id farm-id
-                  :offer-type :offer/farm.job
-                  :offer-amount 1})
-          (exec! :command/set-offer!
-                 {:user-id user-id
-                  :improvement-id farm-id
-                  :offer-type :offer/farm.food
-                  :offer-amount 1})))
-      ;; lot 1.3 - empty
-      (let [lot-id (get-in lots [2 :lot/id])]
-        (exec! :command/buy-lot!
-               {:user-id user-id
-                :lot-id lot-id})))
+                  :lot-id lot-id})
+          (when improvement-type
+            (exec! :command/build!
+                   {:user-id user-id
+                    :lot-id lot-id
+                    :improvement-type improvement-type})
+            (let [improvement-id (:improvement/id (s/lot-improvement lot-id))]
+              (doseq [[offer-key amount] offers]
+                (exec! :command/set-offer!
+                       {:user-id user-id
+                        :improvement-id improvement-id
+                        :offer-type offer-key
+                        :offer-amount amount})))))))
     (let [user-id #uuid "856f5e27-f1ee-443d-884d-f398afe9b49d"]
       ;; user 2
       (exec! :command/create-user!
              {:id user-id})
+      (exec! :command/immigrate!
+             {:user-id user-id
+              :island-id (:island/id island)})
+
       ;; lot 2.1 - home
       (let [lot-id (get-in lots [3 :lot/id])]
         (exec! :command/buy-lot!

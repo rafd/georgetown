@@ -58,10 +58,18 @@
           lot-id
           user-id)))
 
-(defn lots []
-  (db/q '[:find [(pull ?lot [*]) ...]
+(defn islands []
+  (db/q '[:find [(pull ?island [*]) ...]
           :where
-          [?lot :lot/id _]]))
+          [?island :island/id _]]))
+
+(defn lots [island-id]
+  (db/q '[:find [(pull ?lot [*]) ...]
+          :in $ ?island-id
+          :where
+          [?island :island/id ?island-id]
+          [?lot :lot/island ?island]]
+        island-id))
 
 (defn improvement-offers
   [improvement-id]

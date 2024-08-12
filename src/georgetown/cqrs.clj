@@ -18,6 +18,22 @@
       (db/transact!
         [{:user/id id}]))}
 
+   {:id :command/immigrate!
+    :params {:user-id :user/id
+             :island-id :island/id}
+    :conditions
+    (fn [{:keys [user-id lot-id]}]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :lot/id lot-id)]
+       ;; TODO not already a resident
+       ])
+    :effect
+    (fn [{:keys [user-id island-id]}]
+      (db/transact!
+        [{:residency/id (uuid/random)
+          :residency/user [:user/id user-id]
+          :residency/island [:island/id island-id]}]))}
+
    {:id :command/buy-lot!
     :params {:user-id :user/id
              :lot-id :lot/id}
