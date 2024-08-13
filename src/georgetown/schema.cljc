@@ -77,51 +77,44 @@
   {:entity/island
    {:island/id {:spec :uuid
                 :db/unique :db.unique/identity}
-    :island/population {:spec :pos-int}}
+    :island/population {:spec :pos-int}
+    :island/residents {:rel/many :entity/resident}
+    :island/lots {:rel/many :entity/lot}}
 
    :entity/user
    {:user/id {:spec :uuid
-              :db/unique :db.unique/identity}}
+              :db/unique :db.unique/identity}
+    :user/residents {:rel/many :entity/resident}}
 
    :entity/resident
    {:resident/id {:spec :uuid
                    :db/unique :db.unique/identity}
-    :resident/island {:spec :entity/island
-                       :ref :island/id}
-    :resident/user {:spec :entity/user
-                     :ref :user/id}
-    :resident/money-balance {:spec :pos-int}}
+    :resident/money-balance {:spec :pos-int}
+    :resident/deeds {:rel/many :entity/deed}}
 
    :entity/lot
    {:lot/id {:spec :uuid
              :db/unique :db.unique/identity}
-    :lot/island {:spec :entity/island
-                 :ref :island/id}
     :lot/x {:spec :pos-int}
-    :lot/y {:spec :pos-int}}
+    :lot/y {:spec :pos-int}
+    :lot/deed {:rel/one :entity/deed}
+    :lot/improvement {:rel/one :entity/improvement}}
 
    :entity/deed
    {:deed/id {:spec :uuid
               :db/unique :db.unique/identity}
-    :deed/rate {:spec :pos-int}
-    :deed/lot {:spec :entity/lot
-               :ref :lot/id}
-    :deed/resident {:spec :entity/resident
-                    :ref :resident/id}}
+    :deed/rate {:spec :pos-int}}
 
    :entity/improvement
    {:improvement/id {:spec :uuid
                      :db/unique :db.unique/identity}
     :improvement/type {:spec (into [:enum]
                                    (keys blueprints))}
-    :improvement/lot {:spec :entity/lot
-                      :ref :lot/id}}
+    :improvement/offers {:rel/many :entity/offer}}
 
    :entity/offer
    {:offer/id {:spec [:vec :uuid :keyword]
                :db/unique :db.unique/identity}
-    :offer/improvement {:spec :entity/improvement
-                        :ref :improvement/id}
     :offer/type {:spec :keyword}
     :offer/amount {:spec :pos-int}}})
 
@@ -142,18 +135,15 @@
 
 ;; https://docs.datomic.com/schema/schema-reference.html
 ;; https://github.com/metosin/malli?tab=readme-ov-file#built-in-schemas
-(defn malli-type->datalog-type [x]
-  (get (merge {:uuid :db.type/uuid
-               :integer :db.type/long
-               :pos-int :db.type/long
-               :string :db.type/string
-               :float :db.type/float
-               :keyword :db.type/keyword
-               :boolean :db.type/boolean
-               :inst :db.type/instant}
-              (zipmap (keys schema)
-                      (repeat :db.type/ref)))
-    x))
+(def malli-type->datalog-type
+  {:uuid :db.type/uuid
+   :integer :db.type/long
+   :pos-int :db.type/long
+   :string :db.type/string
+   :float :db.type/float
+   :keyword :db.type/keyword
+   :boolean :db.type/boolean
+   :inst :db.type/instant})
 
 (defn ->datalevin
   [schema]
@@ -164,13 +154,19 @@
               [k
                {:db/unique (:db/unique o)
                 :db/valueType (or (:db/valueType o)
+                                  (when (or (:rel/one o)
+                                            (:rel/many o))
+                                    :db.type/ref)
                                   (malli-type->datalog-type (:spec o))
                                   ;; datelevin is fine with undefined types
                                   (println "No type for " k))
-                :db/cardinality (or (:db/cardinality o)
-                                    :db.cardinality/one)}]))
+                :db/cardinality (or (when (:rel/many o)
+                                      :db.cardinality/many)
+                                  (:db/cardinality o)
+                                  :db.cardinality/one)
+                :db/isComponent (when (:rel/many o)
+                                  true)}]))
        (into {})))
-
 
 #_(tap> (->datalevin schema))
 

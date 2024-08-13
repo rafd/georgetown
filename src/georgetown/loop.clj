@@ -9,11 +9,9 @@
   (:import
     [java.time Instant Duration]))
 
-(partition-all 2 2 [10 30 100])
-
 (defn extract-data-for-simulation
   [island-id]
-  (let [island (db/q '[:find (pull ?island [*]) .
+  (let [island (db/q '[:find (pull ?island [:island/population]) .
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
@@ -25,8 +23,13 @@
                             (mapcat :blueprint/offerables)
                             (schema/key-by :offerable/id))]
        (->> (db/q '[:find [(pull ?offer [*]) ...]
+                    :in $ ?island-id
                     :where
-                    [?offer :offer/id _]])
+                    [?island :island/id ?island-id]
+                    [?island :island/lots ?lot]
+                    [?lot :lot/improvement ?improvement]
+                    [?improvement :improvement/offers ?offer]]
+                  island-id)
             (filter :offer/amount)
             (map (fn [offer]
                    (assoc offer
@@ -35,12 +38,10 @@
                              :in $ ?offer-id
                              :where
                              [?offer :offer/id ?offer-id]
-                             [?offer :offer/improvement ?improvement]
-                             [?improvement :improvement/lot ?lot]
-                             [?lot :lot/island ?island]
-                             [?deed :deed/lot ?lot]
-                             [?deed :deed/resident ?resident]
-                             [?resident :resident/island ?island]
+                             [?improvement :improvement/offers ?offer]
+                             [?lot :lot/improvement ?improvement]
+                             [?lot :lot/deed ?deed]
+                             [?resident :resident/deeds ?deed]
                              [?resident :resident/id ?resident-id]]
                            (:offer/id offer)))))
             (map (fn [offer]
@@ -210,13 +211,11 @@
                :in $ ?island-id
                :where
                [?island :island/id ?island-id]
-               [?lot :lot/island ?island]
-               [?deed :deed/lot ?lot]
+               [?island :island/residents ?resident]
+               [?resident :resident/id ?resident-id]
+               [?resident :resident/deeds ?deed]
                [?deed :deed/id ?deed-id]
-               [?deed :deed/rate ?rate]
-               [?deed :deed/resident ?resident]
-               [?resident :resident/island ?island]
-               [?resident :resident/id ?resident-id]]
+               [?deed :deed/rate ?rate]]
              island-id)
        (reduce (fn [memo [owner-id rate _]]
                  (update memo owner-id (fnil + 0) (- rate)))
@@ -228,7 +227,7 @@
                :in $ ?island-id
                :where
                [?island :island/id ?island-id]
-               [?resident :resident/island ?island]
+               [?island :island/residents ?resident]
                [?resident :resident/money-balance ?balance]
                [?resident :resident/id ?resident-id]]
              island-id)
@@ -262,9 +261,7 @@
 
 #_(tick-all!)
 
-#_(balances (:island/id (db/q '[:find (pull ?island [*]) .
-                                :where
-                                [?island :island/id _]])))
+#_(balances (:island/id (first (s/islands [:island/id]))))
 
 (defn demo-tick [s]
   (let [c (simulate s)]

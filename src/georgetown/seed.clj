@@ -4,18 +4,20 @@
     [georgetown.state :as s]
     [georgetown.cqrs :refer [exec!]]))
 
+(def primary-user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a")
+
 (defn seed! []
   (db/retract-all!)
   (s/initialize!)
-  (let [island (first (s/islands))
-        lots (s/lots (:island/id island))]
-    (let [user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a"]
+  (let [island-id (:island/id (first (s/islands [:island/id])))
+        lots (s/lots island-id)]
+    (let [user-id primary-user-id]
       ;; user 1
       (exec! :command/create-user!
              {:id user-id})
       (exec! :command/immigrate!
              {:user-id user-id
-              :island-id (:island/id island)})
+              :island-id island-id})
       (doseq [[index improvement-type offers] [[0 :improvement.type/house {:offer/house.rental 100}]
                                                [1 :improvement.type/house {:offer/house.rental 150}]
                                                [2 :improvement.type/house {:offer/house.rental 200}]
@@ -47,13 +49,13 @@
                         :improvement-id improvement-id
                         :offer-type offer-key
                         :offer-amount amount})))))))
-    (let [user-id #uuid "856f5e27-f1ee-443d-884d-f398afe9b49d"]
+    #_(let [user-id #uuid "856f5e27-f1ee-443d-884d-f398afe9b49d"]
       ;; user 2
       (exec! :command/create-user!
              {:id user-id})
       (exec! :command/immigrate!
              {:user-id user-id
-              :island-id (:island/id island)})
+              :island-id island-id})
 
       ;; lot 2.1 - home
       (let [lot-id (get-in lots [3 :lot/id])]

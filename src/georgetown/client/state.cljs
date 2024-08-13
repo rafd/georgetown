@@ -35,12 +35,12 @@
 (defonce offers (r/reaction
                   (->> @resident
                        (x/select
-                         [:deed/_resident
+                         [:resident/deeds
                           x/ALL
-                          :deed/lot
-                          :improvement/_lot
+                          :lot/_deed
                           x/ALL
-                          :offer/_improvement
+                          :lot/improvement
+                          :improvement/offers
                           x/ALL]))))
 
 (defn get-state []

@@ -30,10 +30,13 @@
     :effect
     (fn [{:keys [user-id island-id]}]
       (db/transact!
-        [{:resident/id (uuid/random)
-          :resident/user [:user/id user-id]
-          :resident/island [:island/id island-id]
-          :resident/money-balance 1000}]))}
+        [{:db/id -1
+          :resident/id (uuid/random)
+          :resident/money-balance 1000}
+         [:db/add [:island/id island-id]
+          :island/residents -1]
+         [:db/add [:user/id user-id]
+          :user/residents -1]]))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
@@ -62,12 +65,11 @@
               :resident/money-balance
               previous-balance
               (- previous-balance rate)]
-             {:deed/id (uuid/random)
-              :deed/rate rate
-              :deed/lot [:lot/id lot-id]
-              :deed/resident [:resident/id (:resident/id resident)]}
-
-             ]))))}
+             {:db/id -1
+              :deed/id (uuid/random)
+              :deed/rate rate}
+             [:db/add [:lot/id lot-id] :lot/deed -1]
+             [:db/add [:resident/id (:resident/id resident)] :resident/deeds -1]]))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id
@@ -106,9 +108,10 @@
     :effect
     (fn [{:keys [lot-id improvement-type]}]
       (db/transact!
-        [{:improvement/id (uuid/random)
-          :improvement/type improvement-type
-          :improvement/lot [:lot/id lot-id]}]))}
+        [{:lot/id lot-id
+          :lot/improvement
+          {:improvement/id (uuid/random)
+           :improvement/type improvement-type}}]))}
 
    {:id :command/demolish!
     :params {:user-id :user/id
@@ -121,8 +124,8 @@
     (fn [{:keys [improvement-id]}]
       (db/transact!
         (conj
-          (map (fn [offer-id]
-                 [:db/retractEntity [:offer/id offer-id]])
+          (map (fn [offer]
+                 [:db/retractEntity [:offer/id (:offer/id offer)]])
                (s/improvement-offers improvement-id))
           [:db/retractEntity [:improvement/id improvement-id]])))}
 
@@ -131,17 +134,18 @@
              :improvement-id :improvement/id
              :offer-type :offer/type
              :offer-amount :offer/amount}
-    :conditions
+    #_#_:conditions
     (fn [{:keys [user-id improvement-id offer-type offer-amount]}]
       ;; TODO
       )
     :effect
     (fn [{:keys [improvement-id offer-type offer-amount]}]
       (db/transact!
-        [{:offer/id [improvement-id offer-type]
-          :offer/type offer-type
-          :offer/amount offer-amount
-          :offer/improvement [:improvement/id improvement-id]}]))}])
+        [{:improvement/id improvement-id
+          :improvement/offers
+          [{:offer/id [improvement-id offer-type]
+            :offer/type offer-type
+            :offer/amount offer-amount}]}]))}])
 
 (tada/register! cqrs)
 

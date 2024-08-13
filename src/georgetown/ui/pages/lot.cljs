@@ -20,16 +20,16 @@
 (defn view
   [[_ {:keys [id]}]]
   (let [lot (->> @state/island
-                 :lot/_island
+                 :island/lots
                  (filter (fn [lot]
                            (= id (:lot/id lot))))
                  first)]
     (when lot
-      (let [deed (first (:deed/_lot lot))
-            improvement (first (:improvement/_lot lot))
+      (let [deed (:lot/deed lot)
+            improvement (:lot/improvement lot)
             current-user-owner? (and
                                   (:resident/id @state/resident)
-                                  (= (:resident/id (:deed/resident deed))
+                                  (= (:resident/id (:resident/_deeds deed))
                                      (:resident/id @state/resident)))]
         ^{:key id}
         [:div
@@ -38,7 +38,8 @@
           (if deed
             [:div {:tw "bg-#c4ad97 text-#592510"}
              [:div.owner
-              "Owned by:" (:user/id (:resident/user (:deed/resident deed)))]
+              "Owned by:"
+              (:user/id (:user/_residents (:resident/_deeds deed)))]
              [:div.rate
               "Rate:" (:deed/rate deed)]]
             [:div "Unowned"])

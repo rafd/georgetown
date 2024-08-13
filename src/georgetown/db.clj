@@ -34,12 +34,6 @@
          :where [?e _ _]]
        @(conn))
 
-#_(d/q '[:find [ (pull ?e [*
-                           { :offer/_improvement [ *]}
-                           ]) ...]
-         :where [?e :improvement/id _]]
-       @(conn))
-
 ;; drop all
 #_(d/clear @conn-atom)
 
@@ -49,9 +43,11 @@
 
 ;; reset
 #_(do
-    (d/clear @conn-atom)
-    (reset! conn-atom nil)
+    (when @conn-atom
+      (d/clear @conn-atom)
+      (reset! conn-atom nil))
     (connect!))
+
 
 (defn retract-all! []
   (transact!

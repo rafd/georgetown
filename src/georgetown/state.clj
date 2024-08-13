@@ -4,19 +4,15 @@
     [georgetown.db :as db]))
 
 (defn initialize! []
-  (let [island-uuid (uuid/random)]
-    ;; create island
-    (db/transact!
-      [{:island/id island-uuid
-        :island/population 10}])
-    ;; create lots
-    (db/transact!
+  (db/transact!
+    [{:island/id (uuid/random)
+      :island/population 10
+      :island/lots
       (for [x (range 10)
             y (range 10)]
         {:lot/id (uuid/random)
-         :lot/island [:island/id island-uuid]
          :lot/x x
-         :lot/y y}))))
+         :lot/y y})}]))
 
 (defn exists? [attr value]
   (some?
@@ -37,8 +33,8 @@
           :where
           [?user :user/id ?user]
           [?island :island/id ?island-id]
-          [?resident :resident/user ?user]
-          [?resident :resident/island ?island]]
+          [?user :user/residents ?resident]
+          [?island :island/residents ?resident]]
         user-id
         island-id))
 
@@ -47,7 +43,7 @@
           :in $ ?lot-id
           :where
           [?lot :lot/id ?lot-id]
-          [?lot :lot/island ?island]
+          [?island :island/lots ?lot]
           [?island :island/id ?island-id]]
         lot-id))
 
@@ -56,7 +52,7 @@
           :in $ ?lot-id
           :where
           [?lot :lot/id ?lot-id]
-          [?deed :deed/lot ?lot]]
+          [?lot :lot/deed ?deed]]
         lot-id))
 
 (defn lot-improvement [lot-id]
@@ -64,7 +60,7 @@
           :in $ ?lot-id
           :where
           [?lot :lot/id ?lot-id]
-          [?improvement :improvement/lot ?lot]]
+          [?lot :lot/improvement ?improvement]]
         lot-id))
 
 (defn owns? [user-id lot-id]
@@ -73,24 +69,29 @@
             :in $ ?lot-id ?user-id
             :where
             [?lot :lot/id ?lot-id]
-            [?deed :deed/lot ?lot]
-            [?deed :deed/resident ?resident]
-            [?resident :resident/user ?user]
+            [?lot :lot/deed ?deed]
+            [?resident :resident/deeds ?deed]
+            [?user :user/residents ?resident]
             [?user :user/id ?user-id]]
           lot-id
           user-id)))
 
-(defn islands []
-  (db/q '[:find [(pull ?island [*]) ...]
-          :where
-          [?island :island/id _]]))
+(defn islands
+  ([pattern]
+   (db/q '[:find [(pull ?island ?pattern) ...]
+           :in $ ?pattern
+           :where
+           [?island :island/id _]]
+         pattern))
+  ([]
+   (islands '[*])))
 
 (defn lots [island-id]
   (db/q '[:find [(pull ?lot [*]) ...]
           :in $ ?island-id
           :where
           [?island :island/id ?island-id]
-          [?lot :lot/island ?island]]
+          [?island :island/lots ?lot]]
         island-id))
 
 (defn improvement-offers
@@ -99,7 +100,7 @@
           :in $ ?improvement-id
           :where
           [?improvement :improvement/id ?improvement-id]
-          [?offer :offer/improvement ?improvement]]
+          [?improvement :improvement/offers ?offer]]
         improvement-id))
 
 (defn improvement-lot
@@ -108,7 +109,7 @@
           :in $ ?improvement-id
           :where
           [?improvement :improvement/id ?improvement-id]
-          [?improvement :improvement/lot ?lot]]
+          [?lot :lot/improvement ?improvement]]
         improvement-id))
 
 ;; ---
@@ -120,13 +121,27 @@
     {;; public
      :client-state/island
      (db/q '[:find
-             (pull ?island [*
-                            {:lot/_island
-                             [*
-                              {:deed/_lot [*
-                                           {:deed/resident [*
-                                                            {:resident/user [:user/id]}]}]}
-                              {:improvement/_lot [*]}]}]) .
+             (pull ?island
+                   ;; don't use [*] here, to avoid leaking private information
+                   [:island/id
+                    :island/population
+                    :island/simulator-stats
+                    {:island/residents
+                     [:resident/id]}
+                    {:island/lots
+                     [:lot/id
+                      :lot/x
+                      :lot/y
+                      {:lot/deed
+                       [:deed/id
+                        :deed/rate
+                        {:resident/_deeds
+                         [:resident/id
+                          {:user/_residents
+                           [:user/id]}]}]}
+                      {:lot/improvement
+                       [:improvement/id
+                        :improvement/type]}]}]) .
              :in $ ?island-id
              :where
              [?island :island/id ?island-id]]
@@ -134,23 +149,24 @@
      ;; private
      :client-state/resident
      (db/q '[:find (pull ?resident
-                         [; resident
-                          *
-                          {:deed/_resident
-                           [; deed
-                            {:deed/lot
-                             [; lot
-                              {:improvement/_lot
-                               [; improvement
-                                {:offer/_improvement
-                                 [; offer
-                                  *]}]}]}]
+                         [:resident/id
+                          :resident/money-balance
+                          {:resident/deeds
+                           [:deed/id
+                            {:lot/_deed
+                             [:lot/id
+                              {:lot/improvement
+                               [:improvement/id
+                                {:improvement/offers
+                                 [*]}]}]}]
                            }]) .
              :in $ ?user-id ?island-id
              :where
              [?user :user/id ?user-id]
              [?island :island/id ?island-id]
-             [?resident :resident/user ?user]
-             [?resident :resident/island ?island]]
+             [?island :island/residents ?resident]
+             [?user :user/residents ?resident]]
            user-id
            island-id)}))
+
+#_(client-state georgetown.seed/primary-user-id)

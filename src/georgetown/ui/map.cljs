@@ -17,7 +17,7 @@
 
 (defn map-view []
   (when-let [island @state/island]
-    (let [lots (:lot/_island island)
+    (let [lots (:island/lots island)
           x-range (apply max-key :lot/x lots)
           y-range (apply max-key :lot/y lots)
           lot-count-width (inc x-range)
@@ -41,8 +41,8 @@
             [:div.row {:tw "flex"}
              (doall
                (for [lot row-lots
-                     :let [deed (first (:deed/_lot lot))
-                           improvement (first (:improvement/_lot lot))]]
+                     :let [deed (:lot/deed lot)
+                           improvement (:lot/improvement lot)]]
                  ^{:key (:lot/x lot)}
                  [:a.lot
                   {:tw "group"
@@ -60,11 +60,11 @@
                      {:tw "h-full block relative"
                       :style {:border-width "2px"
                               :border-style "solid"
-                              :border-color (->color (:user/id (:resident/user (:deed/resident deed))))}}
+                              :border-color (->color (:user/id (:user/_residents (:resident/_deeds deed))))}}
                      [:div.rate
                       {:tw "absolute top-0 left-0 py-0.5 px-1 text-white tabular-nums"
                        :style {:font-size "0.5em"
-                               :background-color (->color (:user/id (:resident/user (:deed/resident deed))))}}
+                               :background-color (->color (:user/id (:user/_residents (:resident/_deeds deed))))}}
                       (:deed/rate deed)]
                      (when improvement
                        [:div.improvement
