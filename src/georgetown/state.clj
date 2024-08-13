@@ -14,6 +14,8 @@
          :lot/x x
          :lot/y y})}]))
 
+;; generics ----
+
 (defn exists? [attr value]
   (some?
     (db/q '[:find ?e .
@@ -22,6 +24,17 @@
             [?e ?attr ?value]]
           attr
           value)))
+
+(defn by-id [[id-attr id] pattern]
+  (db/q '[:find (pull ?e ?pattern) .
+          :in $ ?attr ?value ?pattern
+          :where
+          [?e ?attr ?value]]
+        id-attr
+        id
+        pattern))
+
+;; misc helpers ----
 
 (defn population [s]
   (:state/population s))
@@ -45,6 +58,20 @@
     (db/q '[:find ?resident-id .
             :in $ ?user-id ?lot-id
             :where
+            [?lot :lot/id ?lot-id]
+            [?user :user/id ?user-id]
+            [?island :island/lots ?lot]
+            [?user :user/residents ?resident]
+            [?island :island/residents ?resident]
+            [?resident :resident/id ?resident-id]]
+          user-id
+          id)
+    :improvement/id
+    (db/q '[:find ?resident-id .
+            :in $ ?user-id ?improvement-id
+            :where
+            [?improvement :improvement/id ?improvement-id]
+            [?lot :lot/improvement ?improvement]
             [?lot :lot/id ?lot-id]
             [?user :user/id ?user-id]
             [?island :island/lots ?lot]
@@ -138,7 +165,7 @@
           [?lot :lot/improvement ?improvement]]
         improvement-id))
 
-;; ---
+;; client state ---
 
 (defn client-state
   [user-id]

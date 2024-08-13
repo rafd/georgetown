@@ -158,7 +158,10 @@
                              (state/exec!
                                :command/demolish!
                                {:improvement-id (:improvement/id improvement)}))}
-                   "Demolish"]]]))])]))))
+                   "Demolish"
+                   [ui/resource-amount
+                    (/ (:blueprint/price blueprint) 2)
+                    :resource/money]]]]))])]))))
 
 (pages/register-page!
   {:page/id :page/lot

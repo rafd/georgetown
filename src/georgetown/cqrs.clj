@@ -114,7 +114,7 @@
           :lot/improvement
           {:improvement/id (uuid/random)
            :improvement/type improvement-type}}
-         [:withdraw
+         [:fn/withdraw
           (s/->resident-id user-id [:lot/id lot-id])
           (:blueprint/price (schema/blueprints improvement-type))]]))}
 
@@ -126,13 +126,13 @@
       (let [lot (s/improvement-lot improvement-id)]
         [[#(s/owns? user-id (:lot/id lot))]]))
     :effect
-    (fn [{:keys [improvement-id]}]
-      (db/transact!
-        (conj
-          (map (fn [offer]
-                 [:db/retractEntity [:offer/id (:offer/id offer)]])
-               (s/improvement-offers improvement-id))
-          [:db/retractEntity [:improvement/id improvement-id]])))}
+    (fn [{:keys [user-id improvement-id]}]
+      (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])]
+        (db/transact!
+          [[:db/retractEntity [:improvement/id improvement-id]]
+           [:fn/deposit (s/->resident-id user-id [:improvement/id improvement-id])
+            (/ (:blueprint/price (schema/blueprints (:improvement/type improvement)))
+               2)]])))}
 
    {:id :command/set-offer!
     :params {:user-id :user/id
