@@ -30,10 +30,10 @@
     :effect
     (fn [{:keys [user-id island-id]}]
       (db/transact!
-        [{:residency/id (uuid/random)
-          :residency/user [:user/id user-id]
-          :residency/island [:island/id island-id]
-          :residency/money-balance 1000}]))}
+        [{:resident/id (uuid/random)
+          :resident/user [:user/id user-id]
+          :resident/island [:island/id island-id]
+          :resident/money-balance 1000}]))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
@@ -42,20 +42,32 @@
     (fn [{:keys [user-id lot-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
-       [#(not (s/owns? user-id lot-id))]])
+       #_[#(not (s/owns? user-id lot-id))]])
     :effect
     (fn [{:keys [user-id lot-id]}]
       (let [owned? (s/lot-deed lot-id)]
-        (when owned?
-          (s/refund! lot-id))
+        ;; TODO
+        #_(when owned?
+          (db/transact!
 
-        (db/transact!
-          [{:deed/id (uuid/random)
-            :deed/rate (if owned?
-                         (inc (:deed/rate (s/lot-deed lot-id)))
-                         1)
-            :deed/lot [:lot/id lot-id]
-            :deed/owner [:user/id user-id]}])))}
+            )
+          )
+        (let [resident (s/resident user-id (:island/id (s/lot-island lot-id)))
+              rate (if owned?
+                     (inc (:deed/rate (s/lot-deed lot-id)))
+                     1)]
+          (db/transact!
+            [#_[:db/cas
+              [:resident/id resident-id]
+              :resident/money-balance
+              previous-balance
+              (- previous-balance rate)]
+             {:deed/id (uuid/random)
+              :deed/rate rate
+              :deed/lot [:lot/id lot-id]
+              :deed/resident [:resident/id (:resident/id resident)]}
+
+             ]))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id

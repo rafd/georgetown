@@ -60,11 +60,11 @@
                      {:tw "h-full block relative"
                       :style {:border-width "2px"
                               :border-style "solid"
-                              :border-color (->color (:user/id (:deed/owner deed)))}}
+                              :border-color (->color (:user/id (:resident/user (:deed/resident deed))))}}
                      [:div.rate
                       {:tw "absolute top-0 left-0 py-0.5 px-1 text-white tabular-nums"
                        :style {:font-size "0.5em"
-                               :background-color (->color (:user/id (:deed/owner deed)))}}
+                               :background-color (->color (:user/id (:resident/user (:deed/resident deed))))}}
                       (:deed/rate deed)]
                      (when improvement
                        [:div.improvement

@@ -30,8 +30,8 @@
             (filter :offer/amount)
             (map (fn [offer]
                    (assoc offer
-                     ::residency-id
-                     (db/q '[:find ?residency-id .
+                     ::resident-id
+                     (db/q '[:find ?resident-id .
                              :in $ ?offer-id
                              :where
                              [?offer :offer/id ?offer-id]
@@ -39,14 +39,13 @@
                              [?improvement :improvement/lot ?lot]
                              [?lot :lot/island ?island]
                              [?deed :deed/lot ?lot]
-                             [?deed :deed/owner ?user]
-                             [?residency :residency/user ?user]
-                             [?residency :residency/island ?island]
-                             [?residency :residency/id ?residency-id]]
+                             [?deed :deed/resident ?resident]
+                             [?resident :resident/island ?island]
+                             [?resident :resident/id ?resident-id]]
                            (:offer/id offer)))))
             (map (fn [offer]
                    (let [offerable (->offerable (:offer/type offer))]
-                     {:tender/residency-id (::residency-id offer)
+                     {:tender/resident-id (::resident-id offer)
                       :tender/supply [(:offerable/supply-unit offerable)
                                       (or (:offerable/supply-amount offerable)
                                           (:offer/amount offer))]
@@ -198,16 +197,16 @@
            x/ALL
            (fn [tender]
              (= :resource/money (first (:tender/demand tender))))
-           (x/collect-one [:tender/residency-id])
+           (x/collect-one [:tender/resident-id])
            :tender/demand
            1])
-        (reduce (fn [memo [residency-id amount]]
-                  (update memo residency-id (fnil + 0) amount))
+        (reduce (fn [memo [resident-id amount]]
+                  (update memo resident-id (fnil + 0) amount))
                 {})))
 
 (defn taxes
   [island-id]
-  (->> (db/q '[:find ?residency-id ?rate ?deed-id
+  (->> (db/q '[:find ?resident-id ?rate ?deed-id
                :in $ ?island-id
                :where
                [?island :island/id ?island-id]
@@ -215,10 +214,9 @@
                [?deed :deed/lot ?lot]
                [?deed :deed/id ?deed-id]
                [?deed :deed/rate ?rate]
-               [?deed :deed/owner ?owner]
-               [?residency :residency/user ?owner]
-               [?residency :residency/island ?island]
-               [?residency :residency/id ?residency-id]]
+               [?deed :deed/resident ?resident]
+               [?resident :resident/island ?island]
+               [?resident :resident/id ?resident-id]]
              island-id)
        (reduce (fn [memo [owner-id rate _]]
                  (update memo owner-id (fnil + 0) (- rate)))
@@ -226,13 +224,13 @@
 
 (defn balances
   [island-id]
-  (->> (db/q '[:find ?residency-id ?balance
+  (->> (db/q '[:find ?resident-id ?balance
                :in $ ?island-id
                :where
                [?island :island/id ?island-id]
-               [?residency :residency/island ?island]
-               [?residency :residency/money-balance ?balance]
-               [?residency :residency/id ?residency-id]]
+               [?resident :resident/island ?island]
+               [?resident :resident/money-balance ?balance]
+               [?resident :resident/id ?resident-id]]
              island-id)
        (reduce (fn [memo [owner-id rate _]]
                  (update memo owner-id (fnil + 0) rate))
@@ -252,9 +250,9 @@
       (concat
         [[:db/add [:island/id island-id] :island/population (:sim.out/population result)]
          [:db/add [:island/id island-id] :island/simulator-stats result]]
-        (for [[residency-id balance] new-balances]
-          [:db/add [:residency/id residency-id]
-           :residency/money-balance balance])))))
+        (for [[resident-id balance] new-balances]
+          [:db/add [:resident/id resident-id]
+           :resident/money-balance balance])))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]

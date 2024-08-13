@@ -30,6 +30,27 @@
 (defn population [s]
   (:state/population s))
 
+(defn resident
+  [user-id island-id]
+  (db/q '[:find (pull ?resident [*]) .
+          :in $ ?user-id ?island-id
+          :where
+          [?user :user/id ?user]
+          [?island :island/id ?island-id]
+          [?resident :resident/user ?user]
+          [?resident :resident/island ?island]]
+        user-id
+        island-id))
+
+(defn lot-island [lot-id]
+  (db/q '[:find (pull ?island [*]) .
+          :in $ ?lot-id
+          :where
+          [?lot :lot/id ?lot-id]
+          [?lot :lot/island ?island]
+          [?island :island/id ?island-id]]
+        lot-id))
+
 (defn lot-deed [lot-id]
   (db/q '[:find (pull ?deed [*]) .
           :in $ ?lot-id
@@ -53,8 +74,9 @@
             :where
             [?lot :lot/id ?lot-id]
             [?deed :deed/lot ?lot]
-            [?deed :deed/owner ?owner]
-            [?owner :user/id ?user-id]]
+            [?deed :deed/resident ?resident]
+            [?resident :resident/user ?user]
+            [?user :user/id ?user-id]]
           lot-id
           user-id)))
 
@@ -93,36 +115,42 @@
 
 (defn client-state
   [user-id]
-  {;; public
-   :client-state/island
-   (db/q '[:find
-           ;; hardcoding single return result here for now
-           (pull ?island [*
-                          {:lot/_island
-                           [*
-                            {:deed/_lot [*
-                                         {:deed/owner [*
-                                                       :user/id]}]}
-                            {:improvement/_lot [*]}]}]) .
-           :where
-           [?island :island/id _]])
-   ;; private
-   :client-state/user
-   (db/q '[:find (pull ?user
-                       [; user
-                        *
-                        {:residency/_user [*]}
-                        {:deed/_owner
-                         [; deed
-                          {:deed/lot
-                           [; lot
-                            {:improvement/_lot
-                             [; improvement
-                              {:offer/_improvement
+  ;; TODO support multiple islands
+  (let [island-id (:island/id (first (islands)))]
+    {;; public
+     :client-state/island
+     (db/q '[:find
+             (pull ?island [*
+                            {:lot/_island
+                             [*
+                              {:deed/_lot [*
+                                           {:deed/resident [*
+                                                            {:resident/user [:user/id]}]}]}
+                              {:improvement/_lot [*]}]}]) .
+             :in $ ?island-id
+             :where
+             [?island :island/id ?island-id]]
+           island-id)
+     ;; private
+     :client-state/resident
+     (db/q '[:find (pull ?resident
+                         [; resident
+                          *
+                          {:deed/_resident
+                           [; deed
+                            {:deed/lot
+                             [; lot
+                              {:improvement/_lot
+                               [; improvement
+                                {:offer/_improvement
                                  [; offer
                                   *]}]}]}]
-                         }]) .
-           :in $ ?user-id
-           :where
-           [?user :user/id ?user-id]]
-         user-id)})
+                           }]) .
+             :in $ ?user-id ?island-id
+             :where
+             [?user :user/id ?user-id]
+             [?island :island/id ?island-id]
+             [?resident :resident/user ?user]
+             [?resident :resident/island ?island]]
+           user-id
+           island-id)}))

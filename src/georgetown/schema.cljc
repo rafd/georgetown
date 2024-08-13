@@ -83,14 +83,14 @@
    {:user/id {:spec :uuid
               :db/unique :db.unique/identity}}
 
-   :entity/residency
-   {:residency/id {:spec :uuid
+   :entity/resident
+   {:resident/id {:spec :uuid
                    :db/unique :db.unique/identity}
-    :residency/island {:spec :entity/island
+    :resident/island {:spec :entity/island
                        :ref :island/id}
-    :residency/user {:spec :entity/user
+    :resident/user {:spec :entity/user
                      :ref :user/id}
-    :residency/money-balance {:spec :pos-int}}
+    :resident/money-balance {:spec :pos-int}}
 
    :entity/lot
    {:lot/id {:spec :uuid
@@ -106,8 +106,8 @@
     :deed/rate {:spec :pos-int}
     :deed/lot {:spec :entity/lot
                :ref :lot/id}
-    :deed/owner {:spec :entity/user
-                 :ref :user/id}}
+    :deed/resident {:spec :entity/resident
+                    :ref :resident/id}}
 
    :entity/improvement
    {:improvement/id {:spec :uuid

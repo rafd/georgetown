@@ -23,15 +23,14 @@
                  :lot/_island
                  (filter (fn [lot]
                            (= id (:lot/id lot))))
-                 first)
-        user @state/user]
+                 first)]
     (when lot
       (let [deed (first (:deed/_lot lot))
             improvement (first (:improvement/_lot lot))
             current-user-owner? (and
-                                  (:user/id @state/user)
-                                  (= (:user/id (:deed/owner deed))
-                                     (:user/id @state/user)))]
+                                  (:resident/id @state/resident)
+                                  (= (:resident/id (:deed/resident deed))
+                                     (:resident/id @state/resident)))]
         ^{:key id}
         [:div
          [:div "Lot " (:lot/x lot) "," (:lot/y lot)]
@@ -39,7 +38,7 @@
           (if deed
             [:div {:tw "bg-#c4ad97 text-#592510"}
              [:div.owner
-              "Owned by:" (:user/id (:deed/owner deed))]
+              "Owned by:" (:user/id (:resident/user (:deed/resident deed)))]
              [:div.rate
               "Rate:" (:deed/rate deed)]]
             [:div "Unowned"])
