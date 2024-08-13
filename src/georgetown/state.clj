@@ -60,21 +60,6 @@
 
 ;; misc helpers ----
 
-(defn population [s]
-  (:state/population s))
-
-(defn resident
-  [user-id island-id]
-  (db/q '[:find (pull ?resident [*]) .
-          :in $ ?user-id ?island-id
-          :where
-          [?user :user/id ?user]
-          [?island :island/id ?island-id]
-          [?user :user/residents ?resident]
-          [?island :island/residents ?resident]]
-        user-id
-        island-id))
-
 (defn ->resident-id
   [user-id [id-attr id]]
   (case id-attr
@@ -114,15 +99,6 @@
               [?resident :resident/id ?resident-id]
               [?resident :resident/money-balance ?balance]]
             resident-id)))
-
-(defn lot-island [lot-id]
-  (db/q '[:find (pull ?island [*]) .
-          :in $ ?lot-id
-          :where
-          [?lot :lot/id ?lot-id]
-          [?island :island/lots ?lot]
-          [?island :island/id ?island-id]]
-        lot-id))
 
 (defn lot-deed [lot-id]
   (db/q '[:find (pull ?deed [*]) .
@@ -170,15 +146,6 @@
           [?island :island/id ?island-id]
           [?island :island/lots ?lot]]
         island-id))
-
-(defn improvement-offers
-  [improvement-id]
-  (db/q '[:find [(pull ?offer [*]) ...]
-          :in $ ?improvement-id
-          :where
-          [?improvement :improvement/id ?improvement-id]
-          [?improvement :improvement/offers ?offer]]
-        improvement-id))
 
 (defn improvement-lot
   [improvement-id]
