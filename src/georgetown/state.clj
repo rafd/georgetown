@@ -202,8 +202,7 @@
                               {:lot/improvement
                                [:improvement/id
                                 {:improvement/offers
-                                 [*]}]}]}]
-                           }]) .
+                                 [*]}]}]}]}]) .
              :in $ ?user-id ?island-id
              :where
              [?user :user/id ?user-id]
