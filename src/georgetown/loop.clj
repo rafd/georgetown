@@ -1,5 +1,6 @@
 (ns georgetown.loop
   (:require
+    [com.rpl.specter :as x]
     [chime.core :as chime]
     [georgetown.state :as s]
     [georgetown.schema :as schema]
@@ -28,8 +29,25 @@
                     [?offer :offer/id _]])
             (filter :offer/amount)
             (map (fn [offer]
+                   (assoc offer
+                     ::residency-id
+                     (db/q '[:find ?residency-id .
+                             :in $ ?offer-id
+                             :where
+                             [?offer :offer/id ?offer-id]
+                             [?offer :offer/improvement ?improvement]
+                             [?improvement :improvement/lot ?lot]
+                             [?lot :lot/island ?island]
+                             [?deed :deed/lot ?lot]
+                             [?deed :deed/owner ?user]
+                             [?residency :residency/user ?user]
+                             [?residency :residency/island ?island]
+                             [?residency :residency/id ?residency-id]]
+                           (:offer/id offer)))))
+            (map (fn [offer]
                    (let [offerable (->offerable (:offer/type offer))]
-                     {:tender/supply [(:offerable/supply-unit offerable)
+                     {:tender/residency-id (::residency-id offer)
+                      :tender/supply [(:offerable/supply-unit offerable)
                                       (or (:offerable/supply-amount offerable)
                                           (:offer/amount offer))]
                       :tender/demand [(:offerable/demand-unit offerable)
@@ -170,6 +188,23 @@
      :sim.out/joy joy
      :sim.out/population new-population}))
 
+(defn incomes
+  [sim-out]
+   (->> sim-out
+        (x/select
+          [:sim.out/resources
+           x/MAP-VALS
+           :succesful-tenders
+           x/ALL
+           (fn [tender]
+             (= :resource/money (first (:tender/demand tender))))
+           (x/collect-one [:tender/residency-id])
+           :tender/demand
+           1])
+        (reduce (fn [memo [residency-id amount]]
+                  (update memo residency-id (fnil + 0) amount))
+                {})))
+
 (defn taxes
   [island-id]
   (->> (db/q '[:find ?residency-id ?rate ?deed-id
@@ -207,9 +242,9 @@
   [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))
         resident-balances (balances island-id)
-        resident-incomes {} ;; TODO
+        resident-incomes (incomes result)
         resident-taxes (taxes island-id)
-        new-balances (merge-with +
+        new-balances (merge-with (fnil + 0)
                                  resident-balances
                                  resident-incomes
                                  resident-taxes)]
