@@ -104,14 +104,19 @@
     (fn [{:keys [user-id lot-id improvement-type]}]
       [[#(s/owns? user-id lot-id)]
        [#(nil? (s/lot-improvement lot-id))]
-       [#(contains? schema/blueprints improvement-type)]])
+       [#(contains? schema/blueprints improvement-type)]
+       [#(s/can-afford? (s/->resident-id user-id [:lot/id lot-id])
+                        (:blueprint/price (schema/blueprints improvement-type)))]])
     :effect
-    (fn [{:keys [lot-id improvement-type]}]
+    (fn [{:keys [user-id lot-id improvement-type]}]
       (db/transact!
         [{:lot/id lot-id
           :lot/improvement
           {:improvement/id (uuid/random)
-           :improvement/type improvement-type}}]))}
+           :improvement/type improvement-type}}
+         [:withdraw
+          (s/->resident-id user-id [:lot/id lot-id])
+          (:blueprint/price (schema/blueprints improvement-type))]]))}
 
    {:id :command/demolish!
     :params {:user-id :user/id

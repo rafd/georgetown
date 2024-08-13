@@ -90,7 +90,8 @@
                                          {:lot-id (:lot/id lot)
                                           :improvement-type (:blueprint/id blueprint)}))}
                    (:blueprint/icon blueprint)
-                   (:blueprint/label blueprint)])]]
+                   (:blueprint/label blueprint)
+                   [ui/resource-amount (- (:blueprint/price blueprint)) :resource/money]])]]
               (let [blueprint (schema/blueprints (:improvement/type improvement))]
                 [:div
                  (case (:improvement/type improvement)

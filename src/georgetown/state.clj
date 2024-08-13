@@ -38,6 +38,32 @@
         user-id
         island-id))
 
+(defn ->resident-id
+  [user-id [id-attr id]]
+  (case id-attr
+    :lot/id
+    (db/q '[:find ?resident-id .
+            :in $ ?user-id ?lot-id
+            :where
+            [?lot :lot/id ?lot-id]
+            [?user :user/id ?user-id]
+            [?island :island/lots ?lot]
+            [?user :user/residents ?resident]
+            [?island :island/residents ?resident]
+            [?resident :resident/id ?resident-id]]
+          user-id
+          id)))
+
+(defn can-afford?
+  [resident-id amount]
+  (<= amount
+      (db/q '[:find ?balance .
+              :in $ ?resident-id
+              :where
+              [?resident :resident/id ?resident-id]
+              [?resident :resident/money-balance ?balance]]
+            resident-id)))
+
 (defn lot-island [lot-id]
   (db/q '[:find (pull ?island [*]) .
           :in $ ?lot-id
