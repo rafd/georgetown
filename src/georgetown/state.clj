@@ -1,9 +1,33 @@
 (ns georgetown.state
   (:require
     [bloom.commons.uuid :as uuid]
-    [georgetown.db :as db]))
+    [georgetown.db :as db]
+    [datalevin.interpret :as di]))
+
+;; register functions
+(defn register-functions! []
+  #_:clj-kondo/ignore
+  (doseq [v [{:db/ident :fn/withdraw
+              :db/fn
+              (di/inter-fn
+                [db resident-id amount]
+                (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
+                  (if (<=  amount (:resident/money-balance resident))
+                    [[:db/add (:db/id resident) :resident/money-balance
+                      (- (:resident/money-balance resident) amount)]]
+                    (throw (ex-info "Insuffient funds" {})))
+                  (throw (ex-info (str "No resident with id " resident-id) {}))))}
+             {:db/ident :fn/deposit
+              :db/fn (di/inter-fn
+                       [db resident-id amount]
+                       (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
+                         [[:db/add (:db/id resident) :resident/money-balance
+                           (+ (:resident/money-balance resident) amount)]]
+                         (throw (ex-info (str "No resident with id " resident-id) {}))))}]]
+    (georgetown.db/transact! [v])))
 
 (defn initialize! []
+  (register-functions!)
   (db/transact!
     [{:island/id (uuid/random)
       :island/population 10

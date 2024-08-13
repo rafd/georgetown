@@ -145,27 +145,6 @@
    :boolean :db.type/boolean
    :inst :db.type/instant})
 
-;; register functions
-#_(do
-    (require 'datalevin.interpret)
-    (doseq [v [{:db/ident :fn/withdraw
-                :db/fn (datalevin.interpret/inter-fn
-                         [db resident-id amount]
-                         (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-                           (if (<=  amount (:resident/money-balance resident))
-                             [[:db/add (:db/id resident) :resident/money-balance
-                               (- (:resident/money-balance resident) amount)]]
-                             (throw (ex-info "Insuffient funds" {})))
-                           (throw (ex-info (str "No resident with id " resident-id) {}))))}
-               {:db/ident :fn/deposit
-                :db/fn (datalevin.interpret/inter-fn
-                         [db resident-id amount]
-                         (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-                           [[:db/add (:db/id resident) :resident/money-balance
-                             (+ (:resident/money-balance resident) amount)]]
-                           (throw (ex-info (str "No resident with id " resident-id) {}))))}]]
-      (georgetown.db/transact! [v])))
-
 (defn ->datalevin
   [schema]
   (->> schema
