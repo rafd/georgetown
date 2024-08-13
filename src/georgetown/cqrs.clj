@@ -45,31 +45,40 @@
     (fn [{:keys [user-id lot-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
-       #_[#(not (s/owns? user-id lot-id))]])
+       [#(not (s/owns? user-id lot-id))]]
+      ;; TODO check if can afford
+      )
     :effect
     (fn [{:keys [user-id lot-id]}]
-      (let [owned? (s/lot-deed lot-id)]
-        ;; TODO
-        #_(when owned?
+      (let [resident-id (s/->resident-id user-id [:lot/id lot-id])
+            lot (s/by-id [:lot/id lot-id]
+                         [{:lot/improvement [:improvement/type]}
+                          {:lot/deed
+                           [:deed/id
+                            :deed/rate
+                            {:resident/_deeds [:resident/id]}]}])]
+        (if-let [deed (:lot/deed lot)]
+          (let [refund-amount (:blueprint/price (schema/blueprints (:improvement/type (:lot/improvement lot))))]
+            (db/transact!
+              [;; refund previous owner
+               [:fn/deposit (:resident/id (:resident/_deeds deed)) refund-amount]
+               ;; remove previous deed
+               [:db/retractEntity [:deed/id (:deed/id deed)]]
+               ;; charge new owner
+               [:fn/withdraw resident-id refund-amount]
+               ;; create new deed
+               {:db/id -1
+                :deed/id (uuid/random)
+                :deed/rate (inc (:deed/rate deed))}
+               [:db/add [:lot/id lot-id] :lot/deed -1]
+               [:db/add [:resident/id resident-id] :resident/deeds -1]]))
           (db/transact!
-
-            )
-          )
-        (let [resident (s/resident user-id (:island/id (s/lot-island lot-id)))
-              rate (if owned?
-                     (inc (:deed/rate (s/lot-deed lot-id)))
-                     1)]
-          (db/transact!
-            [#_[:db/cas
-              [:resident/id resident-id]
-              :resident/money-balance
-              previous-balance
-              (- previous-balance rate)]
+            [;; create new deed
              {:db/id -1
               :deed/id (uuid/random)
-              :deed/rate rate}
+              :deed/rate 1}
              [:db/add [:lot/id lot-id] :lot/deed -1]
-             [:db/add [:resident/id (:resident/id resident)] :resident/deeds -1]]))))}
+             [:db/add [:resident/id resident-id] :resident/deeds -1]]))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id

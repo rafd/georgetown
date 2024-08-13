@@ -72,10 +72,10 @@
                            :command/buy-lot!
                            {:lot-id (:lot/id lot)}))}
                "Purchase"
-               " ("
-               (or (some-> (:deed/rate deed) inc)
-                   1) "💲🔁"
-               ")"
+               [ui/resource-amount (or (some-> (:deed/rate deed) inc)
+                                       1)
+                :resource/money]
+                "🔁"
                ]])]]
          (when current-user-owner?
            [block {:label "Improvement"}
