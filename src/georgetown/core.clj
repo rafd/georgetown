@@ -1,4 +1,5 @@
 (ns georgetown.core
+  (:gen-class)
   (:require
     [bloom.omni.core :as omni]
     [georgetown.omni-config :as omni-config]
@@ -12,7 +13,8 @@
   (push/initialize!)
   nil)
 
-(defn -main [_])
+(defn -main [_]
+  (start!))
 
 #_(start!)
 
