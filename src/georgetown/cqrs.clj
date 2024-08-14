@@ -66,7 +66,7 @@
        [#(s/exists? :lot/id lot-id)]
        [#(s/->resident-id user-id [:lot/id lot-id])] ;; is resident on this island
        [#(not (s/owns? user-id [:lot/id lot-id]))]]
-      ;; TODO check if can afford
+      ;; TODO check if can afford - :fn/withdraw will throw, so not urgent
       )
     :effect
     (fn [{:keys [user-id lot-id]}]
