@@ -72,6 +72,17 @@
 (defn ->resident-id
   [user-id [id-attr id]]
   (case id-attr
+    :island/id
+    (db/q '[:find ?resident-id .
+            :in $ ?user-id ?island-id
+            :where
+            [?user :user/id ?user-id]
+            [?island :island/id ?island-id]
+            [?user :user/residents ?resident]
+            [?island :island/residents ?resident]
+            [?resident :resident/id ?resident-id]]
+          user-id
+          id)
     :lot/id
     (db/q '[:find ?resident-id .
             :in $ ?user-id ?lot-id

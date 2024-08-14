@@ -42,11 +42,10 @@
     :params {:user-id :user/id
              :island-id :island/id}
     :conditions
-    (fn [{:keys [user-id lot-id]}]
+    (fn [{:keys [user-id lot-id island-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
-       ;; TODO not already a resident
-       ])
+       [#(nil? (s/->resident-id user-id [:island/id island-id]))]])
     :effect
     (fn [{:keys [user-id island-id]}]
       (db/transact!
@@ -65,6 +64,7 @@
     (fn [{:keys [user-id lot-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
+       [#(s/->resident-id user-id [:lot/id lot-id])] ;; is resident on this island
        [#(not (s/owns? user-id lot-id))]]
       ;; TODO check if can afford
       )
@@ -105,7 +105,7 @@
              :lot-id :lot/id
              :rate :deed/rate}
     :conditions
-    (fn [{:keys [user-id lot-id rate]}]
+    (fn [{:keys [user-id lot-id]}]
       [[#(s/owns? user-id lot-id)]])
     :effect
     (fn [{:keys [lot-id rate]}]

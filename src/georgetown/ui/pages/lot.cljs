@@ -23,10 +23,12 @@
       (let [deed (:lot/deed lot)
             improvement (:lot/improvement lot)
             logged-in? @state/user
-            current-user-owner? (and
-                                  logged-in?
-                                  (= (:resident/id (:resident/_deeds deed))
-                                     (:resident/id @state/resident)))]
+            resident? @state/resident
+            owner? (and
+                     logged-in?
+                     resident?
+                     (= (:resident/id (:resident/_deeds deed))
+                        (:resident/id @state/resident)))]
         ^{:key lot-id}
         [:div
          [:div "Lot " (:lot/x lot) "," (:lot/y lot)]
@@ -41,7 +43,7 @@
             [:div "Unowned"])
           [block {:label "Actions"}
            (cond
-             current-user-owner?
+             owner?
              [:<>
               [:div {:tw "border-1 p-1"}
                "Rate:"
@@ -62,7 +64,7 @@
                                           :command/abandon!
                                           {:lot-id (:lot/id lot)}))}
                  "Abandon"])]
-             logged-in?
+             resident?
              [:div {:tw "border-1 p-1"}
               [ui/button {:on-click
                           (fn []
@@ -75,9 +77,11 @@
                 :resource/money]
                "🔁"
                ]]
+             logged-in?
+             [ui/join-island-button @state/island-id]
              :else
              [ui/login-button])]]
-         (when current-user-owner?
+         (when owner?
            [block {:label "Improvement"}
             (if (nil? improvement)
               [block {:label "Build..."}

@@ -41,3 +41,10 @@
                                (fn []
                                  (js/alert "Something went wrong."))))))}
    "Log In to Play"])
+
+(defn join-island-button
+  [island-id]
+  [button {:on-click (fn []
+                       (state/exec! :command/immigrate!
+                                    {:island-id island-id}))}
+   "Join this Island"])
