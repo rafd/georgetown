@@ -20,7 +20,7 @@
     :params {:user-id :any}
     :return
     (fn [_]
-      (s/islands [:island/id]))}
+      (s/all-of-type :island/id '[:island/id]))}
 
    {:id :command/authenticate-user!
     :params [:map
@@ -111,9 +111,9 @@
        [#(s/owns? user-id [:lot/id lot-id])]])
     :effect
     (fn [{:keys [lot-id rate]}]
-      (let [d (s/lot-deed lot-id)]
+      (let [deed (:lot/deed (s/by-id [:lot/id lot-id] [{:lot/deed [:deed/id]}]))]
         (db/transact!
-          [[:db/add [:deed/id (:deed/id d)] :deed/rate rate]])))}
+          [[:db/add [:deed/id (:deed/id deed)] :deed/rate rate]])))}
 
    {:id :command/abandon!
     :params {:user-id :user/id
@@ -123,11 +123,13 @@
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
        [#(s/owns? user-id [:lot/id lot-id])]
-       [#(nil? (s/lot-improvement lot-id))]])
+       [#(nil? (:lot/improvement (s/by-id [:lot/id lot-id] [:lot/improvement])))]])
     :effect
     (fn [{:keys [lot-id]}]
       (db/transact!
-        [[:db/retractEntity [:deed/id (:deed/id (s/lot-deed lot-id))]]]))}
+        [[:db/retractEntity [:deed/id (:deed/id
+                                        (:lot/deed
+                                          (s/by-id [:lot/id lot-id] [{:lot/deed [:deed/id]}])))]]]))}
 
    {:id :command/build!
     :params {:user-id :user/id
@@ -139,7 +141,7 @@
        [#(s/exists? :lot/id lot-id)]
        [#(contains? schema/blueprints improvement-type)]
        [#(s/owns? user-id [:lot/id lot-id])]
-       [#(nil? (s/lot-improvement lot-id))]
+       [#(nil? (:lot/improvement (s/by-id [:lot/id lot-id] [:lot/improvement])))]
        [#(s/can-afford? (s/->resident-id user-id [:lot/id lot-id])
                         (:blueprint/price (schema/blueprints improvement-type)))]])
     :effect

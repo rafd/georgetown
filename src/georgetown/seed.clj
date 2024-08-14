@@ -7,8 +7,10 @@
 (defn seed! []
   (db/retract-all!)
   (s/initialize!)
-  (let [island-id (:island/id (first (s/islands [:island/id])))
-        lots (s/lots island-id)]
+  (let [island (first (s/all-of-type :island/id [:island/id
+                                                 {:island/lots [:lot/id]}]))
+        island-id (:island/id island)
+        lots (:island/lots island-id)]
     (doseq [[user-index email] [[0 "alice@example.com"]
                                 [1 "bob@example.com"]]]
       (exec! :command/authenticate-user!
@@ -40,7 +42,7 @@
                      {:user-id user-id
                       :lot-id lot-id
                       :improvement-type improvement-type})
-              (let [improvement-id (:improvement/id (s/lot-improvement lot-id))]
+              (let [improvement-id (:improvement/id (:lot/improvement (s/by-id [:lot/id lot-id] [:lot/improvement])))]
                 (doseq [[offer-key amount] offers]
                   (exec! :command/set-offer!
                          {:user-id user-id

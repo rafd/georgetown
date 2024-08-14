@@ -58,6 +58,15 @@
         id
         pattern))
 
+(defn all-of-type
+  [id-attr pattern]
+  (db/q '[:find [(pull ?e ?pattern) ...]
+          :in $ ?attr ?pattern
+          :where
+          [?e ?attr _]]
+        id-attr
+        pattern))
+
 ;; misc helpers ----
 
 (defn email->user-id
@@ -120,22 +129,6 @@
               [?resident :resident/money-balance ?balance]]
             resident-id)))
 
-(defn lot-deed [lot-id]
-  (db/q '[:find (pull ?deed [*]) .
-          :in $ ?lot-id
-          :where
-          [?lot :lot/id ?lot-id]
-          [?lot :lot/deed ?deed]]
-        lot-id))
-
-(defn lot-improvement [lot-id]
-  (db/q '[:find (pull ?improvement [*]) .
-          :in $ ?lot-id
-          :where
-          [?lot :lot/id ?lot-id]
-          [?lot :lot/improvement ?improvement]]
-        lot-id))
-
 (defn owns?
   [user-id [attr id]]
   (some?
@@ -163,24 +156,6 @@
               [?user :user/id ?user-id]]
             user-id
             id))))
-
-(defn islands
-  ([pattern]
-   (db/q '[:find [(pull ?island ?pattern) ...]
-           :in $ ?pattern
-           :where
-           [?island :island/id _]]
-         pattern))
-  ([]
-   (islands '[*])))
-
-(defn lots [island-id]
-  (db/q '[:find [(pull ?lot [*]) ...]
-          :in $ ?island-id
-          :where
-          [?island :island/id ?island-id]
-          [?island :island/lots ?lot]]
-        island-id))
 
 ;; client state ---
 
@@ -244,5 +219,6 @@
            user-id
            island-id))})
 
-#_(client-state {:user-id georgetown.seed/primary-user-id
-                 :island-id (:island/id (first (islands)))})
+#_(client-state {:user-id (:user/id (by-id [:user/email "alice@example.com"]
+                                           [:user/id]))
+                 :island-id (:island/id (first (all-of-type :island/id [:island/id])))})

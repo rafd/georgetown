@@ -261,7 +261,7 @@
 
 #_(tick-all!)
 
-#_(balances (:island/id (first (s/islands [:island/id]))))
+#_(balances (:island/id (first (s/all-of-type :island/id '[:island/id]))))
 
 (defn demo-tick [s]
   (let [c (simulate s)]
