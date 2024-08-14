@@ -88,6 +88,7 @@
    {:user/id {:spec :uuid
               :db/unique :db.unique/identity}
     :user/email {:spec Email
+                 :db/valueType :db.type/string
                  :db/unique :db.unique/identity}
     :user/residents {:rel/many :entity/resident}}
 
@@ -114,13 +115,16 @@
    {:improvement/id {:spec :uuid
                      :db/unique :db.unique/identity}
     :improvement/type {:spec (into [:enum]
-                                   (keys blueprints))}
+                                   (keys blueprints))
+                       :db/valueType :db.type/keyword}
     :improvement/offers {:rel/many :entity/offer}}
 
    :entity/offer
    {:offer/id {:spec [:vec :uuid :keyword]
                :db/unique :db.unique/identity}
-    :offer/type {:spec :keyword}
+    :offer/type {:spec (into [:enum]
+                             (keys offerables))
+                 :db/valueType :db.type/keyword}
     :offer/amount {:spec :pos-int}}})
 
 (mr/set-default-registry!
@@ -145,7 +149,6 @@
    :integer :db.type/long
    :pos-int :db.type/long
    :string :db.type/string
-   Email :db.type/string
    :float :db.type/float
    :keyword :db.type/keyword
    :boolean :db.type/boolean
