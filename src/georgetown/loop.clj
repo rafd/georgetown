@@ -331,7 +331,6 @@
               (chime/periodic-seq (Instant/now)
                                   (Duration/ofSeconds 1))
               (fn [time]
-                (tap> [:tick time])
                 (tick-all!))
               {:on-finished (fn []
                               (tap> "Schedule finished."))}))

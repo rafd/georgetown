@@ -1,8 +1,10 @@
-(ns georgetown.ui.gazette
+(ns georgetown.ui.pages.gazette
   (:require
+    [bloom.commons.pages :as pages]
     [com.rpl.specter :as x]
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]
+    [georgetown.ui.map :as map]
     [georgetown.ui.common :refer [resource-amount]]))
 
 (defn sparkline
@@ -128,3 +130,16 @@
               (:sim.out/joy stats)
               1]]
         [:td [stats-sparkline [x/ALL :sim.out/joy]]]]]])])
+
+(defn page
+  [_]
+  [map/page-wrapper
+   [stats-view @state/island]])
+
+(pages/register-page!
+  {:page/id :page/gazette
+   :page/view #'page
+   :page/path "/island/:island-id/gazette"
+   :page/parameters {:island-id :uuid}
+   :page/on-enter! (fn [[_ {:keys [island-id]}]]
+                     (state/set-island-id! island-id))})

@@ -13,8 +13,7 @@
 
 (defn ^:export init []
   (pages/initialize! [])
-  (render)
-  (state/get-state))
+  (render))
 
 (defn ^:after-load reload
   []

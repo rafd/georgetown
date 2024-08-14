@@ -60,6 +60,15 @@
 
 ;; misc helpers ----
 
+(defn email->user-id
+  [email]
+  (db/q '[:find ?user-id .
+          :in $ ?email
+          :where
+          [?user :user/email ?email]
+          [?user :user/id ?user-id]]
+        email))
+
 (defn ->resident-id
   [user-id [id-attr id]]
   (case id-attr
@@ -159,39 +168,45 @@
 ;; client state ---
 
 (defn client-state
-  [user-id]
-  ;; TODO support multiple islands
-  (let [island-id (:island/id (first (islands)))]
-    {;; public
-     :client-state/island
-     (db/q '[:find
-             (pull ?island
-                   ;; don't use [*] here, to avoid leaking private information
-                   [:island/id
-                    :island/population
-                    :island/simulator-stats
-                    {:island/residents
-                     [:resident/id]}
-                    {:island/lots
-                     [:lot/id
-                      :lot/x
-                      :lot/y
-                      {:lot/deed
-                       [:deed/id
-                        :deed/rate
-                        {:resident/_deeds
-                         [:resident/id
-                          {:user/_residents
-                           [:user/id]}]}]}
-                      {:lot/improvement
-                       [:improvement/id
-                        :improvement/type]}]}]) .
-             :in $ ?island-id
+  [{:keys [user-id island-id]}]
+  {;; public
+   :client-state/island
+   (db/q '[:find
+           (pull ?island
+                 ;; don't use [*] here, to avoid leaking private information
+                 [:island/id
+                  :island/population
+                  :island/simulator-stats
+                  {:island/residents
+                   [:resident/id]}
+                  {:island/lots
+                   [:lot/id
+                    :lot/x
+                    :lot/y
+                    {:lot/deed
+                     [:deed/id
+                      :deed/rate
+                      {:resident/_deeds
+                       [:resident/id
+                        {:user/_residents
+                         [:user/id]}]}]}
+                    {:lot/improvement
+                     [:improvement/id
+                      :improvement/type]}]}]) .
+           :in $ ?island-id
+           :where
+           [?island :island/id ?island-id]]
+         island-id)
+   ;; private
+   :client-state/user
+   (when user-id
+     (db/q '[:find (pull ?user [:user/id])
+             :in $ ?user-id
              :where
-             [?island :island/id ?island-id]]
-           island-id)
-     ;; private
-     :client-state/resident
+             [?user :user/id ?user-id]]
+           user-id))
+   :client-state/resident
+   (when user-id
      (db/q '[:find (pull ?resident
                          [:resident/id
                           :resident/money-balance
@@ -210,6 +225,7 @@
              [?island :island/residents ?resident]
              [?user :user/residents ?resident]]
            user-id
-           island-id)}))
+           island-id))})
 
-#_(client-state georgetown.seed/primary-user-id)
+#_(client-state {:user-id georgetown.seed/primary-user-id
+                 :island-id (:island/id (first (islands)))})

@@ -1,6 +1,7 @@
 (ns georgetown.ui.common
   (:require
-    [georgetown.schema :as schema]))
+    [georgetown.schema :as schema]
+    [georgetown.client.state :as state]))
 
 (defn resource-icon [resource-id]
   (let [resource (schema/resources resource-id)]
@@ -20,3 +21,23 @@
                       ^{:key resource-id}
                       [:span {:style {:font-size "0.65em"}}
                        [resource-icon resource-id]])))])
+
+(defn button [opts & content]
+  [:button (assoc opts
+             :tw "bg-gray-500 text-white px-1")
+   (into [:<>]
+         content)])
+
+(defn login-button []
+  [button {:on-click (fn []
+                       (let [email (js/prompt "Enter your email:")]
+                         (-> (state/exec! :command/authenticate-user!
+                                          {:email email
+                                           :url js/location.pathname})
+                             (.then
+                               (fn []
+                                 (js/alert "Check your email for a login link.")))
+                             (.catch
+                               (fn []
+                                 (js/alert "Something went wrong."))))))}
+   "Log In to Play"])

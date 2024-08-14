@@ -27,7 +27,7 @@
       (dispatch-event!
         (get-in request [:body-params :command])
         (assoc (get-in request [:body-params :params])
-          :user-id #uuid "614a34a6-4505-40e9-858b-581a0d26602a")))]
+          :user-id (get-in request [:session :user-id]))))]
 
    [[:get "/api/state"]
     (fn [request]

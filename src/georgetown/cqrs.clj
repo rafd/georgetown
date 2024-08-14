@@ -1,22 +1,42 @@
 (ns georgetown.cqrs
   (:require
+    [clojure.string :as string]
     [bloom.commons.uuid :as uuid]
     [tada.events.malli :as tada]
+    [georgetown.email :as email]
     [georgetown.schema :as schema]
     [georgetown.state :as s]
     [georgetown.db :as db]))
 
+(defn normalize
+  [s]
+  (-> s
+      (string/trim)
+      (string/lower-case)))
+
 (def cqrs
   [
-   {:id :command/create-user!
-    :params {:id :user/id}
-    :conditions
-    (fn [{:keys [id]}]
-      [[#(not (s/exists? :user/id id))]])
+   {:id :query/islands
+    :params {:user-id :any}
+    :return
+    (fn [_]
+      (s/islands [:island/id]))}
+
+   {:id :command/authenticate-user!
+    :params [:map
+             [:user-id {:optional true} nil?]
+             [:url {:optional true} :string]
+             [:email :user/email]]
     :effect
-    (fn [{:keys [id]}]
-      (db/transact!
-        [{:user/id id}]))}
+    (fn [{:keys [email url]}]
+      (let [user-id (or (s/email->user-id (normalize email))
+                        (let [id (uuid/random)]
+                          (db/transact!
+                            [{:user/id id
+                              :user/email (normalize email)}])
+                          id))]
+        (email/send! (email/auth-email {:user-id user-id
+                                        :url url}))))}
 
    {:id :command/immigrate!
     :params {:user-id :user/id

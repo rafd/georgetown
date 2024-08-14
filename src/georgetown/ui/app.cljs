@@ -1,10 +1,6 @@
 (ns georgetown.ui.app
   (:require
-    [bloom.commons.pages :as pages]
-    [georgetown.ui.map :as map]))
+    [bloom.commons.pages :as pages]))
 
 (defn app-view []
-  [:div {:tw "flex"}
-   [map/map-view]
-   [:div {:tw "p-2"}
-    [pages/current-page-view]]])
+  [pages/current-page-view])

@@ -3,8 +3,7 @@
     [bloom.commons.pages :as pages]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]
-    [georgetown.ui.common :as ui]
-    [georgetown.ui.gazette :as gazette]))
+    [georgetown.ui.common :as ui]))
 
 (def tile-size 4)
 
@@ -26,10 +25,16 @@
                                       (group-by (fn [offer]
                                                   (first (:offer/id offer)))))]
       [:div {:tw "relative"}
-       [:div {:tw "absolute top-0 left-0 z-100 bg-white"}
-        [gazette/stats-view island]]
-       [:div {:tw "absolute bottom-0 left-0"}
-        [resident-view]]
+       [:div.menu {:tw "absolute top-0 right-0"}
+        [:a {:href (pages/path-for [:page/home {}])} "🌍"]
+        [:a {:href (pages/path-for [:page/island {:island-id (:island/id island)}])}
+         "🏠"]
+        [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
+             :title "gazette"}
+         "📈"]]
+       (when @state/resident
+         [:div {:tw "absolute bottom-0 left-0"}
+          [resident-view]])
        [:div {:style {:width (str (* lot-count-width tile-size) "em")
                       :height (str (* lot-count-height tile-size) "em")}}
         (doall
@@ -46,10 +51,13 @@
                  ^{:key (:lot/x lot)}
                  [:a.lot
                   {:tw "group"
-                   :href (pages/path-for [:page/lot {:id (:lot/id lot)}])
+                   :href (pages/path-for [:page/lot {:island-id (:island/id island)
+                                                     :lot-id (:lot/id lot)}])
                    :style {:width (str tile-size "em")
                            :height (str tile-size "em")
-                           :background (if (pages/active? [:page/lot {:id (:lot/id lot)}])
+                           :background (if (pages/active?
+                                             [:page/lot {:island-id (:island/id island)
+                                                         :lot-id (:lot/id lot)}])
                                          "#026002"
                                          "green")
                            :border-right "1px solid #009600"
@@ -95,4 +103,9 @@
                                  (:offer/amount offer))
                              (:offerable/demand-unit offerable)]])]])])]))]))]])))
 
-
+(defn page-wrapper
+  [sidebar]
+  [:div {:tw "flex w-screen"}
+   [map-view]
+   [:div {:tw "p-2 overflow-x-auto"}
+    sidebar]])

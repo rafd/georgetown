@@ -3,7 +3,8 @@
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]
-    [georgetown.ui.common :as ui]))
+    [georgetown.ui.common :as ui]
+    [georgetown.ui.map :as map]))
 
 (defn block [{:keys [label]} & content]
   [:div {:tw "border-1 relative"}
@@ -11,27 +12,22 @@
    (into [:div {:tw "p-1"}]
          content)])
 
-(defn button [opts & content]
-  [:button (assoc opts
-             :tw "bg-gray-500 text-white px-1")
-   (into [:<>]
-         content)])
-
-(defn view
-  [[_ {:keys [id]}]]
+(defn sidebar
+  [lot-id]
   (let [lot (->> @state/island
                  :island/lots
                  (filter (fn [lot]
-                           (= id (:lot/id lot))))
+                           (= lot-id (:lot/id lot))))
                  first)]
     (when lot
       (let [deed (:lot/deed lot)
             improvement (:lot/improvement lot)
+            logged-in? @state/user
             current-user-owner? (and
-                                  (:resident/id @state/resident)
+                                  logged-in?
                                   (= (:resident/id (:resident/_deeds deed))
                                      (:resident/id @state/resident)))]
-        ^{:key id}
+        ^{:key lot-id}
         [:div
          [:div "Lot " (:lot/x lot) "," (:lot/y lot)]
          [block {:label "Deed"}
@@ -44,7 +40,8 @@
               "Rate:" (:deed/rate deed)]]
             [:div "Unowned"])
           [block {:label "Actions"}
-           (if current-user-owner?
+           (cond
+             current-user-owner?
              [:<>
               [:div {:tw "border-1 p-1"}
                "Rate:"
@@ -55,28 +52,31 @@
                         (or (:deed/rate deed) 1)
                         :on-change (fn [e]
                                      (state/exec!
-                                      :command/change-rate!
-                                      {:lot-id (:lot/id lot)
-                                       :rate (js/parseInt (.. e -target -value))}))
+                                       :command/change-rate!
+                                       {:lot-id (:lot/id lot)
+                                        :rate (js/parseInt (.. e -target -value))}))
                         :step 1}]]
               (when (nil? improvement)
-                [button {:on-click (fn []
-                                      (state/exec!
-                                        :command/abandon!
-                                        {:lot-id (:lot/id lot)}))}
+                [ui/button {:on-click (fn []
+                                        (state/exec!
+                                          :command/abandon!
+                                          {:lot-id (:lot/id lot)}))}
                  "Abandon"])]
+             logged-in?
              [:div {:tw "border-1 p-1"}
-              [button {:on-click
-                       (fn []
-                         (state/exec!
-                           :command/buy-lot!
-                           {:lot-id (:lot/id lot)}))}
+              [ui/button {:on-click
+                          (fn []
+                            (state/exec!
+                              :command/buy-lot!
+                              {:lot-id (:lot/id lot)}))}
                "Purchase"
                [ui/resource-amount (or (some-> (:deed/rate deed) inc)
                                        1)
                 :resource/money]
-                "🔁"
-               ]])]]
+               "🔁"
+               ]]
+             :else
+             [ui/login-button])]]
          (when current-user-owner?
            [block {:label "Improvement"}
             (if (nil? improvement)
@@ -84,11 +84,11 @@
                [:div
                 (for [blueprint (vals schema/blueprints)]
                   ^{:key (:blueprint/id blueprint)}
-                  [button {:on-click (fn []
-                                       (state/exec!
-                                         :command/build!
-                                         {:lot-id (:lot/id lot)
-                                          :improvement-type (:blueprint/id blueprint)}))}
+                  [ui/button {:on-click (fn []
+                                          (state/exec!
+                                            :command/build!
+                                            {:lot-id (:lot/id lot)
+                                             :improvement-type (:blueprint/id blueprint)}))}
                    (:blueprint/icon blueprint)
                    (:blueprint/label blueprint)
                    [ui/resource-amount (- (:blueprint/price blueprint)) :resource/money]])]]
@@ -153,19 +153,27 @@
                                   (:offer/amount offer)))
                            (a-unit-key offerable)
                            (b-unit-key offerable)])]]))
-                  [button {:on-click
-                           (fn []
-                             (state/exec!
-                               :command/demolish!
-                               {:improvement-id (:improvement/id improvement)}))}
+                  [ui/button {:on-click
+                              (fn []
+                                (state/exec!
+                                  :command/demolish!
+                                  {:improvement-id (:improvement/id improvement)}))}
                    "Demolish"
                    [ui/resource-amount
                     (/ (:blueprint/price blueprint) 2)
                     :resource/money]]]]))])]))))
 
+(defn page
+  [[_ {:keys [lot-id]}]]
+  [map/page-wrapper
+   [sidebar lot-id]])
+
 (pages/register-page!
   {:page/id :page/lot
-   :page/view #'view
-   :page/path "/lot/:id"
-   :page/parameters {:id :uuid}})
+   :page/view #'page
+   :page/path "/island/:island-id/lot/:lot-id"
+   :page/parameters {:island-id :uuid
+                     :lot-id :uuid}
+   :page/on-enter! (fn [[_ {:keys [island-id]}]]
+                     (state/set-island-id! island-id))})
 

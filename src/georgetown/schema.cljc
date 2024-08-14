@@ -73,6 +73,9 @@
        (mapcat :blueprint/offerables)
        (key-by :offerable/id)))
 
+(def Email
+  [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"])
+
 (def schema
   {:entity/island
    {:island/id {:spec :uuid
@@ -84,6 +87,8 @@
    :entity/user
    {:user/id {:spec :uuid
               :db/unique :db.unique/identity}
+    :user/email {:spec Email
+                 :db/unique :db.unique/identity}
     :user/residents {:rel/many :entity/resident}}
 
    :entity/resident
@@ -140,6 +145,7 @@
    :integer :db.type/long
    :pos-int :db.type/long
    :string :db.type/string
+   Email :db.type/string
    :float :db.type/float
    :keyword :db.type/keyword
    :boolean :db.type/boolean

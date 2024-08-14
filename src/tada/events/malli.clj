@@ -14,12 +14,12 @@
   [:map
    [:id :keyword]
    [:params {:optional true}
-    [:map-of
-     :keyword
-     ;; TODO schema for "malli schema"
-     ;; no "meta-schema" exists yet
-     ;; https://github.com/metosin/malli/issues/904
-     :any]]
+    ;; TODO schema for "malli schema"
+    ;; no "meta-schema" exists yet
+    ;; https://github.com/metosin/malli/issues/904
+    [:or
+     [:vector :any]
+     [:map-of :keyword :any]]]
     ;; TODO be more specific
     ;; takes map of params, returns array of [no-arg-predicate-fn anomaly message]
     [:conditions {:optional true} fn?]
@@ -29,8 +29,6 @@
     ;; TODO be more specific
     ;; either keyword or function that takes params + special param
     [:return {:optional true} ifn?]])
-
-
 
 (defn- make-validator
   [event]
