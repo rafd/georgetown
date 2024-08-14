@@ -1,13 +1,14 @@
 (ns georgetown.db
   (:require
     [datalevin.core :as d]
-    [georgetown.schema :as schema]))
+    [georgetown.schema :as schema]
+    [georgetown.config :as config]))
 
 (defonce conn-atom (atom nil))
 
 (defn connect! []
   (reset! conn-atom
-          (d/get-conn "data/datalevin"
+          (d/get-conn (config/get :db-dir)
             (schema/->datalevin schema/schema))))
 
 (defn conn []

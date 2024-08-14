@@ -10,6 +10,7 @@
    [:website-base-url string?]
    [:auth-cookie-secret string?]
    [:auth-token-secret string?]
+   [:db-dir string?]
    [:smtp-credentials
     {:optional true}
     [:map
