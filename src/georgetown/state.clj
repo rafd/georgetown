@@ -136,18 +136,33 @@
           [?lot :lot/improvement ?improvement]]
         lot-id))
 
-(defn owns? [user-id lot-id]
+(defn owns?
+  [user-id [attr id]]
   (some?
-    (db/q '[:find ?deed .
-            :in $ ?lot-id ?user-id
-            :where
-            [?lot :lot/id ?lot-id]
-            [?lot :lot/deed ?deed]
-            [?resident :resident/deeds ?deed]
-            [?user :user/residents ?resident]
-            [?user :user/id ?user-id]]
-          lot-id
-          user-id)))
+    (case attr
+      :lot/id
+      (db/q '[:find ?deed .
+              :in $ ?user-id ?lot-id
+              :where
+              [?lot :lot/id ?lot-id]
+              [?lot :lot/deed ?deed]
+              [?resident :resident/deeds ?deed]
+              [?user :user/residents ?resident]
+              [?user :user/id ?user-id]]
+            user-id
+            id)
+      :improvement/id
+      (db/q '[:find ?deed .
+              :in $ ?user-id ?improvement-id
+              :where
+              [?improvement :improvement/id ?improvement-id]
+              [?lot :lot/improvement ?improvement]
+              [?lot :lot/deed ?deed]
+              [?resident :resident/deeds ?deed]
+              [?user :user/residents ?resident]
+              [?user :user/id ?user-id]]
+            user-id
+            id))))
 
 (defn islands
   ([pattern]
@@ -166,15 +181,6 @@
           [?island :island/id ?island-id]
           [?island :island/lots ?lot]]
         island-id))
-
-(defn improvement-lot
-  [improvement-id]
-  (db/q '[:find (pull ?lot [*]) .
-          :in $ ?improvement-id
-          :where
-          [?improvement :improvement/id ?improvement-id]
-          [?lot :lot/improvement ?improvement]]
-        improvement-id))
 
 ;; client state ---
 

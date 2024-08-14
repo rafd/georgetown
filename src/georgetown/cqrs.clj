@@ -42,9 +42,9 @@
     :params {:user-id :user/id
              :island-id :island/id}
     :conditions
-    (fn [{:keys [user-id lot-id island-id]}]
+    (fn [{:keys [user-id island-id]}]
       [[#(s/exists? :user/id user-id)]
-       [#(s/exists? :lot/id lot-id)]
+       [#(s/exists? :island/id island-id)]
        [#(nil? (s/->resident-id user-id [:island/id island-id]))]])
     :effect
     (fn [{:keys [user-id island-id]}]
@@ -65,7 +65,7 @@
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
        [#(s/->resident-id user-id [:lot/id lot-id])] ;; is resident on this island
-       [#(not (s/owns? user-id lot-id))]]
+       [#(not (s/owns? user-id [:lot/id lot-id]))]]
       ;; TODO check if can afford
       )
     :effect
@@ -106,7 +106,9 @@
              :rate :deed/rate}
     :conditions
     (fn [{:keys [user-id lot-id]}]
-      [[#(s/owns? user-id lot-id)]])
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :lot/id lot-id)]
+       [#(s/owns? user-id [:lot/id lot-id])]])
     :effect
     (fn [{:keys [lot-id rate]}]
       (let [d (s/lot-deed lot-id)]
@@ -118,7 +120,9 @@
              :lot-id :lot/id}
     :conditions
     (fn [{:keys [user-id lot-id]}]
-      [[#(s/owns? user-id lot-id)]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :lot/id lot-id)]
+       [#(s/owns? user-id [:lot/id lot-id])]
        [#(nil? (s/lot-improvement lot-id))]])
     :effect
     (fn [{:keys [lot-id]}]
@@ -131,9 +135,11 @@
              :improvement-type :improvement/type}
     :conditions
     (fn [{:keys [user-id lot-id improvement-type]}]
-      [[#(s/owns? user-id lot-id)]
-       [#(nil? (s/lot-improvement lot-id))]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :lot/id lot-id)]
        [#(contains? schema/blueprints improvement-type)]
+       [#(s/owns? user-id [:lot/id lot-id])]
+       [#(nil? (s/lot-improvement lot-id))]
        [#(s/can-afford? (s/->resident-id user-id [:lot/id lot-id])
                         (:blueprint/price (schema/blueprints improvement-type)))]])
     :effect
@@ -152,8 +158,9 @@
              :improvement-id :improvement/id}
     :conditions
     (fn [{:keys [user-id improvement-id]}]
-      (let [lot (s/improvement-lot improvement-id)]
-        [[#(s/owns? user-id (:lot/id lot))]]))
+        [[#(s/exists? :user/id user-id)]
+         [#(s/exists? :improvement/id improvement-id)]
+         [#(s/owns? user-id [:improvement/id improvement-id])]])
     :effect
     (fn [{:keys [user-id improvement-id]}]
       (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])]
@@ -168,10 +175,18 @@
              :improvement-id :improvement/id
              :offer-type :offer/type
              :offer-amount :offer/amount}
-    #_#_:conditions
-    (fn [{:keys [user-id improvement-id offer-type offer-amount]}]
-      ;; TODO
-      )
+    :conditions
+    (fn [{:keys [user-id improvement-id offer-type]}]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :improvement/id improvement-id)]
+       [#(s/owns? user-id [:improvement/id improvement-id])]
+       ;; offer-type is allowed for this improvement
+       [#(->> (schema/blueprints (:improvement/type
+                                   (s/by-id [:improvement/id improvement-id]
+                                            [:improvement/type])))
+              :blueprint/offerables
+              (some (fn [offerable]
+                        (= (:offerable/id offerable) offer-type))))]])
     :effect
     (fn [{:keys [improvement-id offer-type offer-amount]}]
       (db/transact!
