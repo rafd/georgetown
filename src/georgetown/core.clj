@@ -13,7 +13,7 @@
   (push/initialize!)
   nil)
 
-(defn -main [_]
+(defn -main []
   (start!))
 
 #_(start!)
