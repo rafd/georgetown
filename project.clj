@@ -3,7 +3,7 @@
   :dependencies [[org.clojure/clojure "1.11.0"]
                  [io.bloomventures/omni "0.34.0"]
                  [http-kit "2.8.0"]
-                 [io.bloomventures/commons "0.14.8"]
+                 [io.bloomventures/commons "0.14.11"]
                  [io.github.escherize/huff "0.2.12"]
                  [ring/ring-defaults "0.5.0"]
                  [com.hyperfiddle/rcf "20220926-202227"]

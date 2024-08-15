@@ -17,8 +17,8 @@
 
 (defn send!
   [{:keys [to subject body] :as email}]
-  (let [html (str (html/render {:allow-raw true}
-                               body))]
+  (let [html (html/render {:allow-raw true}
+                          body)]
     (if-let [email-creds (config/get :smtp-credentials)]
       (postal/send-message
         email-creds
