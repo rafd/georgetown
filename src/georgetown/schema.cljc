@@ -165,6 +165,7 @@
   {:entity/island
    {:island/id {:spec :uuid
                 :db/unique :db.unique/identity}
+    :island/seed {:spec :pos-int}
     :island/public-stats {}
     :island/population {:spec :pos-int}
     :island/government-money-balance {:spec :pos-int}
@@ -205,7 +206,10 @@
     :lot/x {:spec :pos-int}
     :lot/y {:spec :pos-int}
     :lot/deed {:rel/one :entity/deed}
-    :lot/improvement {:rel/one :entity/improvement}}
+    :lot/improvement {:rel/one :entity/improvement}
+    :lot/elevation {:spec :float} ;; 0 and 1
+    :lot/moisture {:spec :float} ;; 0 and 1
+    }
 
    :entity/deed
    {:deed/id {:spec :uuid

@@ -4,7 +4,8 @@
     [bloom.commons.pages :as pages]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]
-    [georgetown.ui.common :as ui]))
+    [georgetown.ui.common :as ui]
+    [georgetown.biome :as biome]))
 
 (def tile-size 4)
 
@@ -85,23 +86,18 @@
                              improvement (:lot/improvement lot)]]
                    ^{:key (:lot/x lot)}
                    [:a.lot
-                    {:tw "group shrink-0"
+                    {:tw "group shrink-0 relative"
                      :href (pages/path-for [:page/lot {:island-id (:island/id island)
                                                        :lot-id (:lot/id lot)}])
                      :style {:width (str tile-size "em")
                              :height (str tile-size "em")
-                             :background (cond
-                                           (pages/active?
-                                             [:page/lot {:island-id (:island/id island)
-                                                         :lot-id (:lot/id lot)}])
-                                           "#0c500c"
-                                           (even? (+ (:lot/x lot) (:lot/y lot)))
-                                           "#1e7607"
-                                           :else
-                                           "#0f6e12")
-                             #_#_:border-right "1px solid #009600"
-                             #_#_:border-bottom "1px solid #009600"
+                             :background (biome/color lot)
                              :color "white"}}
+                    (when (pages/active?
+                           [:page/lot {:island-id (:island/id island)
+                                       :lot-id (:lot/id lot)}])
+                      [:div.active-indicator
+                       {:tw "absolute inset-0 border-4 border-white-400 pointer-events-none opacity-50"}])
                     (when deed
                       [:div.deed
                        {:tw "h-full block relative"

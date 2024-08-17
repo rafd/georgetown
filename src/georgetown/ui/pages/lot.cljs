@@ -1,7 +1,6 @@
 (ns georgetown.ui.pages.lot
   (:require
     [reagent.core :as r]
-    [bloom.commons.fontawesome :as fa]
     [bloom.commons.debounce :as debounce]
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
@@ -104,7 +103,15 @@
                         (:resident/id @state/resident)))]
         ^{:key lot-id}
         [:div
-         [:div "Lot " (:lot/x lot) "," (:lot/y lot)]
+         [:div "Lot " (:lot/x lot) "," (:lot/y lot)
+          [:table
+           [:tbody
+            [:tr
+             [:td "Elevation"]
+             [:td (ui/format (:lot/elevation lot) 2)]]
+            [:tr
+             [:td "Moisture"]
+             [:td (ui/format (:lot/moisture lot) 2)]]]]]
          [block {:label "Deed"}
           (if deed
             [:div {:tw "bg-#c4ad97 text-#592510"}

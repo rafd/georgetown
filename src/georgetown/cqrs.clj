@@ -27,7 +27,13 @@
     :params {:user-id :any}
     :return
     (fn [_]
-      (s/all-of-type :island/id '[:island/id]))}
+      (s/all-of-type :island/id
+                     '[:island/id
+                       {:island/lots [:lot/x
+                                      :lot/y
+                                      :lot/elevation
+                                      :lot/moisture]}
+                       :island/residents]))}
 
    {:id :command/authenticate-user!
     :params [:map
@@ -62,6 +68,13 @@
         {:url (email/wrap-login {:user-id user-id
                                  :url url})}))
     :return :tada/effect-return}
+
+   {:id :command/create-island!
+    :params [:map
+             [:user-id {:optional true} [:maybe :uuid]]]
+    :effect
+    (fn [_]
+      (s/create-island!))}
 
    {:id :command/immigrate!
     :params {:user-id :user/id

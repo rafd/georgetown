@@ -3,6 +3,7 @@
     [clojure.string :as string]
     [bloom.commons.uuid :as uuid]
     [georgetown.db :as db]
+    [georgetown.island :as island]
     [datalevin.interpret :as di]))
 
 ;; register functions
@@ -38,19 +39,7 @@
 
 (defn create-island! []
   (db/transact!
-    [{:island/id (uuid/random)
-      :island/population 10
-      :island/government-money-balance 10000
-      :island/citizen-money-balance 0
-      :island/citizen-food-balance 0
-      :island/epoch 0
-      :island/joy 0
-      :island/lots
-      (for [x (range 20)
-            y (range 20)]
-        {:lot/id (uuid/random)
-         :lot/x x
-         :lot/y y})}]))
+    [(island/generate)]))
 
 (defn initialize! []
   (register-functions!))

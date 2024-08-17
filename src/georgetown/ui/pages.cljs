@@ -7,3 +7,6 @@
     [georgetown.ui.pages.finances]
     [georgetown.ui.pages.gazette]))
 
+(when js/goog.DEBUG
+  (require 'georgetown.ui.pages.debug))
+

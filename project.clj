@@ -1,5 +1,6 @@
 (defproject georgetown "0.0.1"
   :source-paths ["src"]
+  :java-source-paths ["java-src"]
   :dependencies [[org.clojure/clojure "1.11.0"]
                  [io.bloomventures/omni "0.34.0"]
                  [http-kit "2.8.0"]

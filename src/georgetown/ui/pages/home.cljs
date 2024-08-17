@@ -2,18 +2,25 @@
   (:require
     [reagent.core :as r]
     [bloom.commons.pages :as pages]
-    [georgetown.client.state :as state]))
+    [georgetown.ui.common :as ui]
+    [georgetown.client.state :as state]
+    [georgetown.ui.iso :as iso]))
 
 (defn islands-view []
-  (r/with-let [islands (state/exec-atom! :query/islands {})]
-    [:div
-     "Islands:"
+  (r/with-let
+   [islands (state/exec-atom! :query/islands {})]
+   [:div {:tw "flex flex-wrap gap-4"}
      (for [island @islands]
        ^{:key (:island/id island)}
        [:a
-        {:tw "underline block"
+        {:tw "block relative"
          :href (pages/path-for [:page/island {:island-id (:island/id island)}])}
-        (str (:island/id island))])]))
+        [iso/iso-view island]
+        [:div {:tw "absolute top-0 right-0"}
+         (count (:island/residents island))
+         "👑"]
+        [:div {:tw "absolute bottom-0 right-0"}
+         (apply str (drop 30 (str (:island/id island))))]])]))
 
 (defn view []
   [:div
@@ -28,8 +35,15 @@
                                                               :href "https://discord.gg/FdPus82t4b"} "on the Discord"]]
    [:p "If you're curious, check out " [:a {:tw "underline"
                                             :href "https://github.com/rafd/georgetown"} "the source"] "."]
-   [:p "Click on an island below to play (currently, just one island):"]
-   [islands-view]])
+   [:p "Click on an island below to play:"]
+   [islands-view]
+
+   [ui/button
+    {:on-click (fn []
+                 (-> (state/exec! :command/create-island! {})
+                     (.then (fn []
+                              (js/window.location.reload)))))}
+    "🌋 Spawn a new island"]])
 
 (pages/register-page!
   {:page/id :page/home

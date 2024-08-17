@@ -22,6 +22,7 @@ It is not about amassing the most cash (try it - it will lead to an economics co
 
 - Lots
   - an island has lots
+  - lots have various properties (humidity, temperature)
   - lots can be owned or unowned
   - a player can purchase a unowned lot (by paying an ongoing tax, whose rate is self-decided)
   - a player can purchase an owned lot, by paying a higher tax than the current owner (plus the cost of existing improvements on that lot, which go to the current owner)

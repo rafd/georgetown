@@ -26,6 +26,8 @@
                   [:lot/id
                    :lot/x
                    :lot/y
+                   :lot/elevation
+                   :lot/moisture
                    {:lot/deed
                     [:deed/id
                      :deed/rate
