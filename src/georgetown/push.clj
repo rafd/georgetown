@@ -119,17 +119,16 @@
                                   (map (fn [[user-id island-id]] (resident-state user-id island-id)) user-island-ids)))]
     (->> s
          (pmap (fn [[session-id {:sub/keys [user-id island-id channel]}]]
-                 (when channel
-                   (http/send! channel
-                               ;; async channels skip middleware (?)
-                               ;; so have to reapply encoding
-                               {:status 200
-                                :headers {"Content-Type" "application/transit+json; charset=utf-8"}
-                                :body
-                                (m/encode encoder "application/transit+json"
-                                          {:client-state/island (island-states island-id)
-                                           :client-state/user (user-states user-id)
-                                           :client-state/resident (resident-states [user-id island-id])})}))))
+                 (http/send! channel
+                             ;; async channels skip middleware (?)
+                             ;; so have to reapply encoding
+                             {:status 200
+                              :headers {"Content-Type" "application/transit+json; charset=utf-8"}
+                              :body
+                              (m/encode encoder "application/transit+json"
+                                        {:client-state/island (island-states island-id)
+                                         :client-state/user (user-states user-id)
+                                         :client-state/resident (resident-states [user-id island-id])})})))
          doall)))
 
 (defn initialize!
