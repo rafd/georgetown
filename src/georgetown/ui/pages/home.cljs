@@ -17,4 +17,6 @@
 (pages/register-page!
   {:page/id :page/home
    :page/view #'view
-   :page/path "/"})
+   :page/path "/"
+   :page/on-enter! (fn [_]
+                     (state/set-island-id! nil))})
