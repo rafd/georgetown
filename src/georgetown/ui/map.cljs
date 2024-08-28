@@ -76,7 +76,9 @@
                       (:deed/rate deed)]
                      (when improvement
                        [:div.improvement
-                        [:div.icon {:style {:font-size (str (/ tile-size 2) "em")
+                        [:div.icon {:tw (when-not (:improvement/active? improvement)
+                                         "saturate-0")
+                                    :style {:font-size (str (/ tile-size 2) "em")
                                             :text-align "center"
                                             :pointer-events "none"
                                             :line-height (str (/ tile-size 2) "em")}}

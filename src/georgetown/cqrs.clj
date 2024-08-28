@@ -150,7 +150,8 @@
         [{:lot/id lot-id
           :lot/improvement
           {:improvement/id (uuid/random)
-           :improvement/type improvement-type}}
+           :improvement/type improvement-type
+           :improvement/active? true}}
          [:fn/withdraw
           (s/->resident-id user-id [:lot/id lot-id])
           (:blueprint/price (schema/blueprints improvement-type))]]))}

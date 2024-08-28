@@ -29,44 +29,43 @@
     {:sim.in/population (:island/population island)
      :sim.in/government-money-balance (:island/government-money-balance island)
      :sim.in/tenders
-     (let [->offerable (->> schema/blueprints
-                            vals
-                            (mapcat :blueprint/offerables)
-                            (schema/key-by :offerable/id))]
-       (->> (db/q '[:find [(pull ?offer [*]) ...]
-                    :in $ ?island-id
-                    :where
-                    [?island :island/id ?island-id]
-                    [?island :island/lots ?lot]
-                    [?lot :lot/improvement ?improvement]
-                    [?improvement :improvement/offers ?offer]]
-                  island-id)
-            (filter :offer/amount)
-            (map (fn [offer]
-                   (assoc offer
-                     ::resident-id
-                     (db/q '[:find ?resident-id .
-                             :in $ ?offer-id
-                             :where
-                             [?offer :offer/id ?offer-id]
-                             [?improvement :improvement/offers ?offer]
-                             [?lot :lot/improvement ?improvement]
-                             [?lot :lot/deed ?deed]
-                             [?resident :resident/deeds ?deed]
-                             [?resident :resident/id ?resident-id]]
-                           (:offer/id offer)))))
-            (map (fn [offer]
-                   (let [offerable (->offerable (:offer/type offer))]
-                     {:tender/resident-id (::resident-id offer)
-                      :tender/supply [(:offerable/supply-unit offerable)
-                                      (or (:offerable/supply-amount offerable)
-                                          (:offer/amount offer))]
-                      :tender/demand [(:offerable/demand-unit offerable)
-                                      (or (:offerable/demand-amount offerable)
-                                          (:offer/amount offer))]})))))}))
-
-
-;; TODO handle oversupply - some suppliers don't get paid (and their stuff won't operate)
+     (->> (db/q '[:find [(pull ?offer [*
+                                       {:improvement/_offers [:improvement/active?]}]) ...]
+                  :in $ ?island-id
+                  :where
+                  [?island :island/id ?island-id]
+                  [?island :island/lots ?lot]
+                  [?lot :lot/improvement ?improvement]
+                  [?improvement :improvement/offers ?offer]]
+                island-id)
+          (filter :offer/amount)
+          (map (fn [offer]
+                 (assoc offer
+                   ::resident-id
+                   (db/q '[:find ?resident-id .
+                           :in $ ?offer-id
+                           :where
+                           [?offer :offer/id ?offer-id]
+                           [?improvement :improvement/offers ?offer]
+                           [?lot :lot/improvement ?improvement]
+                           [?lot :lot/deed ?deed]
+                           [?resident :resident/deeds ?deed]
+                           [?resident :resident/id ?resident-id]]
+                         (:offer/id offer)))))
+          (map (fn [offer]
+                 (let [offerable (schema/offerables (:offer/type offer))]
+                   {:tender/resident-id (::resident-id offer)
+                    ;; only keep offers where the improvement is active?
+                    ;; (except ones that are prerequisite)
+                    :tender/active? (or (:offerable/prerequisite? (schema/offerables (:offer/type offer)))
+                                        (-> offer :improvement/_offers :improvement/active?))
+                    :tender/offer-id (:offer/id offer)
+                    :tender/supply [(:offerable/supply-unit offerable)
+                                    (or (:offerable/supply-amount offerable)
+                                        (:offer/amount offer))]
+                    :tender/demand [(:offerable/demand-unit offerable)
+                                    (or (:offerable/demand-amount offerable)
+                                        (:offer/amount offer))]}))))}))
 
 #_(tick-all!)
 
@@ -104,16 +103,15 @@
          food-supplied :market/amount-supplied
          food-cost :market/total-cost
          food-succesful-tenders :market/succesful-tenders}
-        (m/market :resource/food food-demand :resource/money tenders)
+        (m/market :resource/food food-demand :resource/money (filter :tender/active? tenders))
         ;; SHELTER
         shelter-demand population
         {shelter-market-price :market/clearing-unit-price
          shelter-supplied :market/amount-supplied
          shelter-cost :market/total-cost
          shelter-succesful-tenders :market/succesful-tenders}
-        (m/market :resource/shelter shelter-demand :resource/money tenders)
+        (m/market :resource/shelter shelter-demand :resource/money (filter :tender/active? tenders))
         ;; MONEY
-        ;; int, b/c of weird transit encoding bug (?)
         raw-money-demand (Math/ceil (+ shelter-cost food-cost))
         ;; government redistributes up to 80% of its tax revenues
         citizens-dividend (min raw-money-demand
@@ -130,8 +128,9 @@
          money-supplied :market/amount-supplied
          money-cost :market/total-cost
          money-succesful-tenders :market/succesful-tenders}
-        (m/market :resource/money money-demand :resource/labour tenders)
+        (m/market :resource/money money-demand :resource/labour (filter :tender/active? tenders))
 
+        ;; LABOUR
         potential-labour-demand (->> tenders
                                      (keep
                                        (fn [tender]
@@ -142,6 +141,8 @@
         potential-labour-supply (* max-labour-supply-per-person-per-week population)
         labour-supplied (min potential-labour-supply
                              money-cost)
+
+        ;; POPULATION
         joy (/ (- potential-labour-supply
                   labour-supplied)
                potential-labour-supply)
@@ -198,9 +199,9 @@
                               (fn [tender]
                                 (= (first (:tender/supply tender)) :resource/money))))
                        :succesful-tenders money-succesful-tenders}
-      :resource/labour {:demand potential-labour-demand
-                        :available-supply potential-labour-supply
-                        :supply labour-supplied
+      :resource/labour {:demand (int potential-labour-demand)
+                        :available-supply (int potential-labour-supply)
+                        :supply (int labour-supplied)
                         :price nil}}
      :sim.out/joy joy
      :sim.out/population new-population}))
@@ -255,19 +256,52 @@
 (defn tick!
   [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))
+        ;; resident money
         resident-balances (balances island-id)
         resident-incomes (incomes result)
         resident-taxes (taxes island-id)
         new-resident-balances (merge-with (fnil + 0)
-                                 resident-balances
-                                 resident-incomes
-                                 resident-taxes)
+                                          resident-balances
+                                          resident-incomes
+                                          resident-taxes)
+        ;; government money
         government-balance (government-balance island-id)
         government-expenses (- (:sim.out/citizens-dividend result))
         government-revenues (- (apply + (vals resident-taxes)))
         new-government-balance (+ government-balance
                                   government-revenues
-                                  government-expenses)]
+                                  government-expenses)
+        ;; activate/de-activate improvements
+        ;; for each improvement, check if prerequisite offers were succesfull
+        improvement-types-with-prerequisites (->> schema/blueprints
+                                                  vals
+                                                  (filter (fn [blueprint]
+                                                            (some :offerable/prerequisite? (:blueprint/offerables blueprint))))
+                                                  (map :blueprint/id))
+        improvements-with-prerequisites (db/q '[:find [(pull ?improvement [*]) ...]
+                                                :in $ ?island-id ?improvement-types
+                                                :where
+                                                [(identity ?improvement-types) [?improvement-type ...]]
+                                                [?island :island/id ?island-id]
+                                                [?island :island/lots ?lot]
+                                                [?lot :lot/improvement ?improvement]
+                                                [?improvement :improvement/type ?improvement-type]]
+                                              island-id
+                                              improvement-types-with-prerequisites)
+        succesful-offers (->> [:resource/shelter :resource/food :resource/money]
+                              (mapcat (fn [resource]
+                                        (->> result :sim.out/resources resource :succesful-tenders (map :tender/offer-id))))
+                              set)
+        improvements-grouped-by-status (->> improvements-with-prerequisites
+                                            (group-by (fn [improvement]
+                                                        (if (->> improvement
+                                                                 :improvement/offers
+                                                                 (filter (fn [offer]
+                                                                           (:offerable/prerequisite? (schema/offerables (:offer/type offer)))))
+                                                                 (map :offer/id)
+                                                                 (every? succesful-offers))
+                                                          ::active
+                                                          ::inactive))))]
     (db/transact!
       (concat
         [[:db/add [:island/id island-id]
@@ -278,7 +312,11 @@
           :island/government-money-balance new-government-balance]]
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
-           :resident/money-balance balance])))))
+           :resident/money-balance balance])
+        (for [improvement (::active improvements-grouped-by-status)]
+          [:db/add [:improvement/id (:improvement/id improvement)] :improvement/active? true])
+        (for [improvement (::inactive improvements-grouped-by-status)]
+          [:db/add [:improvement/id (:improvement/id improvement)] :improvement/active? false])))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]

@@ -30,7 +30,8 @@
                         [:user/id]}]}]}
                    {:lot/improvement
                     [:improvement/id
-                     :improvement/type]}]}]) .
+                     :improvement/type
+                     :improvement/active?]}]}]) .
           :in $ ?island-id
           :where
           [?island :island/id ?island-id]]
@@ -68,7 +69,7 @@
           user-id
           island-id)))
 
-;; map of user-id -> channel
+;; map of session-id -> {:sub/channel ... :sub/user-id ... :sub/island-id ...}
 (defonce subscriptions (atom {}))
 #_(reset! subscriptions {})
 #_(deref subscriptions)

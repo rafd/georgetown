@@ -64,7 +64,9 @@
            :offerable/supply-unit :resource/money
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour
-           :offerable/demand-amount 100}]}]
+           :offerable/demand-amount 100
+           :offerable/prerequisite? true
+           }]}]
        (key-by :blueprint/id)))
 
 (def offerables
@@ -118,7 +120,10 @@
     :improvement/type {:spec (into [:enum]
                                    (keys blueprints))
                        :db/valueType :db.type/keyword}
-    :improvement/offers {:rel/many :entity/offer}}
+    :improvement/offers {:rel/many :entity/offer}
+    ;; an improvement may require inputs (such as labour)
+    ;; that may be unmet, disabling it until they are met
+    :improvement/active? {:spec :boolean}}
 
    :entity/offer
    {:offer/id {:spec [:vec :uuid :keyword]
@@ -126,7 +131,9 @@
     :offer/type {:spec (into [:enum]
                              (keys offerables))
                  :db/valueType :db.type/keyword}
-    :offer/amount {:spec :pos-int}}})
+    :offer/amount {:spec :pos-int}
+    ;; "was this offer successful last tick?"
+    :offer/succesful? {:spec :boolean}}})
 
 (mr/set-default-registry!
   (merge (mr/schemas m/default-registry)
