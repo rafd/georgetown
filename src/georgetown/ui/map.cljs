@@ -33,7 +33,7 @@
              :title "gazette"}
          "📈"]]
        (when @state/resident
-         [:div {:tw "absolute bottom-0 left-0"}
+         [:div {:tw "absolute bottom-0 left-0 z-100"}
           [resident-view]])
        [:div {:style {:width (str (* lot-count-width tile-size) "em")
                       :height (str (* lot-count-height tile-size) "em")}}
