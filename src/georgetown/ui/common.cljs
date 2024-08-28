@@ -9,7 +9,7 @@
      (:resource/icon resource)]))
 
 (defn resource-amount [amount & resource-ids]
-  [:div {:tw "flex items-center gap-1"}
+  [:div {:tw "inline-flex items-center gap-1"}
    [:span {:tw "tabular-nums"
            :style {:font-size "0.65em"}}
     (if amount

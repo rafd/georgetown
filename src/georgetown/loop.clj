@@ -9,14 +9,25 @@
   (:import
     [java.time Instant Duration]))
 
+(defn government-balance
+  [island-id]
+  (db/q '[:find ?balance .
+          :in $ ?island-id
+          :where
+          [?island :island/id ?island-id]
+          [?island :island/government-money-balance ?balance]]
+        island-id))
+
 (defn extract-data-for-simulation
   [island-id]
-  (let [island (db/q '[:find (pull ?island [:island/population]) .
+  (let [island (db/q '[:find (pull ?island [:island/population
+                                            :island/government-money-balance]) .
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
                      island-id)]
     {:sim.in/population (:island/population island)
+     :sim.in/government-money-balance (:island/government-money-balance island)
      :sim.in/tenders
      (let [->offerable (->> schema/blueprints
                             vals
@@ -65,7 +76,7 @@
 (def max-labour-supply-per-person-per-week (* 7 15)) ;; 1 labour ~= 1 hour
 
 (defn simulate
-  [{:sim.in/keys [population tenders]}]
+  [{:sim.in/keys [population tenders government-money-balance]}]
   (let [potential-food-supply (->> tenders
                                    (keep
                                      (fn [tender]
@@ -103,7 +114,11 @@
         (m/market :resource/shelter shelter-demand :resource/money tenders)
         ;; MONEY
         ;; int, b/c of weird transit encoding bug (?)
-        money-demand (Math/ceil (+ shelter-cost food-cost))
+        raw-money-demand (Math/ceil (+ shelter-cost food-cost))
+        ;; government redistributes up to 80% of its tax revenues
+        citizens-dividend (min raw-money-demand
+                               (Math/ceil (* 0.8 government-money-balance)))
+        money-demand (- raw-money-demand citizens-dividend)
         potential-money-supply (->> tenders
                                     (keep
                                       (fn [tender]
@@ -150,6 +165,8 @@
         new-population (+ population population-decrease population-increase)]
 
     {:sim.out/max-supported-population max-supported-population
+     :sim.out/government-money-balance government-money-balance
+     :sim.out/citizens-dividend citizens-dividend
      :sim.out/resources
      {:resource/shelter {:demand shelter-demand
                          :available-supply potential-shelter-supply
@@ -241,15 +258,25 @@
         resident-balances (balances island-id)
         resident-incomes (incomes result)
         resident-taxes (taxes island-id)
-        new-balances (merge-with (fnil + 0)
+        new-resident-balances (merge-with (fnil + 0)
                                  resident-balances
                                  resident-incomes
-                                 resident-taxes)]
+                                 resident-taxes)
+        government-balance (government-balance island-id)
+        government-expenses (- (:sim.out/citizens-dividend result))
+        government-revenues (- (apply + (vals resident-taxes)))
+        new-government-balance (+ government-balance
+                                  government-revenues
+                                  government-expenses)]
     (db/transact!
       (concat
-        [[:db/add [:island/id island-id] :island/population (:sim.out/population result)]
-         [:db/add [:island/id island-id] :island/simulator-stats result]]
-        (for [[resident-id balance] new-balances]
+        [[:db/add [:island/id island-id]
+          :island/population (:sim.out/population result)]
+         [:db/add [:island/id island-id]
+          :island/simulator-stats result]
+         [:db/add [:island/id island-id]
+          :island/government-money-balance new-government-balance]]
+        (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
            :resident/money-balance balance])))))
 

@@ -35,6 +35,7 @@ The primary motivation is to see how different policies (ex. [land value taxes](
     - sims require
        - 1 shelter per tick
        - 21 food per tick
+    - government redistributes up to 80% of it's tax revenues to sims (as a citizen's dividend)
     - sims seek food and shelter from markets
     - sims seek just enough work from markets to pay for their food and shelter
   - Population

@@ -81,6 +81,7 @@
    {:island/id {:spec :uuid
                 :db/unique :db.unique/identity}
     :island/population {:spec :pos-int}
+    :island/government-money-balance {:spec :pos-int}
     :island/residents {:rel/many :entity/resident}
     :island/lots {:rel/many :entity/lot}}
 
