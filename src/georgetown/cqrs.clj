@@ -24,7 +24,7 @@
 
    {:id :command/authenticate-user!
     :params [:map
-             [:user-id {:optional true} :uuid]
+             [:user-id {:optional true} [:maybe :uuid]]
              [:url {:optional true} :string]
              [:email :user/email]]
     :effect
