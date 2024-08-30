@@ -12,7 +12,7 @@
               (di/inter-fn
                 [db resident-id amount]
                 (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-                  (if (<=  amount (:resident/money-balance resident))
+                  (if (<= amount (:resident/money-balance resident))
                     [[:db/add (:db/id resident) :resident/money-balance
                       (- (:resident/money-balance resident) amount)]]
                     (throw (ex-info "Insuffient funds" {})))
