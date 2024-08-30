@@ -328,63 +328,6 @@
 
 #_(balances (:island/id (first (s/all-of-type :island/id '[:island/id]))))
 
-(defn demo-tick [s]
-  (let [c (simulate s)]
-    (-> s
-        (assoc :sim/population (:new-population c))
-        (update ::history (fnil conj []) (:population-growth c)))))
-
-#_(->> {:sim/population 100
-        :sim/tenders
-        [;; food for money
-         {:tender/supply [:resource/food 750]
-          :tender/demand [:resource/money 1000]
-          :tender/owner :a
-          :tender/id 1}
-         {:tender/supply [:resource/food 1500]
-          :tender/demand [:resource/money 1500]
-          :tender/owner :b
-          :tender/id 2}
-         {:tender/supply [:resource/food 1000]
-          :tender/demand [:resource/money 1750]
-          :tender/owner :c
-          :tender/id 3}
-         ;; shelter for money
-         {:tender/supply [:resource/shelter 250]
-          :tender/demand [:resource/money 2500]
-          :tender/owner :a
-          :tender/id 1}
-         {:tender/supply [:resource/shelter 250]
-          :tender/demand [:resource/money 5000]
-          :tender/owner :b
-          :tender/id 2}
-         {:tender/supply [:resource/shelter 250]
-          :tender/demand [:resource/money 7500]
-          :tender/owner :c
-          :tender/id 3}
-         ;; money for labour
-         {:tender/supply [:resource/money 10000]
-          :tender/demand [:resource/labour 500]
-          :tender/owner :a
-          :tender/id 1}
-         {:tender/supply [:resource/money 10000]
-          :tender/demand [:resource/labour 600]
-          :tender/owner :a
-          :tender/id 2}
-         {:tender/supply [:resource/money 10000]
-          :tender/demand [:resource/labour 700]
-          :tender/owner :b
-          :tender/id 3}
-         {:tender/supply [:resource/money 10000]
-          :tender/demand [:resource/labour 800]
-          :tender/owner :c
-          :tender/id 4}]}
-       demo-tick
-       demo-tick
-       demo-tick
-       demo-tick
-       demo-tick)
-
 (defonce scheduler (atom nil))
 
 (defn initialize!
