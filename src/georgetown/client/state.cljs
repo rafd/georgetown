@@ -66,7 +66,7 @@
                                   (when (nil? @island)
                                     {:force true}))
                    :on-error (fn [_]
-                               (js/setTimeout get-island-state 1000))
+                               (js/setTimeout get-island-state 10000))
                    :on-success (fn [client-state]
                                  (reset! user (:client-state/user client-state))
                                  (reset! resident (:client-state/resident client-state))
