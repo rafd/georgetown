@@ -26,7 +26,8 @@
                                (map (fn [tender]
                                       (* (get-in tender [:tender/supply 1])
                                          (::price tender))))
-                               (reduce +))}
+                               (reduce +))
+       :market/succesful-tenders (map (fn [tender] (dissoc tender ::price)) tenders)}
       (->> tenders
            (reduce (fn [memo tender]
                      (let [remaining (- demand-amount
