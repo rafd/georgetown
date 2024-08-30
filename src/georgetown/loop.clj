@@ -102,14 +102,14 @@
         {food-market-price :market/clearing-unit-price
          food-supplied :market/amount-supplied
          food-cost :market/total-cost
-         food-succesful-tenders :market/succesful-tenders}
+         food-successful-tenders :market/successful-tenders}
         (m/market :resource/food food-demand :resource/money (filter :tender/active? tenders))
         ;; SHELTER
         shelter-demand population
         {shelter-market-price :market/clearing-unit-price
          shelter-supplied :market/amount-supplied
          shelter-cost :market/total-cost
-         shelter-succesful-tenders :market/succesful-tenders}
+         shelter-successful-tenders :market/successful-tenders}
         (m/market :resource/shelter shelter-demand :resource/money (filter :tender/active? tenders))
         ;; MONEY
         raw-money-demand (Math/ceil (+ shelter-cost food-cost))
@@ -127,7 +127,7 @@
         {money-market-price :market/clearing-unit-price
          money-supplied :market/amount-supplied
          money-cost :market/total-cost
-         money-succesful-tenders :market/succesful-tenders}
+         money-successful-tenders :market/successful-tenders}
         (m/market :resource/money money-demand :resource/labour (filter :tender/active? tenders))
 
         ;; LABOUR
@@ -178,7 +178,7 @@
                               (filter
                                 (fn [tender]
                                   (= (first (:tender/supply tender)) :resource/shelter))))
-                         :succesful-tenders shelter-succesful-tenders}
+                         :successful-tenders shelter-successful-tenders}
       :resource/food {:demand food-demand
                       :available-supply potential-food-supply
                       :supply food-supplied
@@ -188,7 +188,7 @@
                            (filter
                              (fn [tender]
                                (= (first (:tender/supply tender)) :resource/food))))
-                      :succesful-tenders food-succesful-tenders}
+                      :successful-tenders food-successful-tenders}
       :resource/money {:demand money-demand
                        :available-supply potential-money-supply
                        :supply money-supplied
@@ -198,7 +198,7 @@
                             (filter
                               (fn [tender]
                                 (= (first (:tender/supply tender)) :resource/money))))
-                       :succesful-tenders money-succesful-tenders}
+                       :successful-tenders money-successful-tenders}
       :resource/labour {:demand (int potential-labour-demand)
                         :available-supply (int potential-labour-supply)
                         :supply (int labour-supplied)
@@ -288,9 +288,9 @@
                                                 [?improvement :improvement/type ?improvement-type]]
                                               island-id
                                               improvement-types-with-prerequisites)
-        succesful-offers (->> [:resource/shelter :resource/food :resource/money]
+        successful-offers (->> [:resource/shelter :resource/food :resource/money]
                               (mapcat (fn [resource]
-                                        (->> result :sim.out/resources resource :succesful-tenders (map :tender/offer-id))))
+                                        (->> result :sim.out/resources resource :successful-tenders (map :tender/offer-id))))
                               set)
         improvements-grouped-by-status (->> improvements-with-prerequisites
                                             (group-by (fn [improvement]
@@ -299,7 +299,7 @@
                                                                  (filter (fn [offer]
                                                                            (:offerable/prerequisite? (schema/offerables (:offer/type offer)))))
                                                                  (map :offer/id)
-                                                                 (every? succesful-offers))
+                                                                 (every? successful-offers))
                                                           ::active
                                                           ::inactive))))]
     (db/transact!

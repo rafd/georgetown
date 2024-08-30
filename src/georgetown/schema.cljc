@@ -131,9 +131,7 @@
     :offer/type {:spec (into [:enum]
                              (keys offerables))
                  :db/valueType :db.type/keyword}
-    :offer/amount {:spec :pos-int}
-    ;; "was this offer successful last tick?"
-    :offer/succesful? {:spec :boolean}}})
+    :offer/amount {:spec :pos-int}}})
 
 (mr/set-default-registry!
   (merge (mr/schemas m/default-registry)

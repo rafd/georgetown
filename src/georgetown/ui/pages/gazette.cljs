@@ -42,10 +42,10 @@
              :tw "absolute top-0 h-1em left-0 bottom-0 bg-#0000ff55"}])]])
 
 (defn market-graph-view
-  [demand tenders succesful-tenders]
+  [demand tenders successful-tenders]
   (let [width 100
         height 20
-        succesful-tenders (set succesful-tenders)
+        successful-tenders (set successful-tenders)
         tenders (->> tenders
                      (map (fn [tender]
                             (-> tender
@@ -53,7 +53,7 @@
                                   (/ (get-in tender [:tender/demand 1])
                                      (get-in tender [:tender/supply 1])))
                                 (assoc :tender/success?
-                                  (contains? succesful-tenders tender)))))
+                                  (contains? successful-tenders tender)))))
                      (sort-by :tender/price)
                      (sort-by (complement :tender/active?)))
         x-range (->> tenders

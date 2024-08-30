@@ -27,7 +27,7 @@
                                       (* (get-in tender [:tender/supply 1])
                                          (::price tender))))
                                (reduce +))
-       :market/succesful-tenders (map (fn [tender] (dissoc tender ::price)) tenders)}
+       :market/successful-tenders (map (fn [tender] (dissoc tender ::price)) tenders)}
       (->> tenders
            (reduce (fn [memo tender]
                      (let [remaining (- demand-amount
@@ -39,21 +39,21 @@
                          (reduced {:market/clearing-unit-price (::price tender)
                                    :market/amount-supplied demand-amount
                                    ;; TODO handle partial tender success
-                                   :market/succesful-tenders (conj (::succesful-tenders memo)
+                                   :market/successful-tenders (conj (::successful-tenders memo)
                                                                    (dissoc tender ::price))
                                    :market/total-cost (+ (::total-cost memo)
                                                          (* (- demand-amount (::amount-supplied memo))
                                                             (::price tender)))})
                          (pos? remaining)
                          (-> memo
-                             (update ::succesful-tenders conj (dissoc tender ::price))
+                             (update ::successful-tenders conj (dissoc tender ::price))
                              (update ::amount-supplied
                                      + (get-in tender [:tender/supply 1]))
                              (update ::total-cost
                                      + (* (get-in tender [:tender/supply 1])
                                           (::price tender)))))))
                    {::amount-supplied 0
-                    ::succesful-tenders []
+                    ::successful-tenders []
                     ::total-cost 0})))))
 
 (defn market-price
