@@ -78,7 +78,8 @@
                             :deed/rate
                             {:resident/_deeds [:resident/id]}]}])]
         (if-let [deed (:lot/deed lot)]
-          (let [refund-amount (:blueprint/price (schema/blueprints (:improvement/type (:lot/improvement lot))))]
+          (let [refund-amount (or (:blueprint/price (schema/blueprints (:improvement/type (:lot/improvement lot))))
+                                  0)]
             (db/transact!
               [;; refund previous owner
                [:fn/deposit (:resident/id (:resident/_deeds deed)) refund-amount]
