@@ -118,7 +118,7 @@
               ((event :return) (assoc sanitized-params
                                       :tada/effect-return effect-return))
               nil))
-          (throw (ex-info (str "Condition for event " event-id " is not met:\n"
+          (throw (ex-info (str "Condition " (:index error) " for event " event-id " is not met:\n"
                                (:message error))
                           {:error error
                            :anomaly :incorrect}))))
