@@ -45,7 +45,7 @@
   [demand tenders successful-tenders]
   (let [width 100
         height 20
-        successful-tenders (set successful-tenders)
+        successful-tender-offer-ids (set (map :tender/offer-id successful-tenders))
         tenders (->> tenders
                      (map (fn [tender]
                             (-> tender
@@ -53,7 +53,8 @@
                                   (/ (get-in tender [:tender/demand 1])
                                      (get-in tender [:tender/supply 1])))
                                 (assoc :tender/success?
-                                  (contains? successful-tenders tender)))))
+                                  (contains? successful-tender-offer-ids
+                                             (:tender/offer-id tender))))))
                      (sort-by :tender/price)
                      (sort-by (complement :tender/active?)))
         x-range (->> tenders
