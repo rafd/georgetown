@@ -113,6 +113,9 @@
         citizen-money-balance (* (- 1 (/ population-emigration population))
                                  citizen-money-balance)
         population (- population population-emigration)
+        ;; don't let population go to 0, or there's no going back
+        ;; (also, code below explodes)
+        population (max 1 population)
 
         ;; FOOD
         food-demand (* food-demand-per-person-per-week population)
