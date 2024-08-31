@@ -14,6 +14,7 @@
                 [:island/id
                  :island/population
                  :island/government-money-balance
+                 :island/citizen-money-balance
                  :island/simulator-stats
                  {:island/residents
                   [:resident/id]}

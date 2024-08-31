@@ -35,12 +35,13 @@ The primary motivation is to see how different policies (ex. [land value taxes](
     - sims require
        - 1 shelter per tick
        - 21 food per tick
-    - government redistributes up to 80% of it's tax revenues to sims (as a citizen's dividend)
+    - government redistributes its tax revenues to sims (as a citizen's dividend)
+    - sims have savings
     - sims seek food and shelter from markets
-    - sims seek just enough work from markets to pay for their food and shelter
+    - sim will work to meet their needs for food and shelter (with savings to cover future needs)
   - Population
     - sims have a fixed chance of dying
-    - new sims arrive if there is capacity (and faster if there is more joy)
+    - new sims arrive if there is capacity (and faster if there is more time spent on leisure)
     - sims will leave if there is insufficient capacity
     (food or shelter)
   - Markets

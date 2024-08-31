@@ -37,6 +37,10 @@
          :blueprint/icon "🏠"
          :blueprint/description "Provides shelter"
          :blueprint/price 100
+         :blueprint/io
+         [{:io/direction :io.direction/output
+           :io/resource :resource/shelter
+           :io/amount 2}]
          :blueprint/offerables
          [{:offerable/id :offer/house.rental
            :offerable/label "Rental"
@@ -50,11 +54,18 @@
          :blueprint/icon "🌽"
          :blueprint/description "Produces food"
          :blueprint/price 100
+         :blueprint/io
+         [{:io/direction :io.direction/output
+           :io/resource :resource/food
+           :io/amount 100}
+          {:io/direction :io.direction/input
+           :io/resource :resource/labour
+           :io/amount 100}]
          :blueprint/offerables
          [{:offerable/id :offer/farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 50
+           :offerable/supply-amount 100
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
@@ -84,6 +95,7 @@
                 :db/unique :db.unique/identity}
     :island/population {:spec :pos-int}
     :island/government-money-balance {:spec :pos-int}
+    :island/citizen-money-balance {:spec :pos-int}
     :island/residents {:rel/many :entity/resident}
     :island/lots {:rel/many :entity/lot}}
 

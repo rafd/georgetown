@@ -19,24 +19,29 @@
         (exec! :command/immigrate!
                {:user-id user-id
                 :island-id island-id})
-        (doseq [[index improvement-type offers] [[0 :improvement.type/house {:offer/house.rental 100}]
-                                                 [1 :improvement.type/house {:offer/house.rental 150}]
-                                                 [2 :improvement.type/house {:offer/house.rental 200}]
-                                                 [3 :improvement.type/house {:offer/house.rental 250}]
-                                                 [4 :improvement.type/farm {:offer/farm.job 100
-                                                                             :offer/farm.food 10}]
-                                                 [5 :improvement.type/farm {:offer/farm.job 200
-                                                                             :offer/farm.food 20}]
-                                                 [6 :improvement.type/farm {:offer/farm.job 300
-                                                                             :offer/farm.food 30}]
-                                                 [7 :improvement.type/farm {:offer/farm.job 400
-                                                                             :offer/farm.food 40}]
-                                                 [8]
-                                                 [9]]]
-          (let [lot-id (get-in lots [(+ (* user-index 10) index) :lot/id])]
+        (doseq [[index improvement-type offers]
+                [[0 :improvement.type/house {:offer/house.rental 50}]
+                 [1 :improvement.type/house {:offer/house.rental 60}]
+                 [2 :improvement.type/house {:offer/house.rental 70}]
+                 [3 :improvement.type/house {:offer/house.rental 80}]
+                 [4 :improvement.type/farm {:offer/farm.job 100
+                                            :offer/farm.food 105}]
+                 [5 :improvement.type/farm {:offer/farm.job 200
+                                            :offer/farm.food 205}]
+                 [6 :improvement.type/farm {:offer/farm.job 300
+                                            :offer/farm.food 305}]
+                 [7 :improvement.type/farm {:offer/farm.job 400
+                                            :offer/farm.food 405}]
+                 [8]
+                 [9]]]
+          (let [lot-id (get-in lots [(+ (* user-index 20) index) :lot/id])]
             (exec! :command/buy-lot!
                    {:user-id user-id
                     :lot-id lot-id})
+            (exec! :command/change-rate!
+                   {:user-id user-id
+                    :lot-id lot-id
+                    :rate 30})
             (when improvement-type
               (exec! :command/build!
                      {:user-id user-id

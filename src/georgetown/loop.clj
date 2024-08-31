@@ -9,25 +9,16 @@
   (:import
     [java.time Instant Duration]))
 
-(defn government-balance
-  [island-id]
-  (db/q '[:find ?balance .
-          :in $ ?island-id
-          :where
-          [?island :island/id ?island-id]
-          [?island :island/government-money-balance ?balance]]
-        island-id))
-
 (defn extract-data-for-simulation
   [island-id]
   (let [island (db/q '[:find (pull ?island [:island/population
-                                            :island/government-money-balance]) .
+                                            :island/citizen-money-balance]) .
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
                      island-id)]
     {:sim.in/population (:island/population island)
-     :sim.in/government-money-balance (:island/government-money-balance island)
+     :sim.in/citizen-money-balance (:island/citizen-money-balance island)
      :sim.in/tenders
      (->> (db/q '[:find [(pull ?offer [*
                                        {:improvement/_offers [:improvement/active?]}]) ...]
@@ -70,13 +61,19 @@
 #_(tick-all!)
 
 ;; 1 tick ~= 1 week
+(def ticks-of-savings 20)
 (def food-demand-per-person-per-week 21) ;; 1 food ~= meals
 (def shelter-demand-per-person-per-week 1) ;; 1 shelter ~= 1 week of rent
 (def max-labour-supply-per-person-per-week (* 7 15)) ;; 1 labour ~= 1 hour
 
 (defn simulate
-  [{:sim.in/keys [population tenders government-money-balance]}]
-  (let [potential-food-supply (->> tenders
+  [{:sim.in/keys [population tenders citizen-money-balance]}]
+  (let [
+
+        ;; POPULATION
+        ;; if not enough shelter or food, population decreases to match
+        ;; do this before the markets are run
+        potential-food-supply (->> tenders
                                    (keep
                                      (fn [tender]
                                        (let [[resource amount] (:tender/supply tender)]
@@ -90,33 +87,53 @@
                                             (when (= resource :resource/shelter)
                                               amount))))
                                       (apply +))
-        ;; if not enough shelter or food, population decreases to match
-        max-supported-population (Math/floor
-                                   (min (/ potential-food-supply
-                                           food-demand-per-person-per-week)
-                                        (/ potential-shelter-supply
-                                           shelter-demand-per-person-per-week)))
-        population (max (min population max-supported-population) 1)
+        ;; some food supply didn't have enough labour last turn
+        active-food-supply (->> tenders
+                                (filter :tender/active?)
+                                (keep
+                                  (fn [tender]
+                                    (let [[resource amount] (:tender/supply tender)]
+                                      (when (= resource :resource/food)
+                                        amount))))
+                                (apply +))
+        potential-supported-population (Math/floor
+                                         (min (/ potential-food-supply
+                                                 food-demand-per-person-per-week)
+                                              (/ potential-shelter-supply
+                                                 shelter-demand-per-person-per-week)))
+        supported-population (Math/floor
+                               (min (/ active-food-supply
+                                       food-demand-per-person-per-week)
+                                    (/ potential-shelter-supply
+                                       shelter-demand-per-person-per-week)))
+        population-emigration (if (< population supported-population)
+                                0
+                                (- population supported-population))
+        ;; emigrating citizens take a fraction of the money with them
+        citizen-money-balance (* (- 1 (/ population-emigration population))
+                                 citizen-money-balance)
+        population (- population population-emigration)
+
         ;; FOOD
-        food-demand (* 21 population)
-        {food-market-price :market/clearing-unit-price
+        food-demand (* food-demand-per-person-per-week population)
+        {food-market-clearing-price :market/clearing-unit-price
          food-supplied :market/amount-supplied
          food-cost :market/total-cost
          food-successful-tenders :market/successful-tenders}
         (m/market :resource/food food-demand :resource/money (filter :tender/active? tenders))
+
         ;; SHELTER
-        shelter-demand population
-        {shelter-market-price :market/clearing-unit-price
+        shelter-demand (* shelter-demand-per-person-per-week population)
+        {shelter-market-clearing-price :market/clearing-unit-price
          shelter-supplied :market/amount-supplied
          shelter-cost :market/total-cost
          shelter-successful-tenders :market/successful-tenders}
         (m/market :resource/shelter shelter-demand :resource/money (filter :tender/active? tenders))
+
         ;; MONEY
-        raw-money-demand (Math/ceil (+ shelter-cost food-cost))
-        ;; government redistributes up to 80% of its tax revenues
-        citizens-dividend (min raw-money-demand
-                               (Math/ceil (* 0.8 government-money-balance)))
-        money-demand (- raw-money-demand citizens-dividend)
+        ;; citizens will work to save up shelter and food
+        savings-goal (Math/ceil (* ticks-of-savings (+ shelter-cost food-cost)))
+        money-demand (max 0 (- savings-goal citizen-money-balance))
         potential-money-supply (->> tenders
                                     (keep
                                       (fn [tender]
@@ -124,11 +141,12 @@
                                           (when (= resource :resource/money)
                                             amount))))
                                     (apply +))
-        {money-market-price :market/clearing-unit-price
+        {money-market-clearing-price :market/clearing-unit-price
          money-supplied :market/amount-supplied
          money-cost :market/total-cost
          money-successful-tenders :market/successful-tenders}
         (m/market :resource/money money-demand :resource/labour (filter :tender/active? tenders))
+        money-cost (Math/ceil money-cost) ;; in terms of labour hours
 
         ;; LABOUR
         potential-labour-demand (->> tenders
@@ -142,137 +160,221 @@
         labour-supplied (min potential-labour-supply
                              money-cost)
 
+        ;; LEISURE
+        leisure-percent (/ (- potential-labour-supply
+                              labour-supplied)
+                           potential-labour-supply)
+
         ;; POPULATION
-        joy (/ (- potential-labour-supply
-                  labour-supplied)
-               potential-labour-supply)
-        potential-population-increase (max (- max-supported-population population) 0)
+        new-citizen-money-balance (+ citizen-money-balance
+                                     (- food-cost)
+                                     (- shelter-cost)
+                                     (+ money-supplied))
+
+        ;; deaths
         population-decrease (->> (repeatedly (fn []
-                                               (< (rand) (/ (- 1 joy)
+                                               (< (rand) (/ (- 1 leisure-percent)
                                                             ;; divide, just to slow things down
-                                                            40))))
+                                                            100))))
                                  (take population)
                                  (filter true?)
                                  count
                                  -)
-        ;; for every potential person, there is a joy/c% chance they will join
-        population-increase (->> (repeatedly (fn []
-                                               (< (rand) (/ joy
+        ;; for every potential person, there is a leisure%/c% chance they will join
+        potential-population-increase (max (- supported-population population) 0)
+        population-increase (if (pos? new-citizen-money-balance)
+                              (->> (repeatedly (fn []
+                                               (< (rand) (/ leisure-percent
                                                             ;; divide, just to slow things down
                                                             40))))
                                  (take potential-population-increase)
                                  (filter true?)
                                  count)
-        new-population (+ population population-decrease population-increase)]
-
-    {:sim.out/max-supported-population max-supported-population
-     :sim.out/government-money-balance government-money-balance
-     :sim.out/citizens-dividend citizens-dividend
-     :sim.out/resources
-     {:resource/shelter {:demand shelter-demand
-                         :available-supply potential-shelter-supply
-                         :supply shelter-supplied
-                         :price shelter-market-price
+                              0)
+        new-population (+ population
+                          population-decrease
+                          population-increase)]
+    ;; transit is struggling with bignums(?)
+    ;; for now, just cast all to double
+    (x/transform
+      (x/walker number?)
+      double
+      {:sim.out/max-supported-population potential-supported-population
+       :sim.out/citizen-money-balance citizen-money-balance
+       :sim.out/resources
+       {:resource/shelter {:demand shelter-demand
+                           :available-supply potential-shelter-supply
+                           :supply shelter-supplied
+                           :clearing-price shelter-market-clearing-price
+                           :cost shelter-cost
+                           :tenders
+                           (->> tenders
+                                (filter
+                                  (fn [tender]
+                                    (= (first (:tender/supply tender)) :resource/shelter))))
+                           :successful-tenders shelter-successful-tenders}
+        :resource/food {:demand food-demand
+                        :available-supply potential-food-supply
+                        :supply food-supplied
+                        :clearing-price food-market-clearing-price
+                        :cost food-cost
+                        :tenders
+                        (->> tenders
+                             (filter
+                               (fn [tender]
+                                 (= (first (:tender/supply tender)) :resource/food))))
+                        :successful-tenders food-successful-tenders}
+        :resource/money {:demand money-demand
+                         :available-supply potential-money-supply
+                         :supply money-supplied
+                         :clearing-price money-market-clearing-price
+                         :cost money-cost
                          :tenders
                          (->> tenders
                               (filter
                                 (fn [tender]
-                                  (= (first (:tender/supply tender)) :resource/shelter))))
-                         :successful-tenders shelter-successful-tenders}
-      :resource/food {:demand food-demand
-                      :available-supply potential-food-supply
-                      :supply food-supplied
-                      :price food-market-price
-                      :tenders
-                      (->> tenders
-                           (filter
-                             (fn [tender]
-                               (= (first (:tender/supply tender)) :resource/food))))
-                      :successful-tenders food-successful-tenders}
-      :resource/money {:demand money-demand
-                       :available-supply potential-money-supply
-                       :supply money-supplied
-                       :price money-market-price
-                       :tenders
-                       (->> tenders
-                            (filter
-                              (fn [tender]
-                                (= (first (:tender/supply tender)) :resource/money))))
-                       :successful-tenders money-successful-tenders}
-      :resource/labour {:demand (int potential-labour-demand)
-                        :available-supply (int potential-labour-supply)
-                        :supply (int labour-supplied)
-                        :price nil}}
-     :sim.out/joy joy
-     :sim.out/population new-population}))
+                                  (= (first (:tender/supply tender)) :resource/money))))
+                         :successful-tenders money-successful-tenders}
+        :resource/labour {:demand potential-labour-demand
+                          :available-supply potential-labour-supply
+                          :supply labour-supplied
+                          :clearing-price nil}}
+       :sim.out/leisure-percent leisure-percent
+       :sim.out/population new-population})))
 
-(defn incomes
+(defn resident-market-net-amounts
+  "For each resident, +/- for each resource, from buying/selling on markets"
   [sim-out]
-   (->> sim-out
-        (x/select
-          [:sim.out/resources
-           x/MAP-VALS
-           :succesful-tenders
-           x/ALL
-           (fn [tender]
-             (= :resource/money (first (:tender/demand tender))))
-           (x/collect-one [:tender/resident-id])
-           :tender/demand
-           1])
-        (reduce (fn [memo [resident-id amount]]
-                  (update memo resident-id (fnil + 0) amount))
-                {})))
+  (->> sim-out
+       (x/select
+         [:sim.out/resources
+          x/MAP-VALS
+          :successful-tenders
+          x/ALL])
+       (mapcat (fn [tender]
+                 [[(:tender/resident-id tender)
+                   (first (:tender/demand tender))
+                   (second (:tender/demand tender))]
+                  [(:tender/resident-id tender)
+                   (first (:tender/supply tender))
+                   (- (second (:tender/supply tender)))]]))
+       (reduce (fn [memo [resident-id resource amount]]
+                 (update-in memo [resident-id resource] (fnil + 0) amount))
+               {})))
+
+(defn resident-operations-net-amounts
+  "For each resident, +/- for each resource, from running their improvements"
+  [island-id]
+  (->> (db/q
+         ;; need improvement-id so that it doesn't dedupe
+         '[:find ?resident-id ?improvement-type ?improvement-id
+           :in $ ?island-id
+           :where
+           [?island :island/id ?island-id]
+           [?island :island/residents ?resident]
+           [?resident :resident/id ?resident-id]
+           [?resident :resident/deeds ?deed]
+           [?lot :lot/deed ?deed]
+           [?lot :lot/improvement ?improvement]
+           [?improvement :improvement/active? true]
+           [?improvement :improvement/type ?improvement-type]
+           [?improvement :improvement/id ?improvement-id]]
+         island-id)
+       (mapcat (fn [[owner-id improvement-type _]]
+                 (->> (schema/blueprints improvement-type)
+                      :blueprint/io
+                      (map (fn [io]
+                             [owner-id io])))))
+       (reduce (fn [memo [owner-id {:io/keys [direction resource amount]}]]
+                 (update-in memo [owner-id resource] (fnil
+                                                    (case direction
+                                                      :io.direction/input -
+                                                      :io.direction/output +)
+                                                    0) amount))
+               {})))
+
+#_(resident-operations-net-amounts
+    #uuid "0191a53b-28d2-7445-9b82-019b57ef9800")
 
 (defn taxes
+  "For each resident, money spent on deed taxes."
   [island-id]
-  (->> (db/q '[:find ?resident-id ?rate ?deed-id
-               :in $ ?island-id
-               :where
-               [?island :island/id ?island-id]
-               [?island :island/residents ?resident]
-               [?resident :resident/id ?resident-id]
-               [?resident :resident/deeds ?deed]
-               [?deed :deed/id ?deed-id]
-               [?deed :deed/rate ?rate]]
-             island-id)
+  (->> (db/q
+         ;; need deed-id so that it doesn't dedupe
+         '[:find ?resident-id ?rate ?deed-id
+           :in $ ?island-id
+           :where
+           [?island :island/id ?island-id]
+           [?island :island/residents ?resident]
+           [?resident :resident/id ?resident-id]
+           [?resident :resident/deeds ?deed]
+           [?deed :deed/id ?deed-id]
+           [?deed :deed/rate ?rate]]
+         island-id)
        (reduce (fn [memo [owner-id rate _]]
-                 (update memo owner-id (fnil + 0) (- rate)))
+                 (update-in memo [owner-id :resource/money] (fnil + 0) (- rate)))
                {})))
 
-(defn balances
+(defn resident-resource-balances
   [island-id]
-  (->> (db/q '[:find ?resident-id ?balance
+  (->> (db/q '[:find ?resident-id ?money-balance
                :in $ ?island-id
                :where
                [?island :island/id ?island-id]
                [?island :island/residents ?resident]
-               [?resident :resident/money-balance ?balance]
+               [?resident :resident/money-balance ?money-balance]
                [?resident :resident/id ?resident-id]]
              island-id)
-       (reduce (fn [memo [owner-id rate _]]
-                 (update memo owner-id (fnil + 0) rate))
-               {})))
+       (map (fn [[resident-id money-amount]]
+              [resident-id
+               {:resource/money money-amount}]))
+       (into {})))
 
 (defn tick!
   [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))
         ;; resident money
-        resident-balances (balances island-id)
-        resident-incomes (incomes result)
+        resident-balances (resident-resource-balances island-id)
+        resident-market-amounts (resident-market-net-amounts result)
+        resident-operations-amounts (resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
-        new-resident-balances (merge-with (fnil + 0)
+        new-resident-balances (merge-with (partial merge-with (fnil + 0))
                                           resident-balances
-                                          resident-incomes
+                                          resident-market-amounts
+                                          resident-operations-amounts
                                           resident-taxes)
-        ;; government money
-        government-balance (government-balance island-id)
-        government-expenses (- (:sim.out/citizens-dividend result))
-        government-revenues (- (apply + (vals resident-taxes)))
-        new-government-balance (+ government-balance
+        ;; GOVERNMENT
+        government-money-balance (db/q '[:find ?balance .
+                                   :in $ ?island-id
+                                   :where
+                                   [?island :island/id ?island-id]
+                                   [?island :island/government-money-balance ?balance]]
+                                 island-id)
+        ;; government redistributes 50% of tax revenues as citizens dividend
+        citizens-dividend  (Math/ceil (* 0.5 government-money-balance))
+        government-expenses (- citizens-dividend)
+        government-revenues (- (apply + (map :resource/money (vals resident-taxes))))
+        new-government-balance (+ government-money-balance
                                   government-revenues
                                   government-expenses)
+        ;; citizen money
+        citizen-money-balance (db/q '[:find ?balance .
+                                      :in $ ?island-id
+                                      :where
+                                      [?island :island/id ?island-id]
+                                      [?island :island/citizen-money-balance ?balance]]
+                                    island-id)
+        citizen-expenses (- 0
+                            (-> result :sim.out/resources :resource/food :cost)
+                            (-> result :sim.out/resources :resource/shelter :cost))
+        citizen-revenues (-> result :sim.out/resources :resource/money :supply)
+        new-citizen-money-balance (+ citizen-money-balance
+                                     citizens-dividend
+                                     citizen-revenues
+                                     citizen-expenses)
+
         ;; activate/de-activate improvements
-        ;; for each improvement, check if prerequisite offers were succesfull
+        ;; for each improvement, check if prerequisite offers were successful
         improvement-types-with-prerequisites (->> schema/blueprints
                                                   vals
                                                   (filter (fn [blueprint]
@@ -307,12 +409,16 @@
         [[:db/add [:island/id island-id]
           :island/population (:sim.out/population result)]
          [:db/add [:island/id island-id]
-          :island/simulator-stats result]
+          :island/simulator-stats (assoc result
+                                    :sim.out/citizen-money-balance citizen-money-balance
+                                    :sim.out/government-money-balance government-money-balance)]
          [:db/add [:island/id island-id]
-          :island/government-money-balance new-government-balance]]
+          :island/government-money-balance new-government-balance]
+         [:db/add [:island/id island-id]
+          :island/citizen-money-balance new-citizen-money-balance]]
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
-           :resident/money-balance balance])
+           :resident/money-balance (:resource/money balance)])
         (for [improvement (::active improvements-grouped-by-status)]
           [:db/add [:improvement/id (:improvement/id improvement)] :improvement/active? true])
         (for [improvement (::inactive improvements-grouped-by-status)]

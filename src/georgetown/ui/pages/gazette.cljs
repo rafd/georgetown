@@ -96,11 +96,11 @@
          [resource-amount (:sim.out/government-money-balance stats) :resource/money]]
         [:td [stats-sparkline [x/ALL :sim.out/government-money-balance]]]]
        [:tr
-        [:td "citizens dividend"]
+        [:td "citizen balance"]
         [:td]
         [:td {:tw "text-right"}
-         [resource-amount (:sim.out/citizens-dividend stats) :resource/money]]
-        [:td [stats-sparkline [x/ALL :sim.out/citizens-dividend]]]]]
+         [resource-amount (:sim.out/citizen-money-balance stats) :resource/money]]
+        [:td [stats-sparkline [x/ALL :sim.out/citizen-money-balance]]]]]
       [:tbody
        [:tr
         [:td {:tw "align-top"} "population"]
@@ -122,56 +122,61 @@
                 [:resource/shelter :resource/money]
                 [:resource/money :resource/labour true]]]
            (let [resource (schema/resources resource-id)
-                 {:keys [demand available-supply supply price tenders succesful-tenders]}
+                 {:keys [demand available-supply supply clearing-price cost tenders successful-tenders]}
                  (get-in stats [:sim.out/resources resource-id])]
              ^{:key resource-id}
              [:tr
               [:td {:tw "align-top"} (:resource/label resource)]
               [:td
-               [:div "supply"]
                [:div "demand"]
-               [:div "available supply"]]
-              [:td {:tw "text-right tabular-nums"}
-               [:div supply]
-               [:div demand]
-               [:div available-supply]]
+               [:div "available"]
+               [:div "supplied"]
+               [:div "cost"]]
+              [:td {:tw "text-right tabular-nums align-top"}
+               [:div [resource-amount demand resource-id]]
+               #_[:div [resource-amount supply resource-id]]
+               [:div [resource-amount available-supply resource-id]]
+               [:div [resource-amount supply resource-id]]
+               [:div [resource-amount cost resource-b-id]]]
               [:td
                [bar-graph-view
                 supply
-                demand
                 available-supply]]
-              [:td [stats-sparkline [x/ALL :sim.out/resources resource-id :price]]]
+              [:td [stats-sparkline [x/ALL :sim.out/resources resource-id :clearing-price]]]
               [:td
                (if invert?
-                 [resource-amount (/ 1 price) resource-id resource-b-id]
-                 [resource-amount price resource-b-id resource-id])]
-              [:td [market-graph-view demand tenders succesful-tenders]]])))
-       (let [{:keys [demand available-supply supply price]} (get-in stats [:sim.out/resources :resource/labour])]
+                 [resource-amount (/ 1 clearing-price) resource-id resource-b-id]
+                 [resource-amount clearing-price resource-b-id resource-id])]
+              [:td [market-graph-view demand tenders successful-tenders]]])))
+       (let [{money-available-supply :available-supply money-demand :demand money-supply :supply} (get-in stats [:sim.out/resources :resource/money])
+             {:keys [demand available-supply supply clearing-price]} (get-in stats [:sim.out/resources :resource/labour])]
          [:tr
           [:td {:tw "align-top"} "labour"]
           [:td
-           [:div "supply"]
-           [:div "demand"]
-           [:div "available supply"]]
-          [:td {:tw "text-right tabular-nums"}
-           [:div supply]
-           [:div demand]
-           [:div available-supply]]
+           [:div "transacted"]
+           [:div "available"]
+           [:div "on-offer"]
+           ]
+          [:td {:tw "text-right tabular-nums align-top"}
+           [:div [resource-amount supply :resource/labour]]
+           [:div [resource-amount available-supply :resource/labour]]
+           [:div [resource-amount demand :resource/labour]]
+           ]
           [:td
            [bar-graph-view
             supply
             demand
             available-supply]]
           [:td]
-          [:td price]])
+          [:td clearing-price]])
        [:tr
-        [:td "joy"]
+        [:td "leisure"]
         [:td]
         [:td]
         [:td [bar-graph-view
-              (:sim.out/joy stats)
+              (:sim.out/leisure-percent stats)
               1]]
-        [:td [stats-sparkline [x/ALL :sim.out/joy]]]]]])])
+        [:td [stats-sparkline [x/ALL :sim.out/leisure-percent]]]]]])])
 
 (defn page
   [_]

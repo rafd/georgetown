@@ -32,6 +32,7 @@
     [{:island/id (uuid/random)
       :island/population 10
       :island/government-money-balance 0
+      :island/citizen-money-balance 0
       :island/lots
       (for [x (range 10)
             y (range 10)]
