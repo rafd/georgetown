@@ -16,6 +16,12 @@
 
 (def cqrs
   [
+   {:id :query/version
+    :params {:user-id :any}
+    :return
+    (fn [_]
+      {:version (or (System/getenv "COMMIT") "DEV")})}
+
    {:id :query/islands
     :params {:user-id :any}
     :return

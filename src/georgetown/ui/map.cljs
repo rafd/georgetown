@@ -1,5 +1,6 @@
 (ns georgetown.ui.map
   (:require
+    [reagent.core :as r]
     [bloom.commons.pages :as pages]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]
@@ -29,6 +30,11 @@
              :transform "rotate(-90) translate(-20)"
              :stroke-dasharray (str (* 31.4 percent) " 31.4")}]])
 
+(defn version-view []
+  (r/with-let [v (state/exec-atom! :query/version {})]
+    [:a {:href "https://github.com/rafd/georgetown"}
+     "v." (or (:version @v) "???")]))
+
 (defn map-view []
   (when-let [island @state/island]
     (let [lots (:island/lots island)
@@ -39,9 +45,8 @@
           improvement-id->offers (->> @state/offers
                                       (group-by (fn [offer]
                                                   (first (:offer/id offer)))))]
-      [:div.wrapper {:tw "relative w-60% h-screen "}
-       [:div.menu {:tw "absolute top-0 right-0"}
-        [:a {:href (pages/path-for [:page/home {}])} "🌍"]
+      [:div.wrapper {:tw "relative w-60% h-screen bg-blue-500"}
+       [:div.menu {:tw "absolute top-0 right-0 z-20 px-1"}
         [:a {:href (pages/path-for [:page/island {:island-id (:island/id island)}])}
          "🏠"]
         [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
@@ -50,8 +55,11 @@
        (when @state/resident
          [:div {:tw "absolute bottom-0 left-0 z-100"}
           [resident-view]])
-       [:div.scrollable-map {:tw "overflow-auto h-full w-full bg-blue-500"
-                             :style {}}
+       [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10 relative"}
+        [:div.title {:tw "absolute top-0 left-0 text-blue-800 px-1"}
+         [:a {:href (pages/path-for [:page/home {}])} "georgetown"]
+         " "
+         [version-view]]
         [:div.lots {:style {:padding (str tile-size "em")
                             :box-sizing "content-box"
                             :width (str (* lot-count-width tile-size) "em")
