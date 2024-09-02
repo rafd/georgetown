@@ -34,8 +34,8 @@
       :island/citizen-money-balance 0
       :island/citizen-food-balance 1000
       :island/lots
-      (for [x (range 10)
-            y (range 10)]
+      (for [x (range 20)
+            y (range 20)]
         {:lot/id (uuid/random)
          :lot/x x
          :lot/y y})}]))
