@@ -318,7 +318,8 @@
        (mapcat (fn [tender]
                  [[(:tender/resident-id tender)
                    (first (:tender/demand tender))
-                   (second (:tender/demand tender))]
+                   (* (second (:tender/demand tender))
+                      (:tender/fill-ratio tender))]
                   [(:tender/resident-id tender)
                    (first (:tender/supply tender))
                    (* (- (second (:tender/supply tender)))
