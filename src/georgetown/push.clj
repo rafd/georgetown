@@ -15,6 +15,7 @@
                  :island/population
                  :island/government-money-balance
                  :island/citizen-money-balance
+                 :island/citizen-food-balance
                  :island/simulator-stats
                  {:island/residents
                   [:resident/id]}

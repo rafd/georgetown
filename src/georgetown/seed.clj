@@ -7,6 +7,7 @@
 (defn seed! []
   (db/retract-all!)
   (s/initialize!)
+  (s/create-island!)
   (let [island (first (s/all-of-type :island/id [:island/id
                                                  {:island/lots [:lot/id]}]))
         island-id (:island/id island)
@@ -20,20 +21,34 @@
                {:user-id user-id
                 :island-id island-id})
         (doseq [[index improvement-type offers]
-                [[0 :improvement.type/house {:offer/house.rental 50}]
+                [;; house
+                 [0 :improvement.type/house {:offer/house.rental 50}]
                  [1 :improvement.type/house {:offer/house.rental 60}]
                  [2 :improvement.type/house {:offer/house.rental 70}]
                  [3 :improvement.type/house {:offer/house.rental 80}]
-                 [4 :improvement.type/farm {:offer/farm.job 100
-                                            :offer/farm.food 105}]
-                 [5 :improvement.type/farm {:offer/farm.job 200
-                                            :offer/farm.food 205}]
-                 [6 :improvement.type/farm {:offer/farm.job 300
-                                            :offer/farm.food 305}]
-                 [7 :improvement.type/farm {:offer/farm.job 400
-                                            :offer/farm.food 405}]
-                 [8]
-                 [9]]]
+                 ;; farm
+                 [4 :improvement.type/farm {:offer/farm.food 10}]
+                 [5 :improvement.type/farm {:offer/farm.food 11}]
+                 [6 :improvement.type/farm {:offer/farm.food 12}]
+                 [7 :improvement.type/farm {:offer/farm.food 13}]
+                 [8 :improvement.type/farm {:offer/farm.food 14}]
+                 [9 :improvement.type/farm {:offer/farm.food 15}]
+                 [10 :improvement.type/farm {:offer/farm.food 16}]
+                 [11 :improvement.type/farm {:offer/farm.food 17}]
+                 [12 :improvement.type/farm {:offer/farm.food 18}]
+                 [13 :improvement.type/farm {:offer/farm.food 19}]
+                 [14 :improvement.type/farm {:offer/farm.food 20}]
+                 ;; big farm
+                 [15 :improvement.type/big-farm {:offer/big-farm.job 100
+                                                :offer/big-farm.food 105}]
+                 [16 :improvement.type/big-farm {:offer/big-farm.job 200
+                                                :offer/big-farm.food 205}]
+                 [17 :improvement.type/big-farm {:offer/big-farm.job 300
+                                                 :offer/big-farm.food 305}]
+                 [18 :improvement.type/big-farm {:offer/big-farm.job 400
+                                                 :offer/big-farm.food 405}]
+                 ;; empty
+                 [19]]]
           (let [lot-id (get-in lots [(+ (* user-index 20) index) :lot/id])]
             (exec! :command/buy-lot!
                    {:user-id user-id

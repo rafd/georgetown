@@ -7,7 +7,7 @@
   (if (= 0 demand-amount)
     {:market/clearing-unit-price nil
      :market/amount-supplied 0
-     :market/successful-tenders []
+     :market/tenders tenders
      :market/total-cost 0}
     (->> tenders
          ;; filter, b/c caller of this function may pass in unrelated tenders
@@ -17,8 +17,10 @@
                      (= (first (tender :tender/demand)) supply-resource))))
          ;; group by price
          (group-by (fn [tender]
-                     (/ (get-in tender [:tender/demand 1])
-                        (get-in tender [:tender/supply 1]))))
+                     ;; supply amount possibly 0 due to upstream utilization set to 0
+                     (when-not (zero? (second (tender :tender/supply)))
+                       (/ (get-in tender [:tender/demand 1])
+                          (get-in tender [:tender/supply 1])))))
          ;; sort by price
          (sort-by key)
          (reduce (fn [memo [price tenders]]
@@ -28,33 +30,63 @@
                                               (map (fn [tender]
                                                      (get-in tender [:tender/supply 1])))
                                               (reduce +))]
-                     (if (< amount-supplied demand-remaining)
+                     (cond
+                       (nil? price)
+                       (-> memo
+                           (update :market/tenders
+                                   concat
+                                   (->> tenders
+                                        (map (fn [tender]
+                                               (assoc tender
+                                                 :tender/fill-ratio 0
+                                                 :tender/amount-supplied 0))))))
+                       (< amount-supplied demand-remaining)
                        (-> memo
                            (assoc :market/clearing-unit-price price)
-                           (update :market/successful-tenders concat tenders)
+                           (update :market/tenders
+                                   concat
+                                   (->> tenders
+                                        (map (fn [tender]
+                                               (assoc tender
+                                                 :tender/fill-ratio 1
+                                                 :tender/amount-supplied
+                                                 (get-in tender [:tender/supply 1]))))))
                            (update :market/amount-supplied + amount-supplied)
                            (update :market/total-cost + (* amount-supplied price)))
-                       (reduced
-                         {:market/clearing-unit-price price
-                          :market/amount-supplied demand-amount
-                          :market/successful-tenders
-                          (concat (:market/successful-tenders memo)
-                                  (let [ratio (/ demand-remaining
-                                                 amount-supplied)]
-                                    (->> tenders
-                                         (map (fn [tender]
-                                                (assoc tender
-                                                  :tender/amount-supplied (* ratio (get-in tender [:tender/supply 1]))))))))
-                          :market/total-cost
-                          (+ (:market/total-cost memo)
-                             (* demand-remaining price))}))))
+                       (memo ::done?)
+                       (-> memo
+                           (update :market/tenders
+                                   concat
+                                   (->> tenders
+                                        (map (fn [tender]
+                                               (assoc tender
+                                                 :tender/fill-ratio 0
+                                                 :tender/amount-supplied 0))))))
+                       :else
+                       {:market/clearing-unit-price price
+                        :market/amount-supplied demand-amount
+                        ::done? true
+                        :market/tenders
+                        (concat (:market/tenders memo)
+                                (let [ratio (/ demand-remaining
+                                               amount-supplied)]
+                                  (->> tenders
+                                       (map (fn [tender]
+                                              (assoc tender
+                                                :tender/fill-ratio ratio
+                                                :tender/amount-supplied (* ratio (get-in tender [:tender/supply 1]))))))))
+                        :market/total-cost
+                        (+ (:market/total-cost memo)
+                           (* demand-remaining price))})))
                  {:market/amount-supplied 0
-                  :market/successful-tenders []
-                  :market/total-cost 0}))))
+                  :market/tenders []
+                  :market/total-cost 0})
+         (#(dissoc % ::done?)))))
 
 #_(rcf/enable!)
 (rcf/tests
-  ;; demand == 0
+  "market"
+  "demand == 0"
   (market
     :resource/food
     0
@@ -68,10 +100,10 @@
   :=
   #:market{:clearing-unit-price nil
            :amount-supplied 0
-           :successful-tenders []
+           :tenders []
            :total-cost 0}
 
-  ;; demand < supply (exact)
+  "demand < supply (exact)"
   (market
     :resource/food
     1000
@@ -85,10 +117,10 @@
   :=
   #:market{:clearing-unit-price 1000/1000
            :amount-supplied 1000
-           :successful-tenders _
+           :tenders _
            :total-cost 1000}
 
-  ;; demand < supply (exact, but tie)
+  "demand < supply (exact, but tie)"
   (market
     :resource/food
     1000
@@ -107,18 +139,25 @@
   #:market{:clearing-unit-price 1000/1000
            :amount-supplied 1000
            :total-cost 1000
-           :successful-tenders
+           :tenders
            [{:tender/supply [:resource/food 1000]
              :tender/demand [:resource/money 1000]
              :tender/id 1
+             :tender/fill-ratio 500/1000
              :tender/amount-supplied 500N}
             {:tender/supply [:resource/food 1000]
              :tender/demand [:resource/money 1000]
              :tender/id 2
-             :tender/amount-supplied 500N}]}
+             :tender/fill-ratio 500/1000
+             :tender/amount-supplied 500N}
+            {:tender/supply [:resource/food 1000]
+             :tender/demand [:resource/money 2000]
+             :tender/id 3
+             :tender/fill-ratio 0
+             :tender/amount-supplied 0}]}
 
-  ;; demand < supply (partial)
-  #_(market
+  "demand < supply (partial)"
+  (market
       :resource/food
       500
       :resource/money
@@ -129,13 +168,14 @@
   #:market{:clearing-unit-price 1
            :amount-supplied 500
            :total-cost 500
-           :successful-tenders
+           :tenders
            [{:tender/supply [:resource/food 1000]
              :tender/demand [:resource/money 1000]
              :tender/id 1
+             :tender/fill-ratio 1/2
              :tender/amount-supplied 500N}]}
 
-  ;; demand < supply (partial, tie)
+  "demand < supply (partial, tie)"
   (market
     :resource/food
     1500
@@ -150,17 +190,19 @@
   #:market{:clearing-unit-price 1
            :amount-supplied 1500
            :total-cost 1500
-           :successful-tenders
+           :tenders
            [{:tender/supply [:resource/food 1000]
              :tender/demand [:resource/money 1000]
              :tender/id 1
+             :tender/fill-ratio 750/1000
              :tender/amount-supplied 750N}
             {:tender/supply [:resource/food 1000]
              :tender/demand [:resource/money 1000]
              :tender/id 2
+             :tender/fill-ratio 750/1000
              :tender/amount-supplied 750N}]}
 
-  ;; demand == supply
+  "demand == supply"
   (market
     :resource/food
     2000
@@ -175,9 +217,9 @@
   #:market{:clearing-unit-price 1500/1000
            :amount-supplied 2000
            :total-cost 2500
-           :successful-tenders _}
+           :tenders _}
 
-  ;; demand > supply
+  "demand > supply"
   (market
     :resource/food
     2500
@@ -192,5 +234,5 @@
   #:market{:clearing-unit-price 1500/1000
            :amount-supplied 2000
            :total-cost 2500
-           :successful-tenders _}
+           :tenders _}
   nil)

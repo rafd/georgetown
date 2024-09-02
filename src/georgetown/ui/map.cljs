@@ -14,6 +14,21 @@
   [:div {:tw "bg-white p-2"}
    [ui/resource-amount @state/money-balance :resource/money]])
 
+(defn pie [opts percent]
+  [:svg (assoc opts :height 20 :width 20 :view-box "0 0 20 20")
+   [:circle {:cx 10
+             :cy 10
+             :r 10
+             :fill "#333"}]
+   [:circle {:cx 10
+             :cy 10
+             :r 5
+             :fill "transparent"
+             :stroke "green"
+             :stroke-width 10
+             :transform "rotate(-90) translate(-20)"
+             :stroke-dasharray (str (* 31.4 percent) " 31.4")}]])
+
 (defn map-view []
   (when-let [island @state/island]
     (let [lots (:island/lots island)
@@ -76,34 +91,30 @@
                       (:deed/rate deed)]
                      (when improvement
                        [:div.improvement
-                        [:div.icon {:tw (when-not (:improvement/active? improvement)
-                                         "saturate-0")
-                                    :style {:font-size (str (/ tile-size 2) "em")
+                        [:div.icon {:style {:font-size (str (/ tile-size 2) "em")
                                             :text-align "center"
                                             :pointer-events "none"
                                             :line-height (str (/ tile-size 2) "em")}}
                          (let [blueprint (schema/blueprints (:improvement/type improvement))]
                            (:blueprint/icon blueprint))]
                         [:div.offers
-                         {:tw "absolute bottom-0 right-0"
-                          :style {:font-size "0.5em"}}
+                         {:tw "absolute bottom-0 right-0 flex gap-0.5"
+                          :style {:font-size "0.3em"}}
                          (for [offer (->> improvement
                                           :improvement/id
                                           improvement-id->offers
-                                          (sort-by :offer/type))
+                                          (sort-by (juxt :offer/invert? :offer/type))
+                                          reverse)
                                :let [offerable (schema/offerables (:offer/type offer))]]
                            ^{:key (:offer/id offer)}
                            [:div.offer
-                            {:tw "hidden group-hover:block bg-black text-white py-0.5 px-1 tabular-nums"
+                            {:tw "bg-black px-1 py-0.5 gap-0.5 flex items-center"
                              :style {:font-size "0.5em"}}
-                            [ui/resource-amount
-                             (or (:offerable/supply-amount offerable)
-                                 (:offer/amount offer))
-                             (:offerable/supply-unit offerable)]
-                            [ui/resource-amount
-                             (or (:offerable/demand-amount offerable)
-                                 (:offer/amount offer))
-                             (:offerable/demand-unit offerable)]])]])])]))]))]])))
+                            [ui/resource-icon (if (:offerable/invert? offerable)
+                                                (:offerable/demand-unit offerable)
+                                                (:offerable/supply-unit offerable))]
+                            [:div {:title (Math/round (* 100 (:offer/utilization offer)))}
+                             [pie {:tw "w-0.6rem h-0.6rem"} (:offer/utilization offer)]]])]])])]))]))]])))
 
 (defn page-wrapper
   [sidebar]

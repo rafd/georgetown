@@ -31,6 +31,7 @@ Tell me what to fix or build next [on Discord](https://discord.gg/FdPus82t4b).
       - offers 50 food for a player-decided price
       - requires 100 labour for a player-decided price
   - improvements can be demolished, but only half the cost is recovered
+  - some offers are prequisites (ex. jobs at a big-farm), if they are partially filled, then the production of the other offers is reduced (ex. only 50% of jobs on a big-farm, thus, only produce 50% of the food)
 
 - The Simulation
   - the game ticks 1/sec, 1 sec real world ~= 1 week in game
@@ -52,6 +53,7 @@ Tell me what to fix or build next [on Discord](https://discord.gg/FdPus82t4b).
     - there are markets for food, shelter, and labour
     - players create offers inside of their improvements (ex. 10 food for 10 dollars)
     - based on available offers, and demand for a resource, the "best" offers will be accepted (cheapest offers for food and shelter, best paying offers for labour)
+    - offers can be partially filled (ex. offer for 10 for 10 dollars, but market only purchased 5 food for 5 dollars)
 
 ## Future Plans
 

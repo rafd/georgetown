@@ -42,19 +42,15 @@
              :tw "absolute top-0 h-1em left-0 bottom-0 bg-#0000ff55"}])]])
 
 (defn market-graph-view
-  [demand tenders successful-tenders]
+  [demand tenders]
   (let [width 100
         height 20
-        successful-tender-offer-ids (set (map :tender/offer-id successful-tenders))
         tenders (->> tenders
                      (map (fn [tender]
                             (-> tender
                                 (assoc :tender/price
                                   (/ (get-in tender [:tender/demand 1])
-                                     (get-in tender [:tender/supply 1])))
-                                (assoc :tender/success?
-                                  (contains? successful-tender-offer-ids
-                                             (:tender/offer-id tender))))))
+                                     (get-in tender [:tender/supply 1]))))))
                      (sort-by :tender/price)
                      (sort-by (complement :tender/active?)))
         x-range (->> tenders
@@ -67,22 +63,22 @@
            :style {:width (str width "px")
                    :height (str height "px")}}
      (into [:<>]
-           (for [tender tenders]
-             [:div {:tw ["shrink-0 grow-0"
-                         (cond
-                           (not (:tender/active? tender))
-                           "bg-red-300 odd:bg-red-400"
-                           (:tender/success? tender)
-                           "bg-green-300 odd:bg-green-400"
-                           :else
-                           "bg-gray-300 odd:bg-gray-400")]
-                    :style {:width (str (* x-factor (get-in tender [:tender/supply 1])) "px")
-                            :height (str (* y-factor (:tender/price tender)) "px")}}]))
-     [:div {:tw "absolute grow-0 shrink-0"
-            :style {:width (str (* x-factor demand) "px")
-                    :left 0
-                    :height height
-                    :border-right "1px solid red"}}]]))
+           (for [tender tenders
+                 :let [height (* y-factor (:tender/price tender))
+                       width (* x-factor (get-in tender [:tender/supply 1]))]]
+             [:div {:tw "shrink-0 grow-0 bg-gray-300 odd:bg-gray-400"
+                    :style {:width (str width "px")
+                            :height (str height "px")}}
+              [:div {:tw "bg-#00ff0077"
+                     :style {:margin-top (str (* height (- 1 (:tender/fill-ratio tender))) "px")
+                             :height (str (* height (:tender/fill-ratio tender)) "px")
+                             :width (str width "px")}}]]))
+     [:div.line
+      {:tw "absolute grow-0 shrink-0"
+       :style {:width (str (* x-factor demand) "px")
+               :left 0
+               :height height
+               :border-right "1px solid red"}}]]))
 
 (defn stats-view
   [island]
@@ -91,17 +87,27 @@
      [:table
       [:tbody
        [:tr
-        [:td "government balance"]
+        [:td "government $ balance"]
         [:td]
         [:td {:tw "text-right"}
          [resource-amount (:sim.out/government-money-balance stats) :resource/money]]
         [:td [stats-sparkline [x/ALL :sim.out/government-money-balance]]]]
        [:tr
-        [:td "citizen balance"]
+        [:td "citizen $ balance"]
         [:td]
         [:td {:tw "text-right"}
-         [resource-amount (:sim.out/citizen-money-balance stats) :resource/money]]
-        [:td [stats-sparkline [x/ALL :sim.out/citizen-money-balance]]]]]
+         [resource-amount (:sim.out/citizen-money-balance stats) :resource/money]
+         "/"
+         [resource-amount (:sim.out/money-savings-goal stats) :resource/money]]
+        [:td [stats-sparkline [x/ALL :sim.out/citizen-money-balance]]]]
+       [:tr
+        [:td "citizen food balance"]
+        [:td]
+        [:td {:tw "text-right"}
+         [resource-amount (:sim.out/citizen-food-balance stats) :resource/food]
+         "/"
+         [resource-amount (:sim.out/food-savings-goal stats) :resource/food]]
+        [:td [stats-sparkline [x/ALL :sim.out/citizen-food-balance]]]]]
       [:tbody
        [:tr
         [:td {:tw "align-top"} "population"]
@@ -109,8 +115,8 @@
          [:div "current"]
          [:div "max supportable"]]
         [:td {:tw "text-right"}
-         [:div (:sim.out/population stats)]
-         [:div (:sim.out/max-supported-population stats)]]
+         [:div [resource-amount (:sim.out/population stats) :resource/citizen]]
+         [:div [resource-amount (:sim.out/max-supported-population stats) :resource/citizen]]]
         [:td [bar-graph-view
               (:sim.out/population stats)
               (:sim.out/max-supported-population stats)]]
@@ -123,7 +129,7 @@
                 [:resource/shelter :resource/money]
                 [:resource/money :resource/labour true]]]
            (let [resource (schema/resources resource-id)
-                 {:keys [demand available-supply supply clearing-price cost tenders successful-tenders]}
+                 {:keys [demand available-supply supply clearing-price cost tenders]}
                  (get-in stats [:sim.out/resources resource-id])]
              ^{:key resource-id}
              [:tr
@@ -148,7 +154,7 @@
                (if invert?
                  [resource-amount (/ 1 clearing-price) resource-id resource-b-id]
                  [resource-amount clearing-price resource-b-id resource-id])]
-              [:td [market-graph-view demand tenders successful-tenders]]])))
+              [:td [market-graph-view demand tenders]]])))
        (let [{money-available-supply :available-supply money-demand :demand money-supply :supply} (get-in stats [:sim.out/resources :resource/money])
              {:keys [demand available-supply supply clearing-price]} (get-in stats [:sim.out/resources :resource/labour])]
          [:tr

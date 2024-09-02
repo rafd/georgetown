@@ -98,11 +98,8 @@
                    [ui/resource-amount (- (:blueprint/price blueprint)) :resource/money]])]]
               (let [blueprint (schema/blueprints (:improvement/type improvement))]
                 [:div
-                 (case (:improvement/type improvement)
-                   :improvement.type/house
-                   [:div "🏠"]
-                   :improvement.type/farm
-                   [:div "🌽"])
+                 [:div
+                  (:blueprint/icon (schema/blueprints (:improvement/type improvement)))]
                  [:div.action
                   (doall
                     (for [offerable (:blueprint/offerables blueprint)
@@ -117,8 +114,11 @@
                                            first)]]
                       ^{:key (:offerable/id offerable)}
                       [:div {:tw "border-1 p-1"}
-                       [:div.offer-type
-                        (:offerable/label offerable)]
+                       [:div.header {:tw "flex"}
+                        [:div.offer-type {:tw "grow"}
+                         (:offerable/label offerable)]
+                        [:div.utilization
+                         (Math/round (* (:offer/utilization offer) 100)) "%"]]
                        [:div {:tw "flex gap-2 items-center"}
                         (->> (for [[amount-key unit-key] [[:offerable/supply-amount :offerable/supply-unit]
                                                           [:offerable/demand-amount :offerable/demand-unit]]

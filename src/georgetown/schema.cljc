@@ -8,7 +8,13 @@
   (into {} (map (juxt f identity) coll)))
 
 (def resources
-  (->> [{:resource/id :resource/food
+  (->> [{:resource/id :resource/citizen
+         :resource/icon "👤"
+         :resource/label "citizen"
+         :resource/unit-label "citizen"
+         :resource/description "The island's citizens"}
+
+        {:resource/id :resource/food
          :resource/icon "🥕"
          :resource/label "food"
          :resource/unit-label "meal"
@@ -49,9 +55,28 @@
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; :user-value
            }]}
+
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
          :blueprint/icon "🌽"
+         :blueprint/description "Produces food"
+         :blueprint/price 100
+         :blueprint/io
+         [{:io/direction :io.direction/output
+           :io/resource :resource/food
+           :io/amount 10}]
+         :blueprint/offerables
+         [{:offerable/id :offer/farm.food
+           :offerable/label "Food"
+           :offerable/supply-unit :resource/food
+           :offerable/supply-amount 10
+           :offerable/demand-unit :resource/money
+           :offerable/demand-amount nil ; user value
+           }]}
+
+        {:blueprint/id :improvement.type/big-farm
+         :blueprint/label "Big Farm"
+         :blueprint/icon "🚜"
          :blueprint/description "Produces food"
          :blueprint/price 100
          :blueprint/io
@@ -62,22 +87,21 @@
            :io/resource :resource/labour
            :io/amount 100}]
          :blueprint/offerables
-         [{:offerable/id :offer/farm.food
+         [{:offerable/id :offer/big-farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
            :offerable/supply-amount 100
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
-          {:offerable/id :offer/farm.job
+          {:offerable/id :offer/big-farm.job
            :offerable/label "Job"
            :offerable/invert? true
            :offerable/supply-unit :resource/money
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour
            :offerable/demand-amount 100
-           :offerable/prerequisite? true
-           }]}]
+           :offerable/prerequisite? true}]}]
        (key-by :blueprint/id)))
 
 (def offerables
@@ -96,6 +120,7 @@
     :island/population {:spec :pos-int}
     :island/government-money-balance {:spec :pos-int}
     :island/citizen-money-balance {:spec :pos-int}
+    :island/citizen-food-balance {:spec :pos-int}
     :island/residents {:rel/many :entity/resident}
     :island/lots {:rel/many :entity/lot}}
 
@@ -132,10 +157,7 @@
     :improvement/type {:spec (into [:enum]
                                    (keys blueprints))
                        :db/valueType :db.type/keyword}
-    :improvement/offers {:rel/many :entity/offer}
-    ;; an improvement may require inputs (such as labour)
-    ;; that may be unmet, disabling it until they are met
-    :improvement/active? {:spec :boolean}}
+    :improvement/offers {:rel/many :entity/offer}}
 
    :entity/offer
    {:offer/id {:spec [:vec :uuid :keyword]
@@ -143,7 +165,8 @@
     :offer/type {:spec (into [:enum]
                              (keys offerables))
                  :db/valueType :db.type/keyword}
-    :offer/amount {:spec :pos-int}}})
+    :offer/amount {:spec :pos-int}
+    :offer/utilization {:spec :float}}})
 
 (mr/set-default-registry!
   (merge (mr/schemas m/default-registry)

@@ -26,19 +26,22 @@
                          (throw (ex-info (str "No resident with id " resident-id) {}))))}]]
     (georgetown.db/transact! [v])))
 
-(defn initialize! []
-  (register-functions!)
+(defn create-island! []
   (db/transact!
     [{:island/id (uuid/random)
       :island/population 10
-      :island/government-money-balance 0
+      :island/government-money-balance 10000
       :island/citizen-money-balance 0
+      :island/citizen-food-balance 1000
       :island/lots
       (for [x (range 10)
             y (range 10)]
         {:lot/id (uuid/random)
          :lot/x x
          :lot/y y})}]))
+
+(defn initialize! []
+  (register-functions!))
 
 ;; generics ----
 

@@ -51,7 +51,7 @@
       (db/transact!
         [{:db/id -1
           :resident/id (uuid/random)
-          :resident/money-balance 1000}
+          :resident/money-balance 5000}
          [:db/add [:island/id island-id]
           :island/residents -1]
          [:db/add [:user/id user-id]
@@ -151,8 +151,7 @@
         [{:lot/id lot-id
           :lot/improvement
           {:improvement/id (uuid/random)
-           :improvement/type improvement-type
-           :improvement/active? true}}
+           :improvement/type improvement-type}}
          [:fn/withdraw
           (s/->resident-id user-id [:lot/id lot-id])
           (:blueprint/price (schema/blueprints improvement-type))]]))}
