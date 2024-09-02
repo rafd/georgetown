@@ -4,6 +4,10 @@ Georgetown is a WIP browser-based multiplayer persistent online town building ga
 
 The primary motivation is to see how different policies (ex. [land value taxes](https://en.wikipedia.org/wiki/Land_value_tax) and [universal basic income](https://en.wikipedia.org/wiki/Universal_basic_income)) affect player motivations and game play.
 
+[Play it here](https://georgetown.sunnypursuits.com).
+
+Tell me what to fix or build next [on Discord](https://discord.gg/FdPus82t4b).
+
 ## The Game
 
 - Islands
