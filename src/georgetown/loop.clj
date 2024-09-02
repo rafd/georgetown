@@ -92,26 +92,27 @@
                                                  (keep (fn [tender]
                                                          (when (= :resource/money (get-in tender [:tender/supply 0]))
                                                            (get-in tender [:tender/supply 1]))))
-                                                 (reduce +))
-                          labour-improvements (->> tenders
-                                                   (keep (fn [tender]
-                                                           (when (= :resource/money (get-in tender [:tender/supply 0]))
-                                                             (:tender/improvement-id tender))))
-                                                   set)]
-                      (if (<= total-labour-cost (get resident-money-balances resident-id))
+                                                 (reduce +))]
+                      (if (zero? total-labour-cost)
                         tenders
-                        (let [ratio (/ (max 0 ;; shouldn't be possible for the balance to be < 0, but it happens
-                                            (get resident-money-balances resident-id))
-                                       total-labour-cost)]
-                          (->> tenders
-                               (map (fn [tender]
-                                      (tap> labour-improvements)
-                                      (if (contains? labour-improvements (:tender/improvement-id tender))
-                                        (-> tender
-                                            (update :tender/prerequisite-utilization * ratio)
-                                            (update-in [:tender/supply 1] * ratio)
-                                            (update-in [:tender/demand 1] * ratio))
-                                        tender))))))))))}))
+                        (if (<= total-labour-cost (get resident-money-balances resident-id))
+                            tenders
+                            (let [labour-improvements (->> tenders
+                                                           (keep (fn [tender]
+                                                                   (when (= :resource/money (get-in tender [:tender/supply 0]))
+                                                                     (:tender/improvement-id tender))))
+                                                           set)
+                                  ratio (/ (max 0 ;; shouldn't be possible for the balance to be < 0, but it happens
+                                                (get resident-money-balances resident-id))
+                                           total-labour-cost)]
+                              (->> tenders
+                                   (map (fn [tender]
+                                          (if (contains? labour-improvements (:tender/improvement-id tender))
+                                            (-> tender
+                                                (update :tender/prerequisite-utilization * ratio)
+                                                (update-in [:tender/supply 1] * ratio)
+                                                (update-in [:tender/demand 1] * ratio))
+                                            tender)))))))))))}))
 
 #_(tick-all!)
 
