@@ -4,7 +4,8 @@
     [bloom.commons.html :as html]
     [postal.core :as postal]
     [georgetown.config :as config]
-    [georgetown.state :as state]))
+    [georgetown.state :as state]
+    [georgetown.log :as log]))
 
 (defn wrap-login
   [{:keys [user-id url]}]
@@ -27,8 +28,8 @@
          :subject subject
          :body [{:type "text/html; charset=utf-8"
                  :content html}]})
-      (println "Sending email:"
-               email #_(assoc email :body html)))))
+      (log/info "Sending email:"
+                email #_(assoc email :body html)))))
 
 ;; emails
 
