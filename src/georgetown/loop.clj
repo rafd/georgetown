@@ -442,7 +442,7 @@
         [[:db/add [:island/id island-id]
           :island/simulator-stats (assoc result
                                     ;; include these also, so front-end reports them
-                                    :sim.out/government-money-balance government-money-balance)]
+                                    :sim.out/government-money-balance new-government-balance)]
          [:db/add [:island/id island-id]
           :island/population (:sim.out/population result)]
          [:db/add [:island/id island-id]
