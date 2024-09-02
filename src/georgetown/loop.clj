@@ -17,7 +17,16 @@
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
-                     island-id)]
+                     island-id)
+        resident-money-balances (->> (db/q '[:find ?resident-id ?money-balance
+                                             :in $ ?island-id
+                                             :where
+                                             [?island :island/id ?island-id]
+                                             [?island :island/residents ?resident]
+                                             [?resident :resident/money-balance ?money-balance]
+                                             [?resident :resident/id ?resident-id]]
+                                           island-id)
+                                     (into {}))]
     {:sim.in/population (:island/population island)
      :sim.in/citizen-money-balance (:island/citizen-money-balance island)
      :sim.in/citizen-food-balance (:island/citizen-food-balance island)
@@ -40,9 +49,11 @@
                                               ;; (newly created improvements)
                                               (filter :offer/amount)
                                               (group-by (fn [offer]
-                                                          (boolean (:offerable/prerequisite?
-                                                                     (schema/offerables
-                                                                       (:offer/type offer)))))))
+                                                          (if (:offerable/prerequisite?
+                                                                (schema/offerables
+                                                                  (:offer/type offer)))
+                                                            ::prereq
+                                                            ::no-prereq))))
                           has-prerequisites? (->> (:improvement/type improvement)
                                                   schema/blueprints
                                                   :blueprint/offerables
@@ -53,8 +64,8 @@
                                                                   (filter some?) ;; when starting out, prereqs are nil
                                                                   (apply min 1))
                                                              1)]
-                      (->> (concat (grouped-offers true)
-                                   (->> (grouped-offers false)
+                      (->> (concat (grouped-offers ::prereq)
+                                   (->> (grouped-offers ::no-prereq)
                                         (map (fn [offer]
                                                (-> offer
                                                    (assoc ::adjusted-utilization overall-prerequisite-utilization))))))
@@ -62,8 +73,8 @@
                                   (let [offerable (schema/offerables (:offer/type offer))
                                         adjusted-utilization (or (::adjusted-utilization offer) 1)]
                                     {:tender/resident-id resident-id
-                                     :tender/improvement-id (:improvement/id improvement)
                                      :tender/offer-id (:offer/id offer)
+                                     :tender/improvement-id (:improvement/id improvement)
                                      :tender/prerequisite-utilization adjusted-utilization
                                      :tender/supply [(:offerable/supply-unit offerable)
                                                      (* adjusted-utilization
@@ -72,7 +83,35 @@
                                      :tender/demand [(:offerable/demand-unit offerable)
                                                      (* adjusted-utilization
                                                         (or (:offerable/demand-amount offerable)
-                                                            (:offer/amount offer)))]}))))))))}))
+                                                            (:offer/amount offer)))]})))))))
+          ;; if resident doesn't have enough money to pay for all their labour tenders
+          ;; scale them down by the ratio of their money to the total labour cost (potentially 0)
+          (group-by :tender/resident-id)
+          (mapcat (fn [[resident-id tenders]]
+                    (let [total-labour-cost (->> tenders
+                                                 (keep (fn [tender]
+                                                         (when (= :resource/money (get-in tender [:tender/supply 0]))
+                                                           (get-in tender [:tender/supply 1]))))
+                                                 (reduce +))
+                          labour-improvements (->> tenders
+                                                   (keep (fn [tender]
+                                                           (when (= :resource/money (get-in tender [:tender/supply 0]))
+                                                             (:tender/improvement-id tender))))
+                                                   set)]
+                      (if (<= total-labour-cost (get resident-money-balances resident-id))
+                        tenders
+                        (let [ratio (/ (max 0 ;; shouldn't be possible for the balance to be < 0, but it happens
+                                            (get resident-money-balances resident-id))
+                                       total-labour-cost)]
+                          (->> tenders
+                               (map (fn [tender]
+                                      (tap> labour-improvements)
+                                      (if (contains? labour-improvements (:tender/improvement-id tender))
+                                        (-> tender
+                                            (update :tender/prerequisite-utilization * ratio)
+                                            (update-in [:tender/supply 1] * ratio)
+                                            (update-in [:tender/demand 1] * ratio))
+                                        tender))))))))))}))
 
 #_(tick-all!)
 

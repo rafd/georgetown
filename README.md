@@ -32,6 +32,7 @@ Tell me what to fix or build next [on Discord](https://discord.gg/FdPus82t4b).
       - requires 100 labour for a player-decided price
   - improvements can be demolished, but only half the cost is recovered
   - some offers are prequisites (ex. jobs at a big-farm), if they are partially filled, then the production of the other offers is reduced (ex. only 50% of jobs on a big-farm, thus, only produce 50% of the food)
+  - if a player cannot afford to pay their money supply offers (ex. jobs at big-farm) then all their offers are scaled pro-rata to what they can afford
 
 - The Simulation
   - the game ticks 1/sec, 1 sec real world ~= 1 week in game
