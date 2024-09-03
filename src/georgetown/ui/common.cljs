@@ -30,7 +30,19 @@
 
 (defn login-button []
   [button {:on-click (fn []
-                       (let [email (js/prompt "Enter your email:")]
+                       ;; temporary authentication method
+                       (let [email (js/prompt "Enter a long random string (but save it somewhere if you want to log back in).")]
+                         (-> (state/exec! :command/alpha.authenticate-user!
+                                          {:email (str email "@example.com")
+                                           :url js/location.pathname})
+                             (.then
+                               (fn [response]
+                                 (set! js/window.location (:url response))))
+                             (.catch
+                               (fn []
+                                 (js/alert "Something went wrong.")))))
+
+                       #_(let [email (js/prompt "Enter your email:")]
                          (-> (state/exec! :command/authenticate-user!
                                           {:email email
                                            :url js/location.pathname})
