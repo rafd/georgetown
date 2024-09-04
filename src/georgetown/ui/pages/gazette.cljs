@@ -41,11 +41,13 @@
         ^{:key dataset-index}
         [:g
          ;; reverse values so the latest is on the right
-         (for [[i value] (map-indexed vector (reverse values))]
+         (for [[i value] (map-indexed vector (reverse values))
+               ;; sometimes get nils (ex. no clearing price)
+               :let [value (or value 0)]]
            ^{:key i}
            [:rect {:fill (get colors (dec (- (count datasets) dataset-index)))
                    :width bar-width
-                   :height (* y-factor value)
+                   :height (max 0 (* y-factor value))
                    :x (* i bar-width)
                    :y (- height (* y-factor value))}])])
       ;; placing labels at position in graph
