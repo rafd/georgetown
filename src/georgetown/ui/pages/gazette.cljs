@@ -5,7 +5,7 @@
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]
     [georgetown.ui.map :as map]
-    [georgetown.ui.common :refer [resource-amount]]))
+    [georgetown.ui.common :refer [resource-amount] :as ui]))
 
 (defn sparkline
   [values]
@@ -60,7 +60,7 @@
                    :alignment-baseline "hanging"
                    :x (+ 2 (* bar-width x-range))
                    :y (- bar-height (* y-factor value))}
-            (.toLocaleString value)])]]
+            (ui/format value 0)])]]
      (let [sig-figs (if (every? (fn [x] (< 1 x)) (map first datasets))
                       0
                       2)]
@@ -68,8 +68,7 @@
         (for [[dataset-index value] (map-indexed vector (sort > (map first datasets)))]
           ^{:key dataset-index}
           [:div {:style {:font-size "0.25em"}}
-           (.toLocaleString value "en-US" #js {:minimumFractionDigits sig-figs
-                                               :maximumFractionDigits sig-figs})])])]))
+           (ui/format value sig-figs)])])]))
 
 (defn x-stats [path]
   (x/select path @state/stats-history))
@@ -81,7 +80,7 @@
       ^{:key i}
       [:div {:tw "text-blue"
              :style {:font-size "0.7em"}}
-       (.toLocaleString value)])]
+       (ui/format value 0)])]
    [:div.bars {:tw "relative h-1.5em"}
     (for [[i value] (map-indexed vector values)]
       ^{:key i}
@@ -227,8 +226,7 @@
           [:td {:tw "text-right tabular-nums align-top"}
            [:div [resource-amount supply :resource/labour]]
            [:div [resource-amount available-supply :resource/labour]]
-           [:div [resource-amount demand :resource/labour]]
-           ]
+           [:div [resource-amount demand :resource/labour]]]
           [:td {:tw "align-top"}
            [:span {:tw "text-xs"} "transacted, available"]
            [multi-sparkline

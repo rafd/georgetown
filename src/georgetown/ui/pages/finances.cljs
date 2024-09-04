@@ -6,12 +6,6 @@
     [georgetown.client.state :as state]
     [georgetown.ui.map :as map]))
 
-(defn format [x]
-  (when x
-    (.toLocaleString x
-                     "en-US" #js {:minimumFractionDigits 2
-                                  :maximumFractionDigits 2})))
-
 (defn financial-report-view []
   [:section
    [:h1 "Financial Report"]
@@ -74,26 +68,25 @@
               [:td {:tw "text-right tabular-nums px-4"}
                deed-rate]
               [:<>
-               [:td {:tw "text-right tabular-nums px-4"} (format income)]
-               [:td {:tw "text-right tabular-nums px-4"} (format expense)]]
+               [:td {:tw "text-right tabular-nums px-4"} (ui/format income 2)]
+               [:td {:tw "text-right tabular-nums px-4"} (ui/format expense 2)]]
               [:td {:tw ["text-right tabular-nums px-4"
                          (if (< total 0)
                            "text-red-600"
                            "text-blue-600")]}
-               (format total)]]))
+               (ui/format total 2)]]))
          [:tr
           [:td {:tw "font-bold"} "Totals"]
           [:td]
-          [:td {:tw "text-right tabular-nums px-4 font-bold"} (format (reduce + (map :deed-rate lines)))]
-          [:td {:tw "text-right tabular-nums px-4 font-bold"} (format (reduce + (map :income lines)))]
-          [:td {:tw "text-right tabular-nums px-4 font-bold"} (format (reduce + (map :expense lines)))]
+          [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :deed-rate lines)) 2)]
+          [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :income lines)) 2)]
+          [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :expense lines)) 2)]
           (let [total (reduce + (map :total lines))]
             [:td {:tw ["text-right tabular-nums px-4 font-bold"
                        (if (< total 0)
                          "text-red-600"
                          "text-blue-600")]}
-             (format total)])]]]))]
-  )
+             (ui/format total 2)])]]]))])
 
 (defn page []
   [map/page-wrapper

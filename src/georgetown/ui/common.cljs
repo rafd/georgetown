@@ -3,6 +3,14 @@
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]))
 
+(defn format [n fraction-digits]
+  (when n
+    (.toLocaleString
+      n
+      "en-US"
+      #js {:minimumFractionDigits fraction-digits
+           :maximumFractionDigits fraction-digits})))
+
 (defn resource-icon [resource-id]
   (let [resource (schema/resources resource-id)]
     [:span {:title (name resource-id)}
@@ -13,7 +21,7 @@
    [:span {:tw "tabular-nums"
            :style {:font-size "0.65em"}}
     (if amount
-      (.toLocaleString amount)
+      (format amount 0)
       "?")]
    (into [:<>]
          (interpose [:span {:style {:font-size "0.6em"}} " / "]
