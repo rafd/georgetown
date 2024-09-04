@@ -56,7 +56,7 @@
             (exec! :command/change-rate!
                    {:user-id user-id
                     :lot-id lot-id
-                    :rate 30})
+                    :rate 5})
             (when improvement-type
               (exec! :command/build!
                      {:user-id user-id
