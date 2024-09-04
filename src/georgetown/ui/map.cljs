@@ -51,7 +51,10 @@
          "🏠"]
         [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
              :title "gazette"}
-         "📈"]]
+         "📈"]
+        [:a {:href (pages/path-for [:page/finances {:island-id (:island/id island)}])
+             :title "finances"}
+         "💵"]]
        (when @state/resident
          [:div {:tw "absolute bottom-0 left-0 z-100"}
           [resident-view]])
