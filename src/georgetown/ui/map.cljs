@@ -11,10 +11,6 @@
 (defn ->color [x]
   (str "oklch(50% 70% " (hash x) ")"))
 
-(defn resident-view []
-  [:div {:tw "bg-white p-2"}
-   [ui/resource-amount @state/money-balance :resource/money]])
-
 (defn pie [opts percent]
   [:svg (assoc opts :height 20 :width 20 :view-box "0 0 20 20")
    [:circle {:cx 10
@@ -46,27 +42,31 @@
                                       (group-by (fn [offer]
                                                   (first (:offer/id offer)))))]
       [:div.wrapper {:tw "relative w-60% h-screen bg-blue-500"}
-       [:div.menu {:tw "absolute top-0 right-0 z-20 px-1"}
-        [:a {:href (pages/path-for [:page/island {:island-id (:island/id island)}])}
-         "🏠"]
-        [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
-             :title "gazette"}
-         "📈"]
-        [:a {:href (pages/path-for [:page/finances {:island-id (:island/id island)}])
-             :title "finances"}
-         "💵"]]
-       (when @state/resident
-         [:div {:tw "absolute bottom-0 left-0 z-100"}
-          [resident-view]])
-       [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10 relative"}
-        [:div.title {:tw "absolute top-0 left-0 text-blue-800 px-1"}
-         [:a {:href (pages/path-for [:page/home {}])} "georgetown"]
-         " "
-         [version-view]]
-        [:div.lots {:style {:padding (str tile-size "em")
+       [:div.menu {:tw "absolute top-0 left-0 right-0 z-20 px-1 flex justify-between"}
+        [:div {:tw "space-x-1"}
+         [:a {:href (pages/path-for [:page/home {}])
+              :title "home"}
+          "🌎"]
+         [:a {:href (pages/path-for [:page/island {:island-id (:island/id island)}])
+              :title "island"}
+          "🏝️"]
+         [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
+              :title "gazette"}
+          "📈"]]
+        (when @state/resident
+          [:a {:tw "bg-white px-1"
+               :href (pages/path-for [:page/finances {:island-id (:island/id island)}])
+               :title "financial report"}
+           [ui/resource-amount @state/money-balance :resource/money]])]
+
+       [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10"}
+        [:div.lots {:tw "relative"
+                    :style {:padding (str tile-size "em")
                             :box-sizing "content-box"
                             :width (str (* lot-count-width tile-size) "em")
                             :height (str (* lot-count-height tile-size) "em")}}
+         [:div.title {:tw "absolute bottom-0 left-0 text-blue-800 px-1"}
+          [version-view]]
          (doall
            (for [[y row-lots] (->> lots
                                    (sort-by (juxt :lot/x :lot/y))
