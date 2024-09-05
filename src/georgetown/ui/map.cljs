@@ -11,21 +11,6 @@
 (defn ->color [x]
   (str "oklch(50% 70% " (hash x) ")"))
 
-(defn pie [opts percent]
-  [:svg (assoc opts :height 20 :width 20 :view-box "0 0 20 20")
-   [:circle {:cx 10
-             :cy 10
-             :r 10
-             :fill "#333"}]
-   [:circle {:cx 10
-             :cy 10
-             :r 5
-             :fill "transparent"
-             :stroke "green"
-             :stroke-width 10
-             :transform "rotate(-90) translate(-20)"
-             :stroke-dasharray (str (* 31.4 percent) " 31.4")}]])
-
 (defn version-view []
   (r/with-let [v (state/exec-atom! :query/version {})]
     [:a {:href "https://github.com/rafd/georgetown"}
@@ -129,7 +114,10 @@
                                                  (:offerable/demand-unit offerable)
                                                  (:offerable/supply-unit offerable))]
                              [:div {:title (Math/round (* 100 (:offer/utilization offer)))}
-                              [pie {:tw "w-0.6rem h-0.6rem"} (:offer/utilization offer)]]])]])])]))]))]]])))
+                              [ui/pie {:tw "w-0.6rem h-0.6rem"
+                                       :bg-color "#333"
+                                       :fg-color "green"}
+                               (:offer/utilization offer)]]])]])])]))]))]]])))
 
 (defn page-wrapper
   [sidebar]

@@ -3,6 +3,21 @@
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]))
 
+(defn pie [opts percent]
+  [:svg (assoc opts :height 20 :width 20 :view-box "0 0 20 20")
+   [:circle {:cx 10
+             :cy 10
+             :r 10
+             :fill (or (:bg-color opts) "black")}]
+   [:circle {:cx 10
+             :cy 10
+             :r 5
+             :fill "transparent"
+             :stroke (or (:fg-color opts) "white")
+             :stroke-width 10
+             :transform "rotate(-90) translate(-20)"
+             :stroke-dasharray (str (* 31.4 percent) " 31.4")}]])
+
 (defn format [n fraction-digits]
   (when n
     (.toLocaleString
@@ -12,9 +27,10 @@
            :maximumFractionDigits fraction-digits})))
 
 (defn resource-icon [resource-id]
-  (let [resource (schema/resources resource-id)]
-    [:span {:title (name resource-id)}
-     (:resource/icon resource)]))
+  (when resource-id
+    (let [resource (schema/resources resource-id)]
+      [:span {:title (name resource-id)}
+       (:resource/icon resource)])))
 
 (defn resource-amount [amount & resource-ids]
   [:div {:tw "inline-flex items-center gap-1"}
