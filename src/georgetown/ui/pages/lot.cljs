@@ -72,8 +72,10 @@
                               :command/buy-lot!
                               {:lot-id (:lot/id lot)}))}
                "Purchase"
-               [ui/resource-amount (or (some-> (:deed/rate deed) inc)
-                                       1)
+               [ui/resource-amount
+                (or (some-> (:deed/rate deed) inc)
+                    1)
+                0
                 :resource/money]
                "🔁"
                ]]
@@ -95,7 +97,7 @@
                                              :improvement-type (:blueprint/id blueprint)}))}
                    (:blueprint/icon blueprint)
                    (:blueprint/label blueprint)
-                   [ui/resource-amount (- (:blueprint/price blueprint)) :resource/money]])]]
+                   [ui/resource-amount (- (:blueprint/price blueprint)) 0 :resource/money]])]]
               (let [blueprint (schema/blueprints (:improvement/type improvement))]
                 [:div
                  [:div
@@ -155,6 +157,7 @@
                                   (:offer/amount offer))
                               (or (b-amount-key offerable)
                                   (:offer/amount offer)))
+                           0
                            (a-unit-key offerable)
                            (b-unit-key offerable)])]]))
                   [ui/button {:on-click
@@ -165,6 +168,7 @@
                    "Demolish"
                    [ui/resource-amount
                     (/ (:blueprint/price blueprint) 2)
+                    0
                     :resource/money]]]]))])]))))
 
 (defn page

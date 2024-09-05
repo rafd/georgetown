@@ -42,7 +42,7 @@
           [:a {:tw "bg-white px-1"
                :href (pages/path-for [:page/finances {:island-id (:island/id island)}])
                :title "financial report"}
-           [ui/resource-amount @state/money-balance :resource/money]])]
+           [ui/resource-amount @state/money-balance 0 :resource/money]])]
 
        [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10"}
         [:div.lots {:tw "relative"

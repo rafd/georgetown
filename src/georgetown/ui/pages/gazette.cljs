@@ -5,7 +5,7 @@
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]
     [georgetown.ui.map :as map]
-    [georgetown.ui.common :refer [resource-amount] :as ui]))
+    [georgetown.ui.common :as ui]))
 
 (defn sparkline
   [values]
@@ -139,16 +139,16 @@
         [:td "government $ balance"]
         [:td]
         [:td {:tw "text-right"}
-         [resource-amount (:sim.out/government-money-balance stats) :resource/money]]
+         [ui/resource-amount (:sim.out/government-money-balance stats) 0 :resource/money]]
         [:td
          [multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]]]
        [:tr
         [:td "citizen $ balance"]
         [:td]
         [:td {:tw "text-right"}
-         [resource-amount (:sim.out/citizen-money-balance stats) :resource/money]
+         [ui/resource-amount (:sim.out/citizen-money-balance stats) 0 :resource/money]
          "/"
-         [resource-amount (:sim.out/money-savings-goal stats) :resource/money]]
+         [ui/resource-amount (:sim.out/money-savings-goal stats) 0 :resource/money]]
         [:td
          [multi-sparkline
           (x-stats [x/ALL :sim.out/citizen-money-balance])
@@ -157,9 +157,9 @@
         [:td "citizen food balance"]
         [:td]
         [:td {:tw "text-right"}
-         [resource-amount (:sim.out/citizen-food-balance stats) :resource/food]
+         [ui/resource-amount (:sim.out/citizen-food-balance stats) 0 :resource/food]
          "/"
-         [resource-amount (:sim.out/food-savings-goal stats) :resource/food]]
+         [ui/resource-amount (:sim.out/food-savings-goal stats) 0 :resource/food]]
         [:td
          [multi-sparkline
           (x-stats [x/ALL :sim.out/citizen-food-balance])
@@ -171,8 +171,8 @@
          [:div "current"]
          [:div "max supportable"]]
         [:td {:tw "text-right"}
-         [:div [resource-amount (:sim.out/population stats) :resource/citizen]]
-         [:div [resource-amount (:sim.out/max-supported-population stats) :resource/citizen]]]
+         [:div [ui/resource-amount (:sim.out/population stats) 0 :resource/citizen]]
+         [:div [ui/resource-amount (:sim.out/max-supported-population stats) 0 :resource/citizen]]]
         [:td
          [multi-sparkline
           (x-stats [x/ALL :sim.out/population])
@@ -198,15 +198,15 @@
                [:div "price"]
                [:div "cost"]]
               [:td {:tw "text-right tabular-nums align-top"}
-               [:div [resource-amount demand resource-id]]
-               #_[:div [resource-amount supply resource-id]]
-               [:div [resource-amount available-supply resource-id]]
-               [:div [resource-amount supply resource-id]]
+               [:div [ui/resource-amount demand 0 resource-id]]
+               #_[:div [ui/resource-amount supply 0 resource-id]]
+               [:div [ui/resource-amount available-supply 0 resource-id]]
+               [:div [ui/resource-amount supply 0 resource-id]]
                [:div
                 (if invert?
-                  [resource-amount (/ 1 clearing-price) resource-id resource-b-id]
-                  [resource-amount clearing-price resource-b-id resource-id])]
-               [:div [resource-amount cost resource-b-id]]]
+                  [ui/resource-amount (/ 1 clearing-price) 2 resource-id resource-b-id]
+                  [ui/resource-amount clearing-price 2 resource-b-id resource-id])]
+               [:div [ui/resource-amount cost 0 resource-b-id]]]
               [:td
                [:span {:tw "text-xs"} "supply, demand"]
                [multi-sparkline
@@ -226,9 +226,9 @@
            [:div "available"]
            [:div "on-offer"]]
           [:td {:tw "text-right tabular-nums align-top"}
-           [:div [resource-amount supply :resource/labour]]
-           [:div [resource-amount available-supply :resource/labour]]
-           [:div [resource-amount demand :resource/labour]]]
+           [:div [ui/resource-amount supply 0 :resource/labour]]
+           [:div [ui/resource-amount available-supply 0 :resource/labour]]
+           [:div [ui/resource-amount demand 0 :resource/labour]]]
           [:td {:tw "align-top"}
            [:span {:tw "text-xs"} "transacted, available"]
            [multi-sparkline

@@ -32,12 +32,12 @@
       [:span {:title (name resource-id)}
        (:resource/icon resource)])))
 
-(defn resource-amount [amount & resource-ids]
+(defn resource-amount [amount sig-figs & resource-ids]
   [:div {:tw "inline-flex items-center gap-1"}
    [:span {:tw "tabular-nums"
            :style {:font-size "0.65em"}}
     (if amount
-      (format amount 0)
+      (format amount sig-figs)
       "?")]
    (into [:<>]
          (interpose [:span {:style {:font-size "0.6em"}} " / "]
