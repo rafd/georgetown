@@ -13,42 +13,44 @@
         island-id (:island/id island)
         lots (vec (:island/lots island))]
     (doseq [[user-index email] [[0 "alice@example.com"]
-                                [1 "bob@example.com"]]]
+                                #_[1 "bob@example.com"]]]
       (exec! :command/authenticate-user!
              {:email email})
       (let [user-id (s/email->user-id email)]
         (exec! :command/immigrate!
                {:user-id user-id
                 :island-id island-id})
-        (doseq [[index improvement-type offers]
-                [;; house
-                 [0 :improvement.type/house {:offer/house.rental 50}]
-                 [1 :improvement.type/house {:offer/house.rental 60}]
-                 [2 :improvement.type/house {:offer/house.rental 70}]
-                 [3 :improvement.type/house {:offer/house.rental 80}]
-                 ;; farm
-                 [4 :improvement.type/farm {:offer/farm.food 10}]
-                 [5 :improvement.type/farm {:offer/farm.food 11}]
-                 [6 :improvement.type/farm {:offer/farm.food 12}]
-                 [7 :improvement.type/farm {:offer/farm.food 13}]
-                 [8 :improvement.type/farm {:offer/farm.food 14}]
-                 [9 :improvement.type/farm {:offer/farm.food 15}]
-                 [10 :improvement.type/farm {:offer/farm.food 16}]
-                 [11 :improvement.type/farm {:offer/farm.food 17}]
-                 [12 :improvement.type/farm {:offer/farm.food 18}]
-                 [13 :improvement.type/farm {:offer/farm.food 19}]
-                 [14 :improvement.type/farm {:offer/farm.food 20}]
-                 ;; big farm
-                 [15 :improvement.type/big-farm {:offer/big-farm.job 100
-                                                :offer/big-farm.food 105}]
-                 [16 :improvement.type/big-farm {:offer/big-farm.job 200
-                                                :offer/big-farm.food 205}]
-                 [17 :improvement.type/big-farm {:offer/big-farm.job 300
-                                                 :offer/big-farm.food 305}]
-                 [18 :improvement.type/big-farm {:offer/big-farm.job 400
-                                                 :offer/big-farm.food 405}]
-                 ;; empty
-                 [19]]]
+        (doseq [[index [improvement-type offers]]
+                (map-indexed vector
+                             [;; house
+                              [:improvement.type/house {:offer/house.rental 5}]
+                              [:improvement.type/house {:offer/house.rental 5}]
+                              [:improvement.type/house {:offer/house.rental 6}]
+                              [:improvement.type/house {:offer/house.rental 6}]
+                              [:improvement.type/house {:offer/house.rental 7}]
+                              [:improvement.type/house {:offer/house.rental 7}]
+                              [:improvement.type/house {:offer/house.rental 8}]
+                              [:improvement.type/house {:offer/house.rental 8}]
+                              [:improvement.type/house {:offer/house.rental 9}]
+                              [:improvement.type/house {:offer/house.rental 9}]
+                              [:improvement.type/house {:offer/house.rental 10}]
+                              [:improvement.type/house {:offer/house.rental 10}]
+                              ;; farm
+                              [:improvement.type/farm {:offer/farm.food 10}]
+                              [:improvement.type/farm {:offer/farm.food 11}]
+                              [:improvement.type/farm {:offer/farm.food 12}]
+                              [:improvement.type/farm {:offer/farm.food 13}]
+                              [:improvement.type/farm {:offer/farm.food 14}]
+                              [:improvement.type/farm {:offer/farm.food 15}]
+                              [:improvement.type/farm {:offer/farm.food 16}]
+                              [:improvement.type/farm {:offer/farm.food 17}]
+                              [:improvement.type/farm {:offer/farm.food 18}]
+                              [:improvement.type/farm {:offer/farm.food 19}]
+                              ;; big farm
+                              [:improvement.type/big-farm {:offer/big-farm.job 265
+                                                           :offer/big-farm.food 10}]
+                              ;; empty
+                              []])]
           (let [lot-id (get-in lots [(+ (* user-index 20) index) :lot/id])]
             (exec! :command/buy-lot!
                    {:user-id user-id
@@ -56,7 +58,7 @@
             (exec! :command/change-rate!
                    {:user-id user-id
                     :lot-id lot-id
-                    :rate 5})
+                    :rate 2})
             (when improvement-type
               (exec! :command/build!
                      {:user-id user-id

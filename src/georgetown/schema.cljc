@@ -69,7 +69,7 @@
          [{:offerable/id :offer/farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 10
+           :offerable/supply-amount 42
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }]}
@@ -90,7 +90,7 @@
          [{:offerable/id :offer/big-farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 100
+           :offerable/supply-amount 200
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
