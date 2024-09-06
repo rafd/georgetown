@@ -32,6 +32,15 @@
       [:span {:title (name resource-id)}
        (:resource/icon resource)])))
 
+(defn value-with-icon
+  [value icon]
+  [:div {:tw "inline-flex items-center gap-1"}
+   [:span {:tw "tabular-nums"
+           :style {:font-size "0.65em"}}
+    value]
+   [:span {:style {:font-size "0.65em"}}
+    icon]])
+
 (defn resource-amount [amount sig-figs & resource-ids]
   [:div {:tw "inline-flex items-center gap-1"}
    [:span {:tw "tabular-nums"

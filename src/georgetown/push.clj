@@ -12,6 +12,7 @@
           (pull ?island
                 ;; don't use [*] here, to avoid leaking private information
                 [:island/id
+                 :island/epoch
                  :island/population
                  :island/government-money-balance
                  :island/citizen-money-balance

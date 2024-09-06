@@ -11,6 +11,7 @@
 (defn extract-data-for-simulation
   [island-id]
   (let [island (db/q '[:find (pull ?island [:island/population
+                                            :island/epoch
                                             :island/citizen-food-balance
                                             :island/citizen-money-balance]) .
                        :in $ ?island-id
@@ -27,6 +28,7 @@
                                            island-id)
                                      (into {}))]
     {:sim.in/population (:island/population island)
+     :sim.in/epoch (:island/epoch island)
      :sim.in/citizen-money-balance (:island/citizen-money-balance island)
      :sim.in/citizen-food-balance (:island/citizen-food-balance island)
      :sim.in/tenders
@@ -383,13 +385,14 @@
 
 (defn tick!
   [island-id]
-  (let [result (simulate (extract-data-for-simulation island-id))
+  (let [sim-in (extract-data-for-simulation island-id)
+        sim-out (simulate sim-in)
         ;; joy
-        joy (* (:sim.out/leisure-percent result)
-               (:sim.out/population result))
+        joy (* (:sim.out/leisure-percent sim-out)
+               (:sim.out/population sim-out))
         ;; resident money
         resident-balances (resident-resource-balances island-id)
-        resident-market-amounts (resident-market-net-amounts result)
+        resident-market-amounts (resident-market-net-amounts sim-out)
         resident-operations-amounts {} #_(resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
         new-resident-balances (merge-with (partial merge-with (fnil + 0))
@@ -414,7 +417,7 @@
         ;; get improvement offer utilization (based on the tenders)
         offer-id->utilization (->> [:resource/shelter :resource/food :resource/money]
                                    (mapcat (fn [resource]
-                                             (->> result
+                                             (->> sim-out
                                                   :sim.out/resources
                                                   resource
                                                   :tenders
@@ -426,15 +429,16 @@
     (db/transact!
       (concat
         (for [[k v] {:island/simulator-stats
-                     (assoc result
+                     (assoc sim-out
                        ;; include these also, so front-end reports them
                        :sim.out/government-money-balance new-government-balance)
-                     :island/population (:sim.out/population result)
+                     :island/population (:sim.out/population sim-out)
                      :island/joy joy
+                     :island/epoch (inc (:sim.in/epoch sim-in))
                      :island/government-money-balance new-government-balance
-                     :island/citizen-money-balance (+ (:sim.out/citizen-money-balance result)
+                     :island/citizen-money-balance (+ (:sim.out/citizen-money-balance sim-out)
                                                       citizens-dividend)
-                     :island/citizen-food-balance (:sim.out/citizen-food-balance result)}]
+                     :island/citizen-food-balance (:sim.out/citizen-food-balance sim-out)}]
           [:db/add [:island/id island-id] k v])
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]

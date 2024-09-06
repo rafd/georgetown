@@ -128,7 +128,8 @@
     :island/citizen-food-balance {:spec :pos-int}
     :island/joy {:spec :pos-int}
     :island/residents {:rel/many :entity/resident}
-    :island/lots {:rel/many :entity/lot}}
+    :island/lots {:rel/many :entity/lot}
+    :island/epoch {:spec :pos-int}}
 
    :entity/user
    {:user/id {:spec :uuid

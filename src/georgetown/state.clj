@@ -33,6 +33,7 @@
       :island/government-money-balance 10000
       :island/citizen-money-balance 0
       :island/citizen-food-balance 1000
+      :island/epoch 0
       :island/joy 0
       :island/lots
       (for [x (range 20)

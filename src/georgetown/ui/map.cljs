@@ -16,6 +16,12 @@
     [:a {:href "https://github.com/rafd/georgetown"}
      "v." (or (:version @v) "???")]))
 
+(defn date [epoch]
+  ;; September 2, 1839 (Henry George's birthday) + epoch days
+  (let [date (js/Date. 1839 8 2)]
+    (.setDate date (+ 1 epoch))
+    (.toLocaleDateString date "en-CA" #js {:year "numeric" :month "numeric" :day "numeric"})))
+
 (defn map-view []
   (when-let [island @state/island]
     (let [lots (:island/lots island)
@@ -38,6 +44,8 @@
          [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
               :title "gazette"}
           "📈"]]
+        [:div.epoch {:tw "bg-white px-1"}
+         [ui/value-with-icon (date (:island/epoch island)) "🗓️"]]
         [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
         (when @state/resident
