@@ -72,13 +72,21 @@
                               :command/buy-lot!
                               {:lot-id (:lot/id lot)}))}
                "Purchase"
+               "("
+               (when improvement
+                 [:<>
+                  [ui/resource-amount
+                   (:blueprint/price (schema/blueprints (:improvement/type improvement)))
+                   0
+                   :resource/money]
+                  "+"])
                [ui/resource-amount
                 (or (some-> (:deed/rate deed) inc)
-                    1)
+                    0)
                 0
                 :resource/money]
                "🔁"
-               ]]
+               ")"]]
              logged-in?
              [ui/join-island-button @state/island-id]
              :else
