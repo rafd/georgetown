@@ -295,6 +295,8 @@
           :tenders
           x/ALL])
        (mapcat (fn [tender]
+                 ;; tender might only have been partially filled
+                 ;; these are output tenders, so they have already been adjusted by utilization
                  [[(:tender/resident-id tender)
                    (first (:tender/demand tender))
                    (* (second (:tender/demand tender))
@@ -302,8 +304,10 @@
                   [(:tender/resident-id tender)
                    (first (:tender/supply tender))
                    (* (- (second (:tender/supply tender)))
-                      ;; tender might only have been partially filled
                       (:tender/fill-ratio tender))]]))
+       ;; for now, only care about money
+       (filter (fn [[_ resource _]]
+                 (= resource :resource/money)))
        (reduce (fn [memo [resident-id resource amount]]
                  (update-in memo [resident-id resource] (fnil + 0) amount))
                {})))

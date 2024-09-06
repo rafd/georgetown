@@ -194,6 +194,7 @@
         (db/transact!
           [[:db/retractEntity [:improvement/id improvement-id]]
            [:fn/deposit (s/->resident-id user-id [:improvement/id improvement-id])
+            ;; get back only half
             (/ (:blueprint/price (schema/blueprints (:improvement/type improvement)))
                2)]])))}
 
