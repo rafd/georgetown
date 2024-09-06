@@ -249,8 +249,9 @@
           [:td clearing-price]])
        [:tr
         [:td "leisure"]
-        [:td]
-        [:td]
+        [:td "percent"]
+        [:td {:tw "text-right tabular-nums align-top"}
+         [ui/resource-amount (:sim.out/leisure-percent stats) 2 :resource/labour]]
         [:td
          [multi-sparkline
           (x-stats [x/ALL :sim.out/leisure-percent])
