@@ -126,52 +126,6 @@
 (defn simulate
   [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
   (let [
-        ;; POPULATION
-        ;; if not enough shelter or food, population decreases to match
-        ;; do this before the markets are run
-        potential-food-supply (->> tenders
-                                   (keep
-                                     (fn [tender]
-                                       (let [[resource amount] (:tender/supply tender)]
-                                         (when (= resource :resource/food)
-                                           amount))))
-                                   (apply +))
-        potential-shelter-supply (->> tenders
-                                      (keep
-                                        (fn [tender]
-                                          (let [[resource amount] (:tender/supply tender)]
-                                            (when (= resource :resource/shelter)
-                                              amount))))
-                                      (apply +))
-        ;; some food supply didn't have enough labour last turn
-        active-food-supply (->> tenders
-                                (keep
-                                  (fn [tender]
-                                    (let [[resource amount] (:tender/supply tender)]
-                                      (when (= resource :resource/food)
-                                        amount))))
-                                (apply +))
-        potential-supported-population (Math/floor
-                                         (min (/ potential-food-supply
-                                                 food-demand-per-person-per-week)
-                                              (/ potential-shelter-supply
-                                                 shelter-demand-per-person-per-week)))
-        supported-population (Math/floor
-                               (min (/ active-food-supply
-                                       food-demand-per-person-per-week)
-                                    (/ potential-shelter-supply
-                                       shelter-demand-per-person-per-week)))
-        #_#_population-emigration (if (< population supported-population)
-                                0
-                                (- population supported-population))
-        ;; emigrating citizens take a fraction of the money with them
-        #_#_citizen-money-balance (* (- 1 (/ population-emigration population))
-                                 citizen-money-balance)
-        #_#_population (- population population-emigration)
-        ;; don't let population go to 0, or there's no going back
-        ;; (also, code below explodes)
-        population (max 1 population)
-
         ;; FOOD
         base-food-demand (* food-demand-per-person-per-week population)
         food-savings-goal (* ticks-of-food-savings base-food-demand)
@@ -247,29 +201,54 @@
                                     (- food-consumed))
 
         ;; POPULATION
-        ;; deaths
-        population-decrease (->> (repeatedly (fn []
-                                               (< (rand) (/ (- 1 leisure-percent)
-                                                            ;; divide, just to slow things down
-                                                            100))))
-                                 (take population)
-                                 (filter true?)
-                                 count
-                                 -)
-        ;; for every potential person, there is a leisure%/c% chance they will join
-        potential-population-increase (max (- supported-population population) 0)
-        population-increase (if (pos? new-citizen-money-balance)
-                              (->> (repeatedly (fn []
-                                               (< (rand) (/ leisure-percent
-                                                            ;; divide, just to slow things down
-                                                            40))))
-                                 (take potential-population-increase)
-                                 (filter true?)
-                                 count)
-                              0)
-        new-population (+ population
-                          population-decrease
-                          population-increase)]
+        potential-food-supply (->> tenders
+                                   (keep
+                                     (fn [tender]
+                                       (let [[resource amount] (:tender/supply tender)]
+                                         (when (= resource :resource/food)
+                                           amount))))
+                                   (apply +))
+        potential-shelter-supply (->> tenders
+                                      (keep
+                                        (fn [tender]
+                                          (let [[resource amount] (:tender/supply tender)]
+                                            (when (= resource :resource/shelter)
+                                              amount))))
+                                      (apply +))
+        potential-supported-population (Math/floor
+                                         (min (/ potential-food-supply
+                                                 food-demand-per-person-per-week)
+                                              (/ potential-shelter-supply
+                                                 shelter-demand-per-person-per-week)))
+        supported-population (Math/floor
+                               (min (/ food-supplied
+                                       food-demand-per-person-per-week)
+                                    (/ shelter-supplied
+                                       shelter-demand-per-person-per-week)))
+        ;; emigrating citizens take a fraction of the money with them
+        #_#_citizen-money-balance (* (- 1 (/ population-emigration population))
+                                     citizen-money-balance)
+
+        randomize (fn [population odds]
+                    (->> (repeatedly (fn []
+                                       (< (rand) odds)))
+                         (take population)
+                         (filter true?)
+                         count))
+        emigration-count (randomize (- population supported-population)
+                                    0.5)
+        death-count (randomize supported-population
+                               (/ (- 1 leisure-percent)
+                                  100))
+        newcomer-count (randomize (max (- potential-supported-population population) 0)
+                                  (/ leisure-percent
+                                     40))
+        ;; don't let population go to 0, or there's no going back
+        new-population (max 1
+                            (+ population
+                               (- emigration-count)
+                               (- death-count)
+                               newcomer-count))]
     ;; transit is struggling with bignums(?)
     ;; for now, just cast all to double
     (x/transform
