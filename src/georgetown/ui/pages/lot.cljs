@@ -1,5 +1,6 @@
 (ns georgetown.ui.pages.lot
   (:require
+    [bloom.commons.debounce :as debounce]
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.schema :as schema]
@@ -11,6 +12,41 @@
    [:h1 {:tw "bg-black text-white px-1"} label]
    (into [:div {:tw "p-1"}]
          content)])
+
+(defn offer-amount-view
+  [{:keys [offer-amount improvement-id offerable-id]}]
+  [:div.offer-amount
+   [:input {:type "number"
+            :tw "border p-1 w-18 -m-1"
+            :name "offer-amount"
+            :min 1
+            :default-value offer-amount
+            :step 1
+            :on-change (debounce/debounce
+                         (fn [e]
+                           (state/exec!
+                             :command/set-offer!
+                             {:improvement-id improvement-id
+                              :offer-type offerable-id
+                              :offer-amount (js/parseInt (.. e -target -value))}))
+                         250)}]])
+
+(defn deed-rate-view
+  [{:keys [lot-id deed-rate]}]
+  [:div {:tw "border-1 p-1"}
+   "Rate:"
+   [:input {:type "number"
+            :name "rate"
+            :min 0
+            :default-value deed-rate
+            :on-change (debounce/debounce
+                         (fn [e]
+                           (state/exec!
+                             :command/change-rate!
+                             {:lot-id lot-id
+                              :rate (js/parseInt (.. e -target -value))}))
+                         250)
+            :step 1}]])
 
 (defn sidebar
   [lot-id]
@@ -45,19 +81,9 @@
            (cond
              owner?
              [:<>
-              [:div {:tw "border-1 p-1"}
-               "Rate:"
-               [:input {:type "number"
-                        :name "rate"
-                        :min 0
-                        :default-value
-                        (or (:deed/rate deed) 0)
-                        :on-change (fn [e]
-                                     (state/exec!
-                                       :command/change-rate!
-                                       {:lot-id (:lot/id lot)
-                                        :rate (js/parseInt (.. e -target -value))}))
-                        :step 1}]]
+              [deed-rate-view {:lot-id (:lot/id lot)
+                               :deed-rate (or (:deed/rate deed) 0)}]
+
               (when (nil? improvement)
                 [ui/button {:on-click (fn []
                                         (state/exec!
@@ -137,19 +163,10 @@
                                ^{:key unit-key}
                                [:div {:tw "flex items-center gap-1 bg-green-200 rounded p-2"}
                                 (or amount
-                                    [:div.offer-amount
-                                     [:input {:type "number"
-                                              :tw "border p-1 w-18 -m-1"
-                                              :name "offer-amount"
-                                              :min 1
-                                              :default-value (:offer/amount offer)
-                                              :step 1
-                                              :on-change (fn [e]
-                                                           (state/exec!
-                                                             :command/set-offer!
-                                                             {:improvement-id (:improvement/id improvement)
-                                                              :offer-type (:offerable/id offerable)
-                                                              :offer-amount (js/parseInt (.. e -target -value))}))}]])
+                                    [offer-amount-view
+                                     {:offer-amount (:offer/amount offer)
+                                      :offerable-id (:offerable/id offerable)
+                                      :improvement-id (:improvement/id improvement)}])
                                 [ui/resource-icon unit]])
                              (interpose
                                ^{:key "<>"}
