@@ -425,21 +425,17 @@
                                    (into {}))]
     (db/transact!
       (concat
-        [[:db/add [:island/id island-id]
-          :island/simulator-stats (assoc result
-                                    ;; include these also, so front-end reports them
-                                    :sim.out/government-money-balance new-government-balance)]
-         [:db/add [:island/id island-id]
-          :island/population (:sim.out/population result)]
-         [:db/add [:island/id island-id]
-          :island/joy joy]
-         [:db/add [:island/id island-id]
-          :island/government-money-balance new-government-balance]
-         [:db/add [:island/id island-id]
-          :island/citizen-money-balance (+ (:sim.out/citizen-money-balance result)
-                                           citizens-dividend)]
-         [:db/add [:island/id island-id]
-          :island/citizen-food-balance (:sim.out/citizen-food-balance result)]]
+        (for [[k v] {:island/simulator-stats
+                     (assoc result
+                       ;; include these also, so front-end reports them
+                       :sim.out/government-money-balance new-government-balance)
+                     :island/population (:sim.out/population result)
+                     :island/joy joy
+                     :island/government-money-balance new-government-balance
+                     :island/citizen-money-balance (+ (:sim.out/citizen-money-balance result)
+                                                      citizens-dividend)
+                     :island/citizen-food-balance (:sim.out/citizen-food-balance result)}]
+          [:db/add [:island/id island-id] k v])
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
            :resident/money-balance (:resource/money balance)])
