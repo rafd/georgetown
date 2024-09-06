@@ -49,9 +49,9 @@
                "Rate:"
                [:input {:type "number"
                         :name "rate"
-                        :min 1
+                        :min 0
                         :default-value
-                        (or (:deed/rate deed) 1)
+                        (or (:deed/rate deed) 0)
                         :on-change (fn [e]
                                      (state/exec!
                                        :command/change-rate!
