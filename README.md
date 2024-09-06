@@ -10,6 +10,10 @@ Tell me what to fix or build next [on Discord](https://discord.gg/FdPus82t4b).
 
 ## The Game
 
+The goal of the game is grow a thriving town. It's a puzzle of making the best use of the available resources - economics!
+
+It is not about amassing the most cash (try it - it will lead to an economics collapse of the island; not on purpose, but as of yet, cash is in fixed supply).
+
 - Islands
   - there are multiple islands
   - each island is independent, no transfer of resources
