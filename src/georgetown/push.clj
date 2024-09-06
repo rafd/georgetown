@@ -17,6 +17,7 @@
                  :island/citizen-money-balance
                  :island/citizen-food-balance
                  :island/simulator-stats
+                 :island/joy
                  {:island/residents
                   [:resident/id]}
                  {:island/lots

@@ -13,6 +13,11 @@
          :resource/label "citizen"
          :resource/unit-label "citizen"
          :resource/description "The island's citizens"}
+        {:resource/id :resource/joy
+         :resource/icon "😀"
+         :resource/label "joy"
+         :resource/unit-label "joy"
+         :resource/description "The island's citizens' happiness"}
 
         {:resource/id :resource/food
          :resource/icon "🥕"
@@ -121,6 +126,7 @@
     :island/government-money-balance {:spec :pos-int}
     :island/citizen-money-balance {:spec :pos-int}
     :island/citizen-food-balance {:spec :pos-int}
+    :island/joy {:spec :pos-int}
     :island/residents {:rel/many :entity/resident}
     :island/lots {:rel/many :entity/lot}}
 

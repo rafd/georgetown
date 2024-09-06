@@ -38,6 +38,8 @@
          [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
               :title "gazette"}
           "📈"]]
+        [:div.joy {:tw "bg-white px-1"}
+          [ui/resource-amount (:island/joy island) 0 :resource/joy]]
         (when @state/resident
           [:a {:tw "bg-white px-1"
                :href (pages/path-for [:page/finances {:island-id (:island/id island)}])

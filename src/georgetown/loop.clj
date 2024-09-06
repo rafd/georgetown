@@ -185,8 +185,9 @@
                              money-cost)
 
         ;; LEISURE
-        leisure-percent (/ (- potential-labour-supply
-                              labour-supplied)
+        leisure-hours (- potential-labour-supply
+                         labour-supplied)
+        leisure-percent (/ leisure-hours
                            potential-labour-supply)
 
         ;; CITIZEN BALANCES
@@ -282,6 +283,7 @@
                           :available-supply potential-labour-supply
                           :supply labour-supplied
                           :clearing-price nil}}
+       :sim.out/leisure-hours leisure-hours
        :sim.out/leisure-percent leisure-percent
        :sim.out/population new-population})))
 
@@ -384,6 +386,8 @@
 (defn tick!
   [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))
+        ;; joy
+        joy (/ (:sim.out/leisure-hours result) 100)
         ;; resident money
         resident-balances (resident-resource-balances island-id)
         resident-market-amounts (resident-market-net-amounts result)
@@ -428,6 +432,8 @@
                                     :sim.out/government-money-balance new-government-balance)]
          [:db/add [:island/id island-id]
           :island/population (:sim.out/population result)]
+         [:db/add [:island/id island-id]
+          :island/joy joy]
          [:db/add [:island/id island-id]
           :island/government-money-balance new-government-balance]
          [:db/add [:island/id island-id]
