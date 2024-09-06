@@ -39,7 +39,7 @@ It is not about amassing the most cash (try it - it will lead to an economics co
   - if a player cannot afford to pay their money supply offers (ex. jobs at big-farm) then all their offers are scaled pro-rata to what they can afford
 
 - The Simulation
-  - the game ticks 1/sec, 1 sec real world ~= 1 week in game
+  - the game ticks 1/sec, 1 sec real world ~= 1 day in game
   - Sims
     - an island has a population of citizens ("sims")
     - sims require

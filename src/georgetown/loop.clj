@@ -2,7 +2,6 @@
   (:require
     [com.rpl.specter :as x]
     [chime.core :as chime]
-    [georgetown.state :as s]
     [georgetown.schema :as schema]
     [georgetown.db :as db]
     [georgetown.market :as m])
@@ -116,18 +115,18 @@
 
 #_(tick-all!)
 
-;; 1 tick ~= 1 week
+;; 1 tick ~= 1 day
 (def ticks-of-money-savings 5)
 (def ticks-of-food-savings 5)
-(def food-demand-per-person-per-week 21) ;; 1 food ~= meals
-(def shelter-demand-per-person-per-week 1) ;; 1 shelter ~= 1 week of rent
-(def max-labour-supply-per-person-per-week (* 7 15)) ;; 1 labour ~= 1 hour
+(def food-demand-per-person-per-tick 1) ;; 1 food ~= meals
+(def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
+(def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
 
 (defn simulate
   [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
   (let [
         ;; FOOD
-        base-food-demand (* food-demand-per-person-per-week population)
+        base-food-demand (* food-demand-per-person-per-tick population)
         food-savings-goal (* ticks-of-food-savings base-food-demand)
         food-demand (max (- food-savings-goal citizen-food-balance)
                          ;; HACK: force a minimum, so there's always a food market
@@ -139,7 +138,7 @@
         (m/market :resource/food food-demand :resource/money tenders)
 
         ;; SHELTER
-        base-shelter-demand (* shelter-demand-per-person-per-week population)
+        base-shelter-demand (* shelter-demand-per-person-per-tick population)
         ;; can't "store" shelter, so demand = base-demand
         shelter-demand base-shelter-demand
         {shelter-market-clearing-price :market/clearing-unit-price
@@ -180,7 +179,7 @@
                                            (when (= resource :resource/labour)
                                              amount))))
                                      (apply +))
-        potential-labour-supply (* max-labour-supply-per-person-per-week population)
+        potential-labour-supply (* max-labour-supply-per-person-per-tick population)
         labour-supplied (min potential-labour-supply
                              money-cost)
 
@@ -196,7 +195,7 @@
                                      (- shelter-cost)
                                      ;; citizens dividend added elsewhere
                                      (+ money-supplied))
-        food-consumed (* food-demand-per-person-per-week population)
+        food-consumed (* food-demand-per-person-per-tick population)
         new-citizen-food-balance (+ citizen-food-balance
                                     (+ food-supplied)
                                     (- food-consumed))
@@ -218,14 +217,14 @@
                                       (apply +))
         potential-supported-population (Math/floor
                                          (min (/ potential-food-supply
-                                                 food-demand-per-person-per-week)
+                                                 food-demand-per-person-per-tick)
                                               (/ potential-shelter-supply
-                                                 shelter-demand-per-person-per-week)))
+                                                 shelter-demand-per-person-per-tick)))
         supported-population (Math/floor
                                (min (/ food-supplied
-                                       food-demand-per-person-per-week)
+                                       food-demand-per-person-per-tick)
                                     (/ shelter-supplied
-                                       shelter-demand-per-person-per-week)))
+                                       shelter-demand-per-person-per-tick)))
         ;; emigrating citizens take a fraction of the money with them
         #_#_citizen-money-balance (* (- 1 (/ population-emigration population))
                                      citizen-money-balance)
@@ -283,7 +282,6 @@
                           :available-supply potential-labour-supply
                           :supply labour-supplied
                           :clearing-price nil}}
-       :sim.out/leisure-hours leisure-hours
        :sim.out/leisure-percent leisure-percent
        :sim.out/population new-population})))
 
@@ -387,7 +385,8 @@
   [island-id]
   (let [result (simulate (extract-data-for-simulation island-id))
         ;; joy
-        joy (/ (:sim.out/leisure-hours result) 100)
+        joy (* (:sim.out/leisure-percent result)
+               (:sim.out/population result))
         ;; resident money
         resident-balances (resident-resource-balances island-id)
         resident-market-amounts (resident-market-net-amounts result)

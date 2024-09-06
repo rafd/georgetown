@@ -23,12 +23,12 @@
          :resource/icon "🥕"
          :resource/label "food"
          :resource/unit-label "meal"
-         :resource/description "1 meal for 1 person; citizens need 21 meals per week"}
+         :resource/description "1 days worth of food for 1 person"}
         {:resource/id :resource/shelter
          :resource/icon "🛌"
          :resource/label "shelter"
          :resource/unit-label "week"
-         :resource/description "1 week of shelter for 1 person; citizens need 1 shelter per week"}
+         :resource/description "1 day of shelter for 1 person"}
         {:resource/id :resource/money
          :resource/icon "💰"
          :resource/label "money"
@@ -69,12 +69,12 @@
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
-           :io/amount 10}]
+           :io/amount 2}]
          :blueprint/offerables
          [{:offerable/id :offer/farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 42
+           :offerable/supply-amount 2
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }]}
@@ -87,7 +87,7 @@
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
-           :io/amount 100}
+           :io/amount 20}
           {:io/direction :io.direction/input
            :io/resource :resource/labour
            :io/amount 100}]
@@ -95,7 +95,7 @@
          [{:offerable/id :offer/big-farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 200
+           :offerable/supply-amount 30
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
@@ -105,7 +105,7 @@
            :offerable/supply-unit :resource/money
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour
-           :offerable/demand-amount 100
+           :offerable/demand-amount 150
            :offerable/prerequisite? true}]}]
        (key-by :blueprint/id)))
 
