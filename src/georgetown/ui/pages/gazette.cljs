@@ -1,5 +1,6 @@
 (ns georgetown.ui.pages.gazette
   (:require
+    [bloom.commons.fontawesome :as fa]
     [bloom.commons.pages :as pages]
     [com.rpl.specter :as x]
     [georgetown.client.state :as state]
@@ -66,10 +67,10 @@
      (let [sig-figs (if (every? (fn [x] (< 1 x)) (map first datasets))
                       0
                       2)]
-       [:div {:tw "flex flex-col text-right tabular-nums -mt-2px"}
+       [:div {:tw "flex flex-col text-right tabular-nums -mt-2px justify-between"}
         (for [[dataset-index value] (map-indexed vector (sort > (map first datasets)))]
           ^{:key dataset-index}
-          [:div {:style {:font-size "0.25em"}}
+          [:div {:style {:font-size "0.5rem" :line-height 1}}
            (ui/format value sig-figs)])])]))
 
 (defn x-stats [path]
@@ -132,7 +133,8 @@
   [island]
   [:div
    (when-let [stats (:island/simulator-stats island)]
-     [:table {:style {:border-collapse "separate"
+     [:table {:tw "text-sm"
+              :style {:border-collapse "separate"
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
@@ -168,11 +170,11 @@
        [:tr
         [:td {:tw "align-top"} "population"]
         [:td
-         [:div "current"]
-         [:div "max supportable"]]
+         [:div "supportable"]
+         [:div "current"]]
         [:td {:tw "text-right"}
-         [:div [ui/resource-amount (:sim.out/population stats) 0 :resource/citizen]]
-         [:div [ui/resource-amount (:sim.out/max-supported-population stats) 0 :resource/citizen]]]
+         [:div [ui/resource-amount (:sim.out/max-supported-population stats) 0 :resource/citizen]]
+         [:div [ui/resource-amount (:sim.out/population stats) 0 :resource/citizen]]]
         [:td
          [multi-sparkline
           (x-stats [x/ALL :sim.out/population])
@@ -192,15 +194,15 @@
              [:tr
               [:td {:tw "align-top"} (:resource/label resource)]
               [:td {:tw "align-top"}
-               [:div "demand"]
                [:div "available"]
+               [:div "demand"]
                [:div "supplied"]
                [:div "price"]
                [:div "cost"]]
               [:td {:tw "text-right tabular-nums align-top"}
-               [:div [ui/resource-amount demand 0 resource-id]]
                #_[:div [ui/resource-amount supply 0 resource-id]]
                [:div [ui/resource-amount available-supply 0 resource-id]]
+               [:div [ui/resource-amount demand 0 resource-id]]
                [:div [ui/resource-amount supply 0 resource-id]]
                [:div
                 (if invert?
@@ -222,13 +224,22 @@
          [:tr
           [:td {:tw "align-top"} "labour"]
           [:td
-           [:div "transacted"]
-           [:div "available"]
-           [:div "on-offer"]]
+           [:div {:tw "flex items-center gap-1"
+                  :title "labour hours available in population"}
+            "available"
+            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
+           [:div {:tw "flex items-center gap-1"
+                  :title "labour hours offered by jobs"}
+            "offered"
+            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
+           [:div {:tw "flex items-center gap-1"
+                  :title "labour hours actually worked"}
+            "transacted"
+            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]]
           [:td {:tw "text-right tabular-nums align-top"}
-           [:div [ui/resource-amount supply 0 :resource/labour]]
            [:div [ui/resource-amount available-supply 0 :resource/labour]]
-           [:div [ui/resource-amount demand 0 :resource/labour]]]
+           [:div [ui/resource-amount demand 0 :resource/labour]]
+           [:div [ui/resource-amount supply 0 :resource/labour]]]
           [:td {:tw "align-top"}
            [:span {:tw "text-xs"} "transacted, available"]
            [multi-sparkline
