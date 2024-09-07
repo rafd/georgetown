@@ -118,8 +118,8 @@
 #_(tick-all!)
 
 ;; 1 tick ~= 1 day
-(def ticks-of-money-savings 5)
-(def ticks-of-food-savings 5)
+(def ticks-of-money-savings 30)
+(def ticks-of-food-savings 30)
 (def food-demand-per-person-per-tick 1) ;; 1 food ~= meals
 (def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
 (def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
@@ -132,7 +132,7 @@
         food-savings-goal (* ticks-of-food-savings base-food-demand)
         food-demand (max (- food-savings-goal citizen-food-balance)
                          ;; HACK: force a minimum, so there's always a food market
-                         base-food-demand)
+                         (/ base-food-demand 4))
         {food-market-clearing-price :market/clearing-unit-price
          food-supplied :market/amount-supplied
          food-cost :market/total-cost
@@ -230,7 +230,7 @@
                                               (/ potential-shelter-supply
                                                  shelter-demand-per-person-per-tick)))
         supported-population (Math/floor
-                               (min (/ food-supplied
+                               (min (/ new-citizen-food-balance
                                        food-demand-per-person-per-tick)
                                     (/ shelter-supplied
                                        shelter-demand-per-person-per-tick)))
@@ -247,8 +247,7 @@
         emigration-count (randomize (- population supported-population)
                                     0.5)
         death-count (randomize supported-population
-                               (/ (- 1 leisure-percent)
-                                  100))
+                               (/ 1 100))
         newcomer-count (randomize (max (- potential-supported-population population) 0)
                                   (/ leisure-percent
                                      40))
