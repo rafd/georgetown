@@ -151,14 +151,6 @@
 
         ;; MONEY
         ;; citizens will work to save up shelter and food
-        money-savings-goal (Math/ceil (* ticks-of-money-savings (+ shelter-cost food-cost)))
-        money-demand (max (- money-savings-goal citizen-money-balance)
-                          ;; HACK: force a minimum
-                          ;; b/c sims "don't realize that food supply requires labor"
-                          (if food-market-clearing-price
-                            (+ (* shelter-market-clearing-price base-shelter-demand)
-                               (* food-market-clearing-price base-food-demand))
-                            1000))
         potential-money-supply (->> tenders
                                     (keep
                                       (fn [tender]
@@ -166,6 +158,20 @@
                                           (when (= resource :resource/money)
                                             amount))))
                                     (apply +))
+        base-money-demand (+ shelter-cost food-cost)
+        government-stimulus (if (< (+ citizen-money-balance potential-money-supply)
+                                   base-money-demand)
+                              (do (println "citizens broke; government stimulus")
+                                  1000)
+                              0)
+        money-savings-goal (Math/ceil (* ticks-of-money-savings base-money-demand))
+        money-demand (max (- money-savings-goal citizen-money-balance)
+                          ;; HACK: force a minimum
+                          ;; b/c sims "don't realize that food supply requires labor"
+                          (if food-market-clearing-price
+                            (+ (* shelter-market-clearing-price base-shelter-demand)
+                               (* food-market-clearing-price base-food-demand))
+                            1000))
         {money-market-clearing-price :market/clearing-unit-price
          money-supplied :market/amount-supplied
          money-cost :market/total-cost
@@ -196,7 +202,8 @@
                                      (- food-cost)
                                      (- shelter-cost)
                                      ;; citizens dividend added elsewhere
-                                     (+ money-supplied))
+                                     (+ money-supplied)
+                                     (+ government-stimulus))
         food-consumed (* food-demand-per-person-per-tick population)
         new-citizen-food-balance (+ citizen-food-balance
                                     (+ food-supplied)
@@ -407,10 +414,11 @@
                                          [?island :island/id ?island-id]
                                          [?island :island/government-money-balance ?balance]]
                                        island-id)
-        ;; government redistributes 50% of tax revenues as citizens dividend
-        citizens-dividend  (Math/ceil (* 0.5 government-money-balance))
-        government-expenses (- citizens-dividend)
         government-revenues (- (apply + (map :resource/money (vals resident-taxes))))
+        ;; government redistributes 50% of tax revenues as citizens dividend
+        citizens-dividend  (+ government-money-balance
+                              government-revenues)
+        government-expenses (- citizens-dividend)
         new-government-balance (+ government-money-balance
                                   government-revenues
                                   government-expenses)
@@ -425,12 +433,18 @@
                                                          [(:tender/offer-id tender)
                                                           (* (:tender/prerequisite-utilization tender)
                                                              (:tender/fill-ratio tender))])))))
-                                   (into {}))]
+                                   (into {}))
+        ;; net money
+        net-money-balance (+ new-government-balance
+                             (reduce + (map :resource/money (vals new-resident-balances)))
+                             (:sim.out/citizen-money-balance sim-out)
+                             citizens-dividend)]
     (db/transact!
       (concat
         (for [[k v] {:island/simulator-stats
                      (assoc sim-out
                        ;; include these also, so front-end reports them
+                       :sim.out/net-money-balance net-money-balance
                        :sim.out/government-money-balance new-government-balance)
                      :island/population (:sim.out/population sim-out)
                      :island/joy joy
