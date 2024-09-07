@@ -48,11 +48,13 @@
          [ui/value-with-icon (date (:island/epoch island)) "🗓️"]]
         [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
-        (when @state/resident
+        (if @state/resident
           [:a {:tw "bg-white px-1"
                :href (pages/path-for [:page/finances {:island-id (:island/id island)}])
                :title "financial report"}
-           [ui/resource-amount @state/money-balance 0 :resource/money]])]
+           [ui/resource-amount @state/money-balance 0 :resource/money]]
+          ;; put a div, to reserve a space in the flex layout
+          [:div])]
 
        [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10"}
         [:div.lots {:tw "relative"
