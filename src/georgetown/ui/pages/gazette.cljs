@@ -138,14 +138,14 @@
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
-        [:td "government $ balance"]
+        [:td "money supply"]
         [:td]
         [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/government-money-balance stats) 0 :resource/money]]
+         [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
         [:td
-         [multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]]]
+         [multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
        [:tr
-        [:td "citizen $ balance"]
+        [:td "citizen savings"]
         [:td]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-money-balance stats) 0 :resource/money]
