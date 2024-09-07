@@ -131,7 +131,8 @@
 
 (defn stats-view
   [island]
-  [:div
+  [:section
+   [:h1 "Census and Market Report"]
    (when-let [stats (:island/simulator-stats island)]
      [:table {:tw "text-sm"
               :style {:border-collapse "separate"
