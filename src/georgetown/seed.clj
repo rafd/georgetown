@@ -23,32 +23,36 @@
         (doseq [[index [improvement-type offers]]
                 (map-indexed vector
                              [;; house
-                              [:improvement.type/house {:offer/house.rental 5}]
-                              [:improvement.type/house {:offer/house.rental 5}]
-                              [:improvement.type/house {:offer/house.rental 6}]
-                              [:improvement.type/house {:offer/house.rental 6}]
-                              [:improvement.type/house {:offer/house.rental 7}]
-                              [:improvement.type/house {:offer/house.rental 7}]
-                              [:improvement.type/house {:offer/house.rental 8}]
-                              [:improvement.type/house {:offer/house.rental 8}]
-                              [:improvement.type/house {:offer/house.rental 9}]
-                              [:improvement.type/house {:offer/house.rental 9}]
-                              [:improvement.type/house {:offer/house.rental 10}]
-                              [:improvement.type/house {:offer/house.rental 10}]
+                              [:improvement.type/house {:offer/house.rental 1}]
+                              [:improvement.type/house {:offer/house.rental 1}]
+                              [:improvement.type/house {:offer/house.rental 1}]
+                              [:improvement.type/house {:offer/house.rental 1}]
+                              [:improvement.type/house {:offer/house.rental 2}]
+                              [:improvement.type/house {:offer/house.rental 2}]
+                              [:improvement.type/house {:offer/house.rental 2}]
+                              [:improvement.type/house {:offer/house.rental 2}]
+                              [:improvement.type/house {:offer/house.rental 3}]
+                              [:improvement.type/house {:offer/house.rental 3}]
                               ;; farm
-                              [:improvement.type/farm {:offer/farm.food 10}]
-                              [:improvement.type/farm {:offer/farm.food 11}]
-                              [:improvement.type/farm {:offer/farm.food 12}]
-                              [:improvement.type/farm {:offer/farm.food 13}]
-                              [:improvement.type/farm {:offer/farm.food 14}]
-                              [:improvement.type/farm {:offer/farm.food 15}]
-                              [:improvement.type/farm {:offer/farm.food 16}]
-                              [:improvement.type/farm {:offer/farm.food 17}]
-                              [:improvement.type/farm {:offer/farm.food 18}]
-                              [:improvement.type/farm {:offer/farm.food 19}]
+                              [:improvement.type/farm {:offer/farm.food 20
+                                                       :offer/farm.job 10}]
+                              [:improvement.type/farm {:offer/farm.food 21
+                                                       :offer/farm.job 11}]
+                              [:improvement.type/farm {:offer/farm.food 22
+                                                       :offer/farm.job 12}]
+                              [:improvement.type/farm {:offer/farm.food 23
+                                                       :offer/farm.job 13}]
+                              [:improvement.type/farm {:offer/farm.food 24
+                                                       :offer/farm.job 14}]
+                              [:improvement.type/farm {:offer/farm.food 25
+                                                       :offer/farm.job 15}]
+                              [:improvement.type/farm {:offer/farm.food 26
+                                                       :offer/farm.job 16}]
+                              [:improvement.type/farm {:offer/farm.food 27
+                                                       :offer/farm.job 17}]
                               ;; big farm
-                              [:improvement.type/big-farm {:offer/big-farm.job 265
-                                                           :offer/big-farm.food 10}]
+                              #_[:improvement.type/big-farm {:offer/big-farm.food 30
+                                                           :offer/big-farm.job 20}]
                               ;; empty
                               []])]
           (let [lot-id (get-in lots [(+ (* user-index 20) index) :lot/id])]
@@ -58,7 +62,7 @@
             (exec! :command/change-rate!
                    {:user-id user-id
                     :lot-id lot-id
-                    :rate 2})
+                    :rate 1})
             (when improvement-type
               (exec! :command/build!
                      {:user-id user-id

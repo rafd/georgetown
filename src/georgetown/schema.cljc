@@ -69,7 +69,10 @@
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
-           :io/amount 2}]
+           :io/amount 2}
+          {:io/direction :io.direction/input
+           :io/resource :resource/labour
+           :io/amount 10}]
          :blueprint/offerables
          [{:offerable/id :offer/farm.food
            :offerable/label "Food"
@@ -77,13 +80,21 @@
            :offerable/supply-amount 2
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
-           }]}
+           }
+          {:offerable/id :offer/farm.job
+           :offerable/label "Job"
+           :offerable/invert? true
+           :offerable/supply-unit :resource/money
+           :offerable/supply-amount nil ; user value
+           :offerable/demand-unit :resource/labour
+           :offerable/demand-amount 10
+           :offerable/prerequisite? true}]}
 
         {:blueprint/id :improvement.type/big-farm
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
          :blueprint/description "Produces food"
-         :blueprint/price 100
+         :blueprint/price 500
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
