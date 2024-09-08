@@ -22,12 +22,12 @@
         {:resource/id :resource/food
          :resource/icon "🥕"
          :resource/label "food"
-         :resource/unit-label "meal"
+         :resource/unit-label "day"
          :resource/description "1 days worth of food for 1 person"}
         {:resource/id :resource/shelter
          :resource/icon "🛌"
          :resource/label "shelter"
-         :resource/unit-label "week"
+         :resource/unit-label "night"
          :resource/description "1 day of shelter for 1 person"}
         {:resource/id :resource/money
          :resource/icon "💰"
