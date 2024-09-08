@@ -122,7 +122,7 @@
             [;; create new deed
              {:db/id -1
               :deed/id (uuid/random)
-              :deed/rate 1}
+              :deed/rate 0}
              [:db/add [:lot/id lot-id] :lot/deed -1]
              [:db/add [:resident/id resident-id] :resident/deeds -1]]))))}
 
