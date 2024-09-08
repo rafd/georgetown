@@ -4,7 +4,9 @@
     [georgetown.client.state :as state]))
 
 (defn pie [opts percent]
-  [:svg (assoc opts :height 20 :width 20 :view-box "0 0 20 20")
+  [:svg (-> opts
+            (assoc :height 20 :width 20 :view-box "0 0 20 20")
+            (dissoc :bg-color :fg-color))
    [:circle {:cx 10
              :cy 10
              :r 10
