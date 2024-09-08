@@ -93,20 +93,20 @@
         {:blueprint/id :improvement.type/big-farm
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
-         :blueprint/description "Produces food"
-         :blueprint/price 500
+         :blueprint/description "Produces food, more space and labour efficiently"
+         :blueprint/price 1000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
-           :io/amount 20}
+           :io/amount 30}
           {:io/direction :io.direction/input
            :io/resource :resource/labour
-           :io/amount 100}]
+           :io/amount 150}]
          :blueprint/offerables
          [{:offerable/id :offer/big-farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 30
+           :offerable/supply-amount 50
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
