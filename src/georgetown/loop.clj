@@ -442,12 +442,14 @@
         resident-market-amounts (resident-market-net-amounts sim-out)
         resident-operations-amounts {} #_(resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
-        new-resident-balances (merge-with (partial merge-with (fnil + 0))
-                                          resident-balances
+        resident-net-cashflow (merge-with (partial merge-with (fnil + 0))
                                           resident-market-amounts
                                           resident-operations-amounts
                                           resident-debt-payments
                                           resident-taxes)
+        new-resident-balances (merge-with (partial merge-with (fnil + 0))
+                                          resident-balances
+                                          resident-net-cashflow)
         ;; GOVERNMENT
         government-money-balance (db/q '[:find ?balance .
                                          :in $ ?island-id
@@ -482,7 +484,7 @@
                              citizens-dividend)]
     (db/transact!
       (concat
-        (for [[k v] {:island/simulator-stats
+        (for [[k v] {:island/public-stats
                      (assoc sim-out
                        ;; include these also, so front-end reports them
                        :sim.out/net-money-balance net-money-balance
@@ -495,6 +497,9 @@
                                                       citizens-dividend)
                      :island/citizen-food-balance (:sim.out/citizen-food-balance sim-out)}]
           [:db/add [:island/id island-id] k v])
+        (for [[resident-id net-cashflow] resident-net-cashflow]
+          [:db/add [:resident/id resident-id]
+           :resident/private-stats {:stats.private/net-cashflow net-cashflow}])
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
            :resident/money-balance (:resource/money balance)])

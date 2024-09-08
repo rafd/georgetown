@@ -34,7 +34,8 @@
 
 (defonce resident (r/atom nil))
 
-(defonce stats-history (r/atom '()))
+(defonce private-stats-history (r/atom '()))
+(defonce public-stats-history (r/atom '()))
 
 (defonce money-balance
   (r/reaction (:resident/money-balance @resident)))
@@ -55,7 +56,8 @@
     (reset! island-id id)
     (reset! island nil)
     (reset! resident nil)
-    (reset! stats-history '())))
+    (reset! public-stats-history '())
+    (reset! private-stats-history '())))
 
 (defn get-island-state []
   (when @island-id
@@ -71,8 +73,12 @@
                                  (reset! user (:client-state/user client-state))
                                  (reset! resident (:client-state/resident client-state))
                                  (reset! island (:client-state/island client-state))
-                                 (swap! stats-history (fn [prev]
-                                                        (take 60 (conj prev (:island/simulator-stats (:client-state/island client-state))))))
+                                 (swap! public-stats-history
+                                        (fn [prev]
+                                          (take 60 (conj prev (:island/public-stats (:client-state/island client-state))))))
+                                 (swap! private-stats-history
+                                        (fn [prev]
+                                          (take 360 (conj prev (:resident/private-stats (:client-state/resident client-state))))))
                                  (js/setTimeout get-island-state 0))})))
 
 (defonce _watcher

@@ -151,6 +151,7 @@
   {:entity/island
    {:island/id {:spec :uuid
                 :db/unique :db.unique/identity}
+    :island/public-stats {}
     :island/population {:spec :pos-int}
     :island/government-money-balance {:spec :pos-int}
     :island/citizen-money-balance {:spec :pos-int}
@@ -171,6 +172,7 @@
    :entity/resident
    {:resident/id {:spec :uuid
                    :db/unique :db.unique/identity}
+    :resident/private-stats {}
     :resident/money-balance {:spec :pos-int}
     :resident/deeds {:rel/many :entity/deed}
     :resident/loans {:rel/many :entity/loan}}

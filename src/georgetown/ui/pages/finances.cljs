@@ -1,14 +1,22 @@
 (ns georgetown.ui.pages.finances
   (:require
     [bloom.commons.pages :as pages]
+    [com.rpl.specter :as x]
     [georgetown.ui.common :as ui]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]
+    [georgetown.ui.dataviz :as dataviz]
     [georgetown.ui.map :as map]))
+
+(defn cashflow-graph []
+  [:div {}
+   [dataviz/plus-minus-sparkline
+    (x/select [x/ALL :stats.private/net-cashflow :resource/money] @state/private-stats-history)]])
 
 (defn financial-report-view []
   [:section
    [:h1 "Financial Report"]
+   [cashflow-graph]
    (if (nil? @state/user)
      [ui/login-button]
      (let [resident-id (:resident/id @state/resident)

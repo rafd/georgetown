@@ -18,7 +18,7 @@
                  :island/government-money-balance
                  :island/citizen-money-balance
                  :island/citizen-food-balance
-                 :island/simulator-stats
+                 :island/public-stats
                  :island/joy
                  {:island/residents
                   [:resident/id]}
@@ -57,6 +57,7 @@
     (db/q '[:find (pull ?resident
                         [:resident/id
                          :resident/money-balance
+                         :resident/private-stats
                          {:resident/loans
                           [:loan/id
                            :loan/amount
