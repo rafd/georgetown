@@ -248,7 +248,7 @@
         emigration-count (randomize (- population supported-population)
                                     0.5)
         death-count (randomize supported-population
-                               (/ 1 100))
+                               (/ 1 1000))
         newcomer-count (randomize (max (- potential-supported-population population) 0)
                                   (/ (+ 1 ;; 1, so it's never 0 chance
                                         leisure-percent) 40))
