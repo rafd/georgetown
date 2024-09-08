@@ -29,7 +29,7 @@
                            :when (= (:resident/id (:resident/_deeds deed))
                                     resident-id)
                            :let [improvement (:lot/improvement lot)
-                                 income-offer (->> (improvement-id->offers (:improvement/id improvement))
+                                 revenue-offer (->> (improvement-id->offers (:improvement/id improvement))
                                                    (keep (fn [offer]
                                                            (let [offerable (schema/offerables (:offer/type offer))]
                                                              (when (= :resource/money (:offerable/demand-unit offerable))
@@ -52,10 +52,10 @@
                         :id (:lot/id lot)
                         :lot lot
                         :improvement improvement
-                        :income-offer income-offer
+                        :revenue-offer revenue-offer
                         :expense-offer expense-offer
                         :deed-rate (- (:deed/rate deed))
-                        :total (+ (:offer/net-amount income-offer)
+                        :total (+ (:offer/net-amount revenue-offer)
                                   (- (:offer/net-amount expense-offer))
                                   (- (:deed/rate deed)))})
            debt-lines (->> @state/resident
@@ -71,12 +71,12 @@
          [:tr
           [:td {:tw "font-bold"} "Lot"]
           [:td]
-          [:td {:tw "font-bold text-right px-4"} "Tax"]
-          [:td {:tw "font-bold text-right px-4"} "Incomes"]
+          [:td {:tw "font-bold text-right px-4"} "Taxes"]
           [:td {:tw "font-bold text-right px-4"} "Expenses"]
-          [:td {:tw "font-bold text-right px-4"} "Net"]]
+          [:td {:tw "font-bold text-right px-4"} "Revenues"]
+          [:td {:tw "font-bold text-right px-4"} "Income"]]
          (doall
-           (for [{:keys [id type improvement lot income-offer expense-offer deed-rate total]} lines]
+           (for [{:keys [id type improvement lot revenue-offer expense-offer deed-rate total]} lines]
              ^{:key id}
              [:tr
               [:td
@@ -97,16 +97,6 @@
                deed-rate]
               [:<>
                [:td {:tw "text-right tabular-nums px-4"}
-                (when income-offer
-                  [:div {:tw "flex items-center gap-1 justify-end"}
-                   [ui/resource-icon (:offerable/supply-unit (schema/offerables (:offer/type income-offer)))]
-                   [ui/pie {:tw "w-1em h-1em"
-                            :bg-color "#ddd"
-                            :fg-color "green"}
-                    (:offer/utilization income-offer)]
-                   [:span {:tw "grow"}
-                    (ui/format (:offer/net-amount income-offer) 2)]])]
-               [:td {:tw "text-right tabular-nums px-4"}
                 (when expense-offer
                   [:div {:tw "flex items-center gap-1 justify-end"}
                    [ui/resource-icon (:offerable/demand-unit (schema/offerables (:offer/type expense-offer)))]
@@ -115,7 +105,17 @@
                             :fg-color "green"}
                     (:offer/utilization expense-offer)]
                    [:span {:tw "grow"}
-                    (ui/format (:offer/net-amount expense-offer) 2)]])]]
+                    (ui/format (:offer/net-amount expense-offer) 2)]])]
+               [:td {:tw "text-right tabular-nums px-4"}
+                (when revenue-offer
+                  [:div {:tw "flex items-center gap-1 justify-end"}
+                   [ui/resource-icon (:offerable/supply-unit (schema/offerables (:offer/type revenue-offer)))]
+                   [ui/pie {:tw "w-1em h-1em"
+                            :bg-color "#ddd"
+                            :fg-color "green"}
+                    (:offer/utilization revenue-offer)]
+                   [:span {:tw "grow"}
+                    (ui/format (:offer/net-amount revenue-offer) 2)]])]]
               [:td {:tw ["text-right tabular-nums px-4"
                          (if (< total 0)
                            "text-red-600"
@@ -125,7 +125,7 @@
           [:td {:tw "font-bold"} "Totals"]
           [:td]
           [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :deed-rate lines)) 2)]
-          [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :income-offer lines))) 2)]
+          [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :revenue-offer lines))) 2)]
           [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :expense-offer lines))) 2)]
           (let [total (reduce + (map :total lines))]
             [:td {:tw ["text-right tabular-nums px-4 font-bold"
