@@ -182,7 +182,7 @@
                                   (:offer/amount offer))
                               (or (b-amount-key offerable)
                                   (:offer/amount offer)))
-                           0
+                           2
                            (a-unit-key offerable)
                            (b-unit-key offerable)])]]))
                   [ui/button {:on-click
