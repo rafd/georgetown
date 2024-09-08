@@ -61,6 +61,24 @@
            :offerable/demand-amount nil ; :user-value
            }]}
 
+        {:blueprint/id :improvement.type/apartment
+         :blueprint/label "Apartment"
+         :blueprint/icon "🏢"
+         :blueprint/description "Provides shelter"
+         :blueprint/price 10000
+         :blueprint/io
+         [{:io/direction :io.direction/output
+           :io/resource :resource/shelter
+           :io/amount 25}]
+         :blueprint/offerables
+         [{:offerable/id :offer/apartment.rental
+           :offerable/label "Rental"
+           :offerable/supply-unit :resource/shelter
+           :offerable/supply-amount 25
+           :offerable/demand-unit :resource/money
+           :offerable/demand-amount nil ; :user-value
+           }]}
+
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
          :blueprint/icon "🌽"
