@@ -129,17 +129,42 @@
            [block {:label "Improvement"}
             (if (nil? improvement)
               [block {:label "Build..."}
-               [:div
+               [:div {:tw "space-y-2"}
                 (for [blueprint (vals schema/blueprints)]
                   ^{:key (:blueprint/id blueprint)}
-                  [ui/button {:on-click (fn []
-                                          (state/exec!
-                                            :command/build!
-                                            {:lot-id (:lot/id lot)
-                                             :improvement-type (:blueprint/id blueprint)}))}
-                   (:blueprint/icon blueprint)
-                   (:blueprint/label blueprint)
-                   [ui/resource-amount (- (:blueprint/price blueprint)) 0 :resource/money]])]]
+                  [:div {:tw "bg-gray-200 rounded p-1 flex justify-between items-center gap-1"}
+                   [:div {:tw "text-3xl"} (:blueprint/icon blueprint)]
+                   [:div {:tw "grow"}
+                    [:div (:blueprint/label blueprint)]
+                    [:div {:tw "text-xs"} (:blueprint/description blueprint)]
+                    (let [grouped-ios (->> (:blueprint/io blueprint)
+                                           (group-by :io/direction))]
+                      [:div {:tw "flex gap-1"}
+                       (for [io (:io.direction/input grouped-ios)]
+                         ^{:key (hash io)}
+                         [:div
+                          [ui/resource-amount
+                           (:io/amount io)
+                           0
+                           (:io/resource io)]])
+                       (when (seq (:io.direction/input grouped-ios))
+                         [:span "⇒"])
+                       (for [io (:io.direction/output grouped-ios)]
+                         ^{:key (hash io)}
+                         [:div
+                          [ui/resource-amount
+                           (:io/amount io)
+                           0
+                           (:io/resource io)]])])]
+                   [ui/button {:on-click (fn []
+                                           (state/exec!
+                                             :command/build!
+                                             {:lot-id (:lot/id lot)
+                                              :improvement-type (:blueprint/id blueprint)}))}
+                     "Build"
+                     " ("
+                     [ui/resource-amount (- (:blueprint/price blueprint)) 0 :resource/money]
+                     ")"]])]]
               (let [blueprint (schema/blueprints (:improvement/type improvement))]
                 [:div
                  [:div

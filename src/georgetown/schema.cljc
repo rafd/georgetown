@@ -116,7 +116,7 @@
         {:blueprint/id :improvement.type/big-farm
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
-         :blueprint/description "Produces food, more space and labour efficiently"
+         :blueprint/description "Produces food"
          :blueprint/price 10000
          :blueprint/io
          [{:io/direction :io.direction/output
