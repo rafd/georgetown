@@ -122,17 +122,16 @@
                            (let [blueprint (schema/blueprints (:improvement/type improvement))]
                              (:blueprint/icon blueprint))]
                           [:div.offers
-                           {:tw "absolute bottom-0 right-0 flex gap-0.5"
+                           {:tw "absolute bottom-0 left-0 right-0 flex justify-between flex-row-reverse"
                             :style {:font-size "0.3em"}}
                            (for [offer (->> improvement
                                             :improvement/id
                                             improvement-id->offers
-                                            (sort-by (juxt :offer/invert? :offer/type))
-                                            reverse)
+                                            (sort-by (juxt :offer/invert? :offer/type)))
                                  :let [offerable (schema/offerables (:offer/type offer))]]
                              ^{:key (:offer/id offer)}
                              [:div.offer
-                              {:tw "bg-black px-1 py-0.5 gap-0.5 flex items-center"
+                              {:tw "bg-black px-0.75 py-0.5 gap-0.5 flex items-center"
                                :style {:font-size "0.5em"}}
                               [ui/resource-icon (if (:offerable/invert? offerable)
                                                   (:offerable/demand-unit offerable)
