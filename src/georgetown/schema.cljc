@@ -209,6 +209,7 @@
   {:uuid :db.type/uuid
    :integer :db.type/long
    :pos-int :db.type/long
+   :whole-int :db.type/long
    :string :db.type/string
    :float :db.type/float
    :keyword :db.type/keyword
