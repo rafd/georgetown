@@ -15,39 +15,49 @@
            improvement-id->offers (->> @state/offers
                                        (group-by (fn [offer]
                                                    (first (:offer/id offer)))))
-           lines (for [lot (->> @state/island
-                                :island/lots)
-                       :let [deed (:lot/deed lot)]
-                       :when (= (:resident/id (:resident/_deeds deed))
-                                resident-id)
-                       :let [improvement (:lot/improvement lot)
-                             income-offer (->> (improvement-id->offers (:improvement/id improvement))
-                                               (keep (fn [offer]
-                                                       (let [offerable (schema/offerables (:offer/type offer))]
-                                                         (when (= :resource/money (:offerable/demand-unit offerable))
-                                                           (assoc offer :offer/net-amount
-                                                             (* (:offer/utilization offer)
-                                                                (or (:offerable/demand-amount offerable)
-                                                                    (:offer/amount offer))))))))
-                                               first)
-                             expense-offer (->> (improvement-id->offers (:improvement/id improvement))
-                                                (keep (fn [offer]
-                                                        (let [offerable (schema/offerables (:offer/type offer))]
-                                                          (when (= :resource/money (:offerable/supply-unit offerable))
-                                                            (assoc offer
-                                                              :offer/net-amount
-                                                              (* (:offer/utilization offer)
-                                                                 (or (:offerable/supply-amount offerable)
-                                                                     (:offer/amount offer))))))))
-                                                first)]]
-                   {:lot lot
-                    :improvement improvement
-                    :income-offer income-offer
-                    :expense-offer expense-offer
-                    :deed-rate (- (:deed/rate deed))
-                    :total (+ (:offer/net-amount income-offer)
-                              (- (:offer/net-amount expense-offer))
-                              (- (:deed/rate deed)))})]
+           lot-lines (for [lot (->> @state/island
+                                    :island/lots)
+                           :let [deed (:lot/deed lot)]
+                           :when (= (:resident/id (:resident/_deeds deed))
+                                    resident-id)
+                           :let [improvement (:lot/improvement lot)
+                                 income-offer (->> (improvement-id->offers (:improvement/id improvement))
+                                                   (keep (fn [offer]
+                                                           (let [offerable (schema/offerables (:offer/type offer))]
+                                                             (when (= :resource/money (:offerable/demand-unit offerable))
+                                                               (assoc offer :offer/net-amount
+                                                                 (* (:offer/utilization offer)
+                                                                    (or (:offerable/demand-amount offerable)
+                                                                        (:offer/amount offer))))))))
+                                                   first)
+                                 expense-offer (->> (improvement-id->offers (:improvement/id improvement))
+                                                    (keep (fn [offer]
+                                                            (let [offerable (schema/offerables (:offer/type offer))]
+                                                              (when (= :resource/money (:offerable/supply-unit offerable))
+                                                                (assoc offer
+                                                                  :offer/net-amount
+                                                                  (* (:offer/utilization offer)
+                                                                     (or (:offerable/supply-amount offerable)
+                                                                         (:offer/amount offer))))))))
+                                                    first)]]
+                       {:type ::lot
+                        :id (:lot/id lot)
+                        :lot lot
+                        :improvement improvement
+                        :income-offer income-offer
+                        :expense-offer expense-offer
+                        :deed-rate (- (:deed/rate deed))
+                        :total (+ (:offer/net-amount income-offer)
+                                  (- (:offer/net-amount expense-offer))
+                                  (- (:deed/rate deed)))})
+           debt-lines (->> @state/resident
+                           :resident/loans
+                           (map (fn [loan]
+                                  {:type ::loan
+                                   :id (:loan/id loan)
+                                   :total (- (:loan/daily-payment-amount loan))})))
+           lines (concat lot-lines
+                         debt-lines)]
        [:table
         [:tbody
          [:tr
@@ -58,13 +68,18 @@
           [:td {:tw "font-bold text-right px-4"} "Expenses"]
           [:td {:tw "font-bold text-right px-4"} "Net"]]
          (doall
-           (for [{:keys [improvement lot income-offer expense-offer deed-rate total]} lines]
-             ^{:key (:lot/id lot)}
+           (for [{:keys [id type improvement lot income-offer expense-offer deed-rate total]} lines]
+             ^{:key id}
              [:tr
               [:td
-               [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
-                                                      :lot-id (:lot/id lot)}])}
-                (:lot/x lot) "," (:lot/y lot)]]
+               (case type
+                 ::lot
+                 [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
+                                                        :lot-id (:lot/id lot)}])}
+                  (:lot/x lot) "," (:lot/y lot)]
+                 ::loan
+                 [:a {:href (pages/path-for [:page/bank {:island-id @state/island-id}])}
+                  "loan"])]
               [:td
                [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
                                                       :lot-id (:lot/id lot)}])}

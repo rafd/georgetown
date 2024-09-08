@@ -50,10 +50,15 @@
          [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
          (if @state/resident
-           [:a {:tw "bg-white px-1"
-                :href (pages/path-for [:page/finances {:island-id (:island/id island)}])
-                :title "financial report"}
-            [ui/resource-amount @state/money-balance 0 :resource/money]]
+           [:div {:tw "flex gap-1"}
+            [:div {:tw "bg-white px-1"}
+             [ui/resource-amount @state/money-balance 0 :resource/money]]
+            [:a {:href (pages/path-for [:page/finances {:island-id (:island/id island)}])
+                 :title "financial report"}
+             "💰"]
+            [:a {:href (pages/path-for [:page/bank {:island-id (:island/id island)}])
+                 :title "bank"}
+             "🏦"]]
            ;; put a div, to reserve a space in the flex layout
            [:div])]
 

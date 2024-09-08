@@ -5,6 +5,7 @@
     [tada.events.malli :as tada]
     [georgetown.email :as email]
     [georgetown.schema :as schema]
+    [georgetown.debt :as debt]
     [georgetown.state :as s]
     [georgetown.db :as db]))
 
@@ -75,7 +76,7 @@
       (db/transact!
         [{:db/id -1
           :resident/id (uuid/random)
-          :resident/money-balance 5000}
+          :resident/money-balance 0}
          [:db/add [:island/id island-id]
           :island/residents -1]
          [:db/add [:user/id user-id]
@@ -222,7 +223,73 @@
           :improvement/offers
           [{:offer/id [improvement-id offer-type]
             :offer/type offer-type
-            :offer/amount offer-amount}]}]))}])
+            :offer/amount offer-amount}]}]))}
+
+   {:id :command/borrow-loan!
+    :params {:user-id :user/id
+             :resident-id :resident/id}
+    :conditions
+    (fn [{:keys [user-id resident-id]}]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :resident/id resident-id)]
+       [#(s/owns? user-id [:resident/id resident-id])]])
+    :effect
+    (fn [{:keys [user-id resident-id]}]
+      (let [loan-count (->> (s/by-id [:resident/id resident-id]
+                                     [:resident/loans])
+                            :resident/loans
+                            count)
+            loan (debt/next-potential-loan loan-count)]
+        (db/transact!
+          [[:fn/deposit resident-id (:loan/amount loan)]
+           {:resident/id resident-id
+            :resident/loans
+            [(assoc loan
+               :loan/id (uuid/random))]}])))}
+
+   {:id :command/set-loan-daily-payment-amount!
+    :params {:user-id :user/id
+             :loan-id :loan/id
+             :daily-payment-amount :loan/daily-payment-amount}
+    :conditions
+    (fn [{:keys [user-id loan-id daily-payment-amount]}]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :loan/id loan-id)]
+       [#(s/owns? user-id [:loan/id loan-id])]
+       [#(<= (:loan/minimum-daily-payment-amount
+               (s/by-id [:loan/id loan-id]
+                        [:loan/minimum-daily-payment-amount]))
+             daily-payment-amount)]])
+    :effect
+    (fn [{:keys [loan-id daily-payment-amount]}]
+      (db/transact!
+        [[:db/add [:loan/id loan-id]
+          :loan/daily-payment-amount daily-payment-amount]]))}
+
+   {:id :command/repay-loan!
+    :params {:user-id :user/id
+             :loan-id :loan/id
+             :amount :pos-int}
+    :conditions
+    (fn [{:keys [user-id loan-id amount]}]
+      [[#(s/exists? :user/id user-id)]
+       [#(s/exists? :loan/id loan-id)]
+       [#(s/owns? user-id [:loan/id loan-id])]
+       [#(s/can-afford? (s/->resident-id user-id [:loan/id loan-id])
+                        amount)]])
+    :effect
+    (fn [{:keys [loan-id amount]}]
+      (let [loan (s/by-id [:loan/id loan-id] [:loan/amount
+                                              {:resident/_loans [:resident/id]}])
+            resident-id (:resident/id (:resident/_loans loan))]
+        (if (<= (:loan/amount loan) amount)
+          (db/transact!
+            [[:db/retractEntity [:loan/id loan-id]]
+             [:fn/withdraw resident-id (:loan/amount loan)]])
+          (db/transact!
+            [[:db/add [:loan/id loan-id]
+              :loan/amount (- (:loan/amount loan) amount)]
+             [:fn/withdraw resident-id amount]]))))}])
 
 (tada/register! cqrs)
 

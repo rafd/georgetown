@@ -10,6 +10,7 @@
                  [tada "0.2.2"]
                  [jarohen/chime "0.3.3"]
                  [com.draines/postal "2.0.3"]
+                 [applied-science/js-interop "0.4.2"]
 
                  ;; db
                  [datalevin "0.9.5"]

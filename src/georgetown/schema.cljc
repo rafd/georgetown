@@ -154,7 +154,16 @@
    {:resident/id {:spec :uuid
                    :db/unique :db.unique/identity}
     :resident/money-balance {:spec :pos-int}
-    :resident/deeds {:rel/many :entity/deed}}
+    :resident/deeds {:rel/many :entity/deed}
+    :resident/loans {:rel/many :entity/loan}}
+
+   :entity/loan
+   {:loan/id {:spec :uuid
+              :db/unique :db.unique/identity}
+    :loan/amount {:spec :pos-int}
+    :loan/annual-interest-rate {:spec :float} ;; positive, typically between 0 and 0.3
+    :loan/minimum-daily-payment-amount {:spec :pos-int}
+    :loan/daily-payment-amount {:spec :pos-int}}
 
    :entity/lot
    {:lot/id {:spec :uuid
@@ -184,7 +193,8 @@
                              (keys offerables))
                  :db/valueType :db.type/keyword}
     :offer/amount {:spec :pos-int}
-    :offer/utilization {:spec :float}}})
+    :offer/utilization {:spec :float} ;; between 0 and 1
+    }})
 
 (mr/set-default-registry!
   (merge (mr/schemas m/default-registry)

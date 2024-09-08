@@ -56,6 +56,12 @@
     (db/q '[:find (pull ?resident
                         [:resident/id
                          :resident/money-balance
+                         {:resident/loans
+                          [:loan/id
+                           :loan/amount
+                           :loan/daily-payment-amount
+                           :loan/minimum-daily-payment-amount
+                           :loan/annual-interest-rate]}
                          {:resident/deeds
                           [:deed/id
                            {:lot/_deed

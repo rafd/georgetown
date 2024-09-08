@@ -2,6 +2,7 @@
   (:require
     [com.rpl.specter :as x]
     [chime.core :as chime]
+    [georgetown.debt :as debt]
     [georgetown.schema :as schema]
     [georgetown.db :as db]
     [georgetown.market :as m])
@@ -320,6 +321,44 @@
                  (update-in memo [resident-id resource] (fnil + 0) amount))
                {})))
 
+(defn loans
+  [island-id]
+  (let [payments
+        (->> (db/q
+               ;; need loan-id so that it doesn't dedupe
+               '[:find [(pull ?loan [* {:resident/_loans
+                                        [:resident/id]}]) ...]
+                 :in $ ?island-id
+                 :where
+                 [?island :island/id ?island-id]
+                 [?island :island/residents ?resident]
+                 [?resident :resident/loans ?loan]]
+               island-id)
+             (map (fn [loan]
+                    [loan
+                     (-> loan :resident/_loans :resident/id)
+                     (min (Math/ceil (:loan/amount loan))
+                          (:loan/daily-payment-amount loan))])))]
+    {:loan-txs
+     (->> payments
+          (map (fn [[loan resident-id payment-amount]]
+                 (if (<= (- (:loan/amount loan)
+                            payment-amount)
+                         0)
+                   [:db/retractEntity [:loan/id (:loan/id loan)]]
+                   [:db/add [:loan/id (:loan/id loan)]
+                    :loan/amount (debt/new-amount loan)]))))
+     :resident-debt-payments
+     (->> payments
+          (reduce (fn [memo [loan resident-id payment-amount]]
+                    (update-in memo [resident-id :resource/money]
+                               (fnil + 0)
+                               (- payment-amount)))
+                  {}))}))
+
+#_(loans
+    (:island/id (first (georgetown.state/all-of-type :island/id '[*]))))
+
 #_(defn resident-operations-net-amounts
   "For each resident, +/- for each resource, from running their improvements"
   [island-id]
@@ -396,6 +435,8 @@
         ;; joy
         joy (* (:sim.out/leisure-percent sim-out)
                (:sim.out/population sim-out))
+        ;; loans
+        {:keys [loan-txs resident-debt-payments]} (loans island-id)
         ;; resident money
         resident-balances (resident-resource-balances island-id)
         resident-market-amounts (resident-market-net-amounts sim-out)
@@ -405,6 +446,7 @@
                                           resident-balances
                                           resident-market-amounts
                                           resident-operations-amounts
+                                          resident-debt-payments
                                           resident-taxes)
         ;; GOVERNMENT
         government-money-balance (db/q '[:find ?balance .
@@ -457,7 +499,9 @@
           [:db/add [:resident/id resident-id]
            :resident/money-balance (:resource/money balance)])
         (for [[offer-id utilization] offer-id->utilization]
-          [:db/add [:offer/id offer-id] :offer/utilization utilization])))))
+          [:db/add [:offer/id offer-id] :offer/utilization utilization])
+        (for [tx loan-txs]
+          tx)))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]

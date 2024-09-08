@@ -88,6 +88,16 @@
 (defn ->resident-id
   [user-id [id-attr id]]
   (case id-attr
+    :loan/id
+    (db/q '[:find ?resident-id .
+            :in $ ?user-id ?loan-id
+            :where
+            [?user :user/id ?user-id]
+            [?loan :loan/id ?loan-id]
+            [?resident :resident/loans ?loan]
+            [?resident :resident/id ?resident-id]]
+          user-id
+          id)
     :island/id
     (db/q '[:find ?resident-id .
             :in $ ?user-id ?island-id
@@ -137,9 +147,29 @@
             resident-id)))
 
 (defn owns?
+  ;; TODO rename to related-to?
   [user-id [attr id]]
   (some?
     (case attr
+      :resident/id
+      (db/q '[:find ?resident .
+              :in $ ?user-id ?resident-id
+              :where
+              [?resident :resident/id ?resident-id]
+              [?user :user/residents ?resident]
+              [?user :user/id ?user-id]]
+            user-id
+            id)
+      :loan/id
+      (db/q '[:find ?loan .
+              :in $ ?user-id ?loan-id
+              :where
+              [?loan :loan/id ?loan-id]
+              [?resident :resident/loans ?loan]
+              [?user :user/residents ?resident]
+              [?user :user/id ?user-id]]
+            user-id
+            id)
       :lot/id
       (db/q '[:find ?deed .
               :in $ ?user-id ?lot-id
