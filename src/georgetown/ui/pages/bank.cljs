@@ -62,9 +62,11 @@
                   :type "number"
                   :name "amount"
                   :min 1
-                  :default-value (min
-                                   @state/money-balance
-                                   (:loan/amount loan))}]
+                  :default-value (max
+                                   0
+                                   (min
+                                     @state/money-balance
+                                     (:loan/amount loan)))}]
          [ui/button {} "Repay"]]
         [:div
          [ui/button {:on-click
