@@ -139,13 +139,13 @@
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
-        [:td {:colspan 2} "money supply"]
+        [:td {:col-span 2} "money supply"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
         [:td
          [multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
        [:tr
-        [:td {:colspan 2} "citizen savings"]
+        [:td {:col-span 2} "citizen savings"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-money-balance stats) 0 :resource/money]
          "/"
@@ -155,7 +155,7 @@
           (x-stats [x/ALL :sim.out/citizen-money-balance])
           (x-stats [x/ALL :sim.out/money-savings-goal])]]]
        [:tr
-        [:td {:colspan 2} "citizen food reserves"]
+        [:td {:col-span 2} "citizen food reserves"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-food-balance stats) 0 :resource/food]
          "/"
