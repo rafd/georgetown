@@ -90,13 +90,17 @@
                                                        :lot-id (:lot/id lot)}])
                      :style {:width (str tile-size "em")
                              :height (str tile-size "em")
-                             :background (if (pages/active?
-                                               [:page/lot {:island-id (:island/id island)
-                                                           :lot-id (:lot/id lot)}])
-                                           "#026002"
-                                           "green")
-                             :border-right "1px solid #009600"
-                             :border-bottom "1px solid #009600"
+                             :background (cond
+                                           (pages/active?
+                                             [:page/lot {:island-id (:island/id island)
+                                                         :lot-id (:lot/id lot)}])
+                                           "#0c500c"
+                                           (even? (+ (:lot/x lot) (:lot/y lot)))
+                                           "#1e7607"
+                                           :else
+                                           "#0f6e12")
+                             #_#_:border-right "1px solid #009600"
+                             #_#_:border-bottom "1px solid #009600"
                              :color "white"}}
                     (when deed
                       [:div.deed
