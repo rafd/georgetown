@@ -119,7 +119,7 @@
 
 ;; 1 tick ~= 1 day
 (def ticks-of-money-savings 30)
-(def ticks-of-food-savings 30)
+(def ticks-of-food-savings 7)
 (def food-demand-per-person-per-tick 1) ;; 1 food ~= meals
 (def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
 (def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
@@ -249,8 +249,8 @@
         death-count (randomize supported-population
                                (/ 1 100))
         newcomer-count (randomize (max (- potential-supported-population population) 0)
-                                  (/ leisure-percent
-                                     40))
+                                  (/ (+ 1 ;; 1, so it's never 0 chance
+                                        leisure-percent) 40))
         ;; don't let population go to 0, or there's no going back
         new-population (max 1
                             (+ population
