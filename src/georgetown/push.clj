@@ -4,6 +4,7 @@
     [bloom.commons.muuntaja :as mj]
     [org.httpkit.server :as http]
     [muuntaja.core :as m]
+    [georgetown.state :as s]
     [georgetown.db :as db]))
 
 (defn island-state
@@ -91,11 +92,13 @@
         session-id (get-in request [:params :session-id])
         island-id (uuid/from-string (get-in request [:params :island-id]))]
     (if (get-in request [:params :force])
-      {:status 200
-       :body
-       {:client-state/island (island-state island-id)
-        :client-state/user (user-state user-id)
-        :client-state/resident (resident-state user-id island-id)}}
+      (if (and island-id (s/exists? :island/id island-id))
+        {:status 200
+         :body
+         {:client-state/island (island-state island-id)
+          :client-state/user (user-state user-id)
+          :client-state/resident (resident-state user-id island-id)}}
+        {:status 400})
       (http/as-channel request
         {:on-open (fn [ch]
                     (swap! subscriptions assoc session-id {:sub/user-id user-id
