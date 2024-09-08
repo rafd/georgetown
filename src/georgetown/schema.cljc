@@ -140,7 +140,16 @@
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour
            :offerable/demand-amount 150
-           :offerable/prerequisite? true}]}]
+           :offerable/prerequisite? true}]}
+
+        {:blueprint/id :improvement.type/monument
+         :blueprint/label "Monument"
+         :blueprint/icon "🗿"
+         :blueprint/description "It's not good for anything, but looks cool I guess?"
+         :blueprint/price 50000
+         :blueprint/io []
+         :blueprint/offerables []}
+        ]
        (key-by :blueprint/id)))
 
 (def offerables
