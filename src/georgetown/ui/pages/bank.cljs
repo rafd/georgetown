@@ -28,7 +28,7 @@
       [:tr
        [:td {:tw "text-sm"} "Daily Payment"]
        [:td {:tw "text-right"}
-        [:input {:tw "border px-1"
+        [:input {:tw "border px-1 border px-1 bg-yellow-100 rounded text-right tabular-nums"
                  :type "number"
                  :name "amount"
                  :min (:loan/minimum-daily-payment-amount loan)
@@ -58,7 +58,7 @@
                                :command/repay-loan!
                                {:loan-id (:loan/id loan)
                                 :amount (js/parseInt (j/get-in e [.-target "amount" .-value]))}))}
-         [:input {:tw "border px-1"
+         [:input {:tw "border px-1 bg-yellow-100 rounded text-right tabular-nums"
                   :type "number"
                   :name "amount"
                   :min 1

@@ -18,6 +18,11 @@
          :resource/label "joy"
          :resource/unit-label "joy"
          :resource/description "The island's citizens' happiness"}
+        {:resource/id :resource/time
+         :resource/icon "⏱️"
+         :resource/label "time"
+         :resource/unit-label "day"
+         :resource/description "A day; 1 second in the real world is 1 day in game"}
 
         {:resource/id :resource/food
          :resource/icon "🥕"

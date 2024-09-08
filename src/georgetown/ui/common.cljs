@@ -28,34 +28,48 @@
       #js {:minimumFractionDigits fraction-digits
            :maximumFractionDigits fraction-digits})))
 
-(defn resource-icon [resource-id]
+(defn raw-icons
+  [icons]
+  (into [:<>]
+        (interpose [:span {:style {:font-size "0.6em"}} " / "]
+                   (for [icon icons]
+                     ^{:key icon}
+                     [:span {:style {:font-size "0.65em"}}
+                      icon]))))
+
+(defn resource-icon
+  [resource-id]
   (when resource-id
     (let [resource (schema/resources resource-id)]
       [:span {:title (name resource-id)}
        (:resource/icon resource)])))
 
+(defn resource-icons
+  [resource-ids]
+  [raw-icons
+   (for [resource-id resource-ids]
+     [resource-icon resource-id])])
+
 (defn value-with-icon
-  [value icon]
+  [value icon?s]
   [:div {:tw "inline-flex items-center gap-1"}
    [:span {:tw "tabular-nums"
            :style {:font-size "0.65em"}}
     value]
-   [:span {:style {:font-size "0.65em"}}
-    icon]])
+   [raw-icons (if (list? icon?s)
+                icon?s
+                (list icon?s))]])
 
-(defn resource-amount [amount sig-figs & resource-ids]
-  [:div {:tw "inline-flex items-center gap-1"}
-   [:span {:tw "tabular-nums"
-           :style {:font-size "0.65em"}}
-    (if amount
-      (format amount sig-figs)
-      "?")]
-   (into [:<>]
-         (interpose [:span {:style {:font-size "0.6em"}} " / "]
-                    (for [resource-id resource-ids]
-                      ^{:key resource-id}
-                      [:span {:style {:font-size "0.65em"}}
-                       [resource-icon resource-id]])))])
+(defn resource-amount
+  [amount sig-figs resource-id?s]
+  [value-with-icon
+   (if amount
+     (format amount sig-figs)
+     "?")
+   [resource-icons
+    (if (list? resource-id?s)
+      resource-id?s
+      (list resource-id?s))]])
 
 (defn button [opts & content]
   [:button (assoc opts

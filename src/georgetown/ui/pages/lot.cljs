@@ -1,5 +1,6 @@
 (ns georgetown.ui.pages.lot
   (:require
+    [bloom.commons.fontawesome :as fa]
     [bloom.commons.debounce :as debounce]
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
@@ -17,7 +18,7 @@
   [{:keys [offer-amount improvement-id offerable-id]}]
   [:div.offer-amount
    [:input {:type "number"
-            :tw "border p-1 w-18 -m-1"
+            :tw "border p-1 w-18 -m-1 bg-yellow-100 rounded text-right tabular-nums"
             :name "offer-amount"
             :min 1
             :default-value offer-amount
@@ -34,19 +35,25 @@
 (defn deed-rate-view
   [{:keys [lot-id deed-rate]}]
   [:div {:tw "border-1 p-1"}
-   "Rate:"
-   [:input {:type "number"
-            :name "rate"
-            :min 0
-            :default-value deed-rate
-            :on-change (debounce/debounce
-                         (fn [e]
-                           (state/exec!
-                             :command/change-rate!
-                             {:lot-id lot-id
-                              :rate (js/parseInt (.. e -target -value))}))
-                         250)
-            :step 1}]])
+   [:span {:title "self assessed land tax rate; another resident may acquire your lot by paying a higher rate"
+           :tw "flex items-center gap-0.5"}
+    "Land Tax Rate"
+    [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
+   [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
+    [:input {:type "number"
+             :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
+             :name "rate"
+             :min 0
+             :default-value deed-rate
+             :on-change (debounce/debounce
+                          (fn [e]
+                            (state/exec!
+                              :command/change-rate!
+                              {:lot-id lot-id
+                               :rate (js/parseInt (.. e -target -value))}))
+                          250)
+             :step 1}]
+    [ui/resource-icons [:resource/money :resource/time]]]])
 
 (defn sidebar
   [lot-id]
@@ -110,8 +117,9 @@
                 (or (some-> (:deed/rate deed) inc)
                     0)
                 0
-                :resource/money]
-               "🔁"
+                (list
+                  :resource/money
+                  :resource/time)]
                ")"]]
              logged-in?
              [ui/join-island-button @state/island-id]
@@ -161,7 +169,7 @@
                                    :let [amount (offerable amount-key)
                                          unit (offerable unit-key)]]
                                ^{:key unit-key}
-                               [:div {:tw "flex items-center gap-1 bg-green-200 rounded p-2"}
+                               [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
                                 (or amount
                                     [offer-amount-view
                                      {:offer-amount (:offer/amount offer)
@@ -183,18 +191,21 @@
                               (or (b-amount-key offerable)
                                   (:offer/amount offer)))
                            2
-                           (a-unit-key offerable)
-                           (b-unit-key offerable)])]]))
+                           (list
+                             (a-unit-key offerable)
+                             (b-unit-key offerable))])]]))
                   [ui/button {:on-click
                               (fn []
                                 (state/exec!
                                   :command/demolish!
                                   {:improvement-id (:improvement/id improvement)}))}
                    "Demolish"
+                   " (+"
                    [ui/resource-amount
                     (/ (:blueprint/price blueprint) 2)
                     0
-                    :resource/money]]]]))])]))))
+                    :resource/money]
+                   ")"]]]))])]))))
 
 (defn page
   [[_ {:keys [lot-id]}]]
