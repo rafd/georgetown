@@ -47,7 +47,7 @@
          :blueprint/label "House"
          :blueprint/icon "🏠"
          :blueprint/description "Provides shelter"
-         :blueprint/price 100
+         :blueprint/price 1000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/shelter
@@ -65,7 +65,7 @@
          :blueprint/label "Farm"
          :blueprint/icon "🌽"
          :blueprint/description "Produces food"
-         :blueprint/price 100
+         :blueprint/price 1000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
@@ -94,7 +94,7 @@
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
          :blueprint/description "Produces food, more space and labour efficiently"
-         :blueprint/price 1000
+         :blueprint/price 10000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
