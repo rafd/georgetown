@@ -59,8 +59,10 @@
             [:a {:href (pages/path-for [:page/bank {:island-id (:island/id island)}])
                  :title "bank"}
              "🏦"]]
-           ;; put a div, to reserve a space in the flex layout
-           [:div])]
+           [:div
+            (if @state/user
+              [ui/join-island-button @state/island-id]
+              [ui/login-button])])]
 
         [:div.scrollable-map {:tw "overflow-auto h-full w-full z-10"}
          [:div.lots {:tw "relative"
