@@ -131,8 +131,8 @@
   ;; target a 50:50 split, with larger % the further away from 50:50
   ;; which should act as a regulator
   ;; y = 0.005 * ln( x / ( 1 - x ) )
-  (- 1 (* 0.01 (Math/log (/ ratio
-                            (- 1 ratio))))))
+  (- 1 (* 0.005 (Math/log (/ ratio
+                             (- 1 ratio))))))
 
 #_(interest-demurrage-rate 0.2)
 #_(interest-demurrage-rate 0.5)
