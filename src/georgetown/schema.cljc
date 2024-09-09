@@ -92,15 +92,15 @@
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
-           :io/amount 2}
+           :io/amount 3}
           {:io/direction :io.direction/input
            :io/resource :resource/labour
-           :io/amount 10}]
+           :io/amount 20}]
          :blueprint/offerables
          [{:offerable/id :offer/farm.food
            :offerable/label "Food"
            :offerable/supply-unit :resource/food
-           :offerable/supply-amount 2
+           :offerable/supply-amount 3
            :offerable/demand-unit :resource/money
            :offerable/demand-amount nil ; user value
            }
@@ -110,7 +110,7 @@
            :offerable/supply-unit :resource/money
            :offerable/supply-amount nil ; user value
            :offerable/demand-unit :resource/labour
-           :offerable/demand-amount 10
+           :offerable/demand-amount 20
            :offerable/prerequisite? true}]}
 
         {:blueprint/id :improvement.type/big-farm
