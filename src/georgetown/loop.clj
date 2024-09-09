@@ -480,7 +480,8 @@
         new-government-balance (+ government-money-balance
                                   government-revenues
                                   government-expenses)
-        new-citizen-balance (+ (:sim.out/citizen-money-balance sim-out)
+        citizen-balance (:sim.out/citizen-money-balance sim-out)
+        new-citizen-balance (+ citizen-balance
                                citizens-dividend)
         ;; get improvement offer utilization (based on the tenders)
         offer-id->utilization (->> [:resource/shelter :resource/food :resource/money]
@@ -495,16 +496,21 @@
                                                              (:tender/fill-ratio tender))])))))
                                    (into {}))
         ;; net money
-        net-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
-        net-money-balance (+ new-government-balance
-                             net-resident-balance
-                             new-citizen-balance)
+        resident-balance (reduce + (map :resource/money (vals resident-balances)))
+        net-money-balance (+ government-money-balance
+                             resident-balance
+                             citizen-balance)
+        new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
+        new-net-money-balance (+ new-government-balance
+                                 new-resident-balance
+                                 new-citizen-balance)
+
         ;; DEMURRAGE / INTEREST
-        initial-resident-citizen-cash-ratio (/ net-resident-balance
-                                               net-money-balance)
+        initial-resident-citizen-cash-ratio (/ new-resident-balance
+                                               new-net-money-balance)
         interest-rate (interest-demurrage-rate initial-resident-citizen-cash-ratio)
-        delta (- (* net-resident-balance interest-rate)
-                 net-resident-balance)
+        delta (- (* new-resident-balance interest-rate)
+                 new-resident-balance)
         new-citizen-balance (+ new-citizen-balance (- delta))
         resident-interest-deltas (->> new-resident-balances
                                       (x/transform
@@ -514,17 +520,24 @@
                                    (x/transform
                                      [x/MAP-VALS :resource/money]
                                      (partial * interest-rate)))
-        net-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
-        resident-citizen-cash-ratio (/ net-resident-balance
-                                       (+ new-government-balance
-                                          net-resident-balance
-                                          new-citizen-balance))]
+        new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
+        new-net-money-balance (+ new-government-balance
+                                 new-resident-balance
+                                 new-citizen-balance)
+        resident-citizen-cash-ratio (/ new-resident-balance
+                                       new-net-money-balance)
+        ;; due to rounding errors, the total money supply occasionally decreases
+        ;; fix that here, by giving the government some net money to carry over
+        new-government-balance (+ new-government-balance
+                                  1
+                                  #_(- new-net-money-balance
+                                       net-money-balance))]
     (db/transact!
       (concat
         (for [[k v] {:island/public-stats
                      (assoc sim-out
                        ;; include these also, so front-end reports them
-                       :sim.out/net-money-balance net-money-balance
+                       :sim.out/net-money-balance new-net-money-balance
                        :sim.out/government-money-balance new-government-balance
                        :sim.out/cash-ratio-before initial-resident-citizen-cash-ratio
                        :sim.out/cash-ratio-after resident-citizen-cash-ratio
