@@ -170,7 +170,9 @@
                   (:blueprint/icon (schema/blueprints (:improvement/type improvement)))]
                  [:div.action
                   (doall
-                    (for [offerable (:blueprint/offerables blueprint)
+                    (for [offerable (->> (:blueprint/offerables blueprint)
+                                         (sort-by :offerable/prerequisite?)
+                                         reverse)
                           :let [offer (->> @state/offers
                                            (filter
                                              (fn [offer]
