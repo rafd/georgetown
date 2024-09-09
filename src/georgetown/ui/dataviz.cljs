@@ -10,6 +10,57 @@
       (+ (* m x) b))))
 
 (defn sparkline
+  [{:keys [bar-width y-min y-max y-line]} values]
+  (let [bar-width (or bar-width 2)
+        indicator-height 2
+        x-count (count values)
+        #_#_values (take x-count (repeatedly (fn [] (rand-nth [-3 0 3]))))
+        y-min (or y-min (apply min values))
+        y-max (or y-max (apply max values))
+        y-min (if y-line (min y-min y-line) y-min)
+        y-max (if y-line (max y-max y-line) y-max)
+        neg-color "#dc2626"
+        zero-color "#333"
+        pos-color "#2563eb"
+        ->color (fn [value]
+                  (case (compare value 0)
+                    1 pos-color
+                    0 zero-color
+                    -1 neg-color))
+        height 20
+        width (* x-count bar-width)
+        ->x (make-interpolator [0 x-count] [0 width])
+        ->y (make-interpolator [y-min y-max]
+                               [height 0])]
+    [:div {:tw "flex"}
+     [:svg {:tw "shrink-0"
+            :style {:width (str width "px")
+                    :height (str height "px")}}
+      (when y-line
+        [:rect {:fill "#ccc"
+                :height indicator-height
+                :width width
+                :x 0
+                :y (- (->y y-line)
+                      (/ indicator-height 2))}])
+      (for [[i value] (map-indexed vector (reverse values))]
+        ^{:key i}
+        [:rect {:fill (->color value)
+                :width bar-width
+                :height indicator-height
+                :x (->x i)
+                :y (+ (->y value)
+                      (case (compare value 0)
+                        1 (/ indicator-height 2)
+                        0 1
+                        -1 (- (/ indicator-height 2))))}])]
+     [:div {:tw "flex flex-col justify-between items-end tabular-nums"
+            :style {:font-size "0.5rem"
+                    :line-height 0}}
+      [:div {:style {:color (->color y-max)}} (.toLocaleString y-max)]
+      [:div {:style {:color (->color y-min)}} (.toLocaleString y-min)]]]))
+
+(defn sparkbar
   [values]
   (let [width 60
         height 20
@@ -27,47 +78,7 @@
 
 (defn plus-minus-sparkline
   [values]
-  (let [bar-width 1
-        indicator-height 3
-        x-count (count values)
-        #_#_values (take x-count (repeatedly (fn [] (rand-nth [-3 0 3]))))
-        neg-color "#dc2626"
-        zero-color "#333"
-        pos-color "#2563eb"
-        height 40
-        width (* x-count bar-width)
-        absmax (apply max (map abs values))
-        ->x (make-interpolator [0 x-count] [0 width])
-        ->y (make-interpolator [(- absmax) absmax]
-                               [height 0])]
-    [:div {:tw "flex justify-end py-4"}
-     [:svg {:style {:width (str width "px")
-                    :height (str height "px")}}
-      [:rect {:fill "#ccc"
-              :height 1
-              :width width
-              :x 0
-              :y (/ height 2)}]
-      (for [[i value] (map-indexed vector (reverse values))]
-        ^{:key i}
-        [:rect {:fill
-                (case (compare value 0)
-                  1 pos-color
-                  0 zero-color
-                  -1 neg-color)
-                :width bar-width
-                :height indicator-height
-                :x (->x i)
-                :y (- (->y value)
-                      (case (compare value 0)
-                        1 (- indicator-height)
-                        0 1
-                        -1 indicator-height))}])]
-     [:div {:tw "flex flex-col justify-between items-end tabular-nums"
-            :style {:font-size "0.35em"
-                    :line-height 0}}
-      [:div {:style {:color pos-color}} absmax]
-      [:div {:style {:color neg-color}} (- absmax)]]]))
+  [sparkline {:y-line 0 :bar-width 1} values])
 
 (defn multi-sparkline
   [& datasets]

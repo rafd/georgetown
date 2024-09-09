@@ -38,6 +38,30 @@
           (x-stats [x/ALL :sim.out/citizen-money-balance])
           (x-stats [x/ALL :sim.out/money-savings-goal])]]]
        [:tr
+        [:td {:tw "align-top"} "resident:citizen cash ratio"]
+        [:td {:tw "align-top"}
+         [:div "before"]
+         [:div "after"]]
+        [:td {:tw "text-right align-top"}
+         [:div [ui/value (ui/format (:sim.out/cash-ratio-before stats) 3)]]
+         [:div [ui/value (ui/format (:sim.out/cash-ratio-after stats) 3)]]]
+        [:td
+         [:div [dataviz/sparkline
+                {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
+                (x-stats [x/ALL :sim.out/cash-ratio-before])]]
+         [:div [dataviz/sparkline
+                {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
+                (x-stats [x/ALL :sim.out/cash-ratio-after])]]]]
+       [:tr
+        [:td {:col-span 2}
+         [ui/label-with-info
+          "stabilization rate"
+          "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"]]
+        [:td {:tw "text-right"} [ui/value (ui/format (:sim.out/stabilization-rate stats) 4)]]
+        [:td [:div [dataviz/sparkline
+                    {:y-min 0.8 :y-max 1.2 :y-line 1.0 :bar-width 2}
+                    (x-stats [x/ALL :sim.out/stabilization-rate])]]]]
+       [:tr
         [:td {:col-span 2} "citizen food reserves"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-food-balance stats) 0 :resource/food]
@@ -105,18 +129,15 @@
          [:tr
           [:td {:tw "align-top"} "labour"]
           [:td
-           [:div {:tw "flex items-center gap-1"
-                  :title "labour hours available in population"}
+           [ui/label-with-info
             "available"
-            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
-           [:div {:tw "flex items-center gap-1"
-                  :title "labour hours offered by jobs"}
+            "labour hours available in population"]
+           [ui/label-with-info
             "offered"
-            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
-           [:div {:tw "flex items-center gap-1"
-                  :title "labour hours actually worked"}
+            "labour hours offered by jobs"]
+           [ui/label-with-info
             "transacted"
-            [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]]
+            "labour hours actually worked"]]
           [:td {:tw "text-right tabular-nums align-top"}
            [:div [ui/resource-amount available-supply 0 :resource/labour]]
            [:div [ui/resource-amount demand 0 :resource/labour]]

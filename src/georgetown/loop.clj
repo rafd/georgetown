@@ -125,6 +125,19 @@
 (def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
 (def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
 
+(defn interest-demurrage-rate [ratio]
+  ;; to prevent hoarding / incentive cash spending, money loses value over time
+  ;; bad things happen when residents lose all their money, and when citizens lose all their money
+  ;; target a 50:50 split, with larger % the further away from 50:50
+  ;; which should act as a regulator
+  ;; y = 0.005 * ln( x / ( 1 - x ) )
+  (- 1 (* 0.01 (Math/log (/ ratio
+                            (- 1 ratio))))))
+
+#_(interest-demurrage-rate 0.2)
+#_(interest-demurrage-rate 0.5)
+#_(interest-demurrage-rate 0.6)
+
 (defn simulate
   [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
   (let [
@@ -462,9 +475,13 @@
         citizens-dividend  (+ government-money-balance
                               government-revenues)
         government-expenses (- citizens-dividend)
+        ;; currently, this will always be 0
+        ;; but doing the calculation anyway in case the above changes
         new-government-balance (+ government-money-balance
                                   government-revenues
                                   government-expenses)
+        new-citizen-balance (+ (:sim.out/citizen-money-balance sim-out)
+                               citizens-dividend)
         ;; get improvement offer utilization (based on the tenders)
         offer-id->utilization (->> [:resource/shelter :resource/food :resource/money]
                                    (mapcat (fn [resource]
@@ -478,28 +495,52 @@
                                                              (:tender/fill-ratio tender))])))))
                                    (into {}))
         ;; net money
+        net-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
         net-money-balance (+ new-government-balance
-                             (reduce + (map :resource/money (vals new-resident-balances)))
-                             (:sim.out/citizen-money-balance sim-out)
-                             citizens-dividend)]
+                             net-resident-balance
+                             new-citizen-balance)
+        ;; DEMURRAGE / INTEREST
+        initial-resident-citizen-cash-ratio (/ net-resident-balance
+                                               net-money-balance)
+        interest-rate (interest-demurrage-rate initial-resident-citizen-cash-ratio)
+        delta (- (* net-resident-balance interest-rate)
+                 net-resident-balance)
+        new-citizen-balance (+ new-citizen-balance (- delta))
+        resident-interest-deltas (->> new-resident-balances
+                                      (x/transform
+                                        [x/MAP-VALS :resource/money]
+                                        (partial * (- 1 interest-rate))))
+        new-resident-balances (->> new-resident-balances
+                                   (x/transform
+                                     [x/MAP-VALS :resource/money]
+                                     (partial * interest-rate)))
+        net-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
+        resident-citizen-cash-ratio (/ net-resident-balance
+                                       (+ new-government-balance
+                                          net-resident-balance
+                                          new-citizen-balance))]
     (db/transact!
       (concat
         (for [[k v] {:island/public-stats
                      (assoc sim-out
                        ;; include these also, so front-end reports them
                        :sim.out/net-money-balance net-money-balance
-                       :sim.out/government-money-balance new-government-balance)
+                       :sim.out/government-money-balance new-government-balance
+                       :sim.out/cash-ratio-before initial-resident-citizen-cash-ratio
+                       :sim.out/cash-ratio-after resident-citizen-cash-ratio
+                       :sim.out/stabilization-rate interest-rate)
                      :island/population (:sim.out/population sim-out)
                      :island/joy joy
                      :island/epoch (inc (:sim.in/epoch sim-in))
                      :island/government-money-balance new-government-balance
-                     :island/citizen-money-balance (+ (:sim.out/citizen-money-balance sim-out)
-                                                      citizens-dividend)
+                     :island/citizen-money-balance new-citizen-balance
                      :island/citizen-food-balance (:sim.out/citizen-food-balance sim-out)}]
           [:db/add [:island/id island-id] k v])
         (for [[resident-id net-cashflow] resident-net-cashflow]
           [:db/add [:resident/id resident-id]
-           :resident/private-stats {:stats.private/net-cashflow net-cashflow}])
+           :resident/private-stats
+           {:stats.private/net-cashflow (:resource/money net-cashflow)
+            :stats.private/stabilization-payment (- (:resource/money (resident-interest-deltas resident-id)))}])
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
            :resident/money-balance (:resource/money balance)])

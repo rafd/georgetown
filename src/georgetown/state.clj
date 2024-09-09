@@ -1,5 +1,6 @@
 (ns georgetown.state
   (:require
+    [clojure.string :as string]
     [bloom.commons.uuid :as uuid]
     [georgetown.db :as db]
     [datalevin.interpret :as di]))
@@ -73,6 +74,41 @@
           [?e ?attr _]]
         id-attr
         pattern))
+
+(defn qget
+  [[in-k in-v] path]
+  (db/q (concat [:find (symbol (str "?" (count path))) '.
+                 :in '$ '?input-k '?input-v
+                 :where
+                 ['?0 '?input-k '?input-v]]
+                (doall
+                  (for [[i k] (map-indexed vector path)]
+                    (if (string/starts-with? (name k) "_")
+                      [(symbol (str "?" (inc i)))
+                       (keyword
+                         (namespace k)
+                         (subs (name k) 1))
+                       (symbol (str "?" i))]
+                      [(symbol (str "?" i))
+                       k
+                       (symbol (str "?" (inc i)))]))))
+        in-k
+        in-v))
+
+#_(defn qget
+  [[in-k in-v] path]
+  (->> (db/q (concat [:find (list 'pull '?e
+                              [{:island/_lots [:island/id]}]) '.
+                      :in '$ '?input-k '?input-v
+                      :where
+                      ['?e '?input-k '?input-v]])
+             in-k
+             in-v)
+       :island/_lots
+       :island/id))
+
+#_(qget [:lot/id #uuid "0191d86a-6735-714b-934b-f451f14b4cdb"]
+        [:island/_lots :island/id])
 
 ;; misc helpers ----
 

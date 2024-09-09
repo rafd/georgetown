@@ -35,10 +35,9 @@
 (defn deed-rate-view
   [{:keys [lot-id deed-rate]}]
   [:div {:tw "border-1 p-1"}
-   [:span {:title "self assessed land tax rate; another resident may acquire your lot by paying a higher rate"
-           :tw "flex items-center gap-0.5"}
+   [ui/label-with-info
     "Land Tax Rate"
-    [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]]
+    "self assessed land tax rate; another resident may acquire your lot by paying a higher rate"]
    [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
     [:input {:type "number"
              :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"

@@ -1,5 +1,6 @@
 (ns georgetown.ui.common
   (:require
+    [bloom.commons.fontawesome :as fa]
     [georgetown.schema :as schema]
     [georgetown.client.state :as state]))
 
@@ -37,6 +38,13 @@
                      [:span {:style {:font-size "0.65em"}}
                       icon]))))
 
+(defn label-with-info
+  [label description]
+  [:div {:tw "flex items-center gap-1"
+         :title description}
+   label
+   [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]])
+
 (defn resource-icon
   [resource-id]
   (when resource-id
@@ -50,12 +58,16 @@
    (for [resource-id resource-ids]
      [resource-icon resource-id])])
 
+(defn value
+  [v]
+  [:span {:tw "tabular-nums"
+          :style {:font-size "0.65em"}}
+   v])
+
 (defn value-with-icon
-  [value icon?s]
+  [v icon?s]
   [:div {:tw "inline-flex items-center gap-1"}
-   [:span {:tw "tabular-nums"
-           :style {:font-size "0.65em"}}
-    value]
+   [value v]
    [raw-icons (if (list? icon?s)
                 icon?s
                 (list icon?s))]])
