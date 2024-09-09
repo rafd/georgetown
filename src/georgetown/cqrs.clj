@@ -172,14 +172,18 @@
                         (:blueprint/price (schema/blueprints improvement-type)))]])
     :effect
     (fn [{:keys [user-id lot-id improvement-type]}]
-      (db/transact!
-        [{:lot/id lot-id
-          :lot/improvement
-          {:improvement/id (uuid/random)
-           :improvement/type improvement-type}}
-         [:fn/withdraw
-          (s/->resident-id user-id [:lot/id lot-id])
-          (:blueprint/price (schema/blueprints improvement-type))]]))}
+      (let [amount (:blueprint/price (schema/blueprints improvement-type))]
+        (db/transact!
+          [{:lot/id lot-id
+            :lot/improvement
+            {:improvement/id (uuid/random)
+             :improvement/type improvement-type}}
+           [:fn/transfer-to-government
+            (s/qget [:lot/id lot-id] [:island/_lots :island/id])
+            amount]
+           [:fn/withdraw
+            (s/->resident-id user-id [:lot/id lot-id])
+            amount]])))}
 
    {:id :command/demolish!
     :params {:user-id :user/id
@@ -192,12 +196,16 @@
     :effect
     (fn [{:keys [user-id improvement-id]}]
       (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])]
+        (let [;; get back only half
+              amount (/ (:blueprint/price (schema/blueprints (:improvement/type improvement)))
+                        2)]
         (db/transact!
           [[:db/retractEntity [:improvement/id improvement-id]]
+           [:fn/transfer-to-government
+            (s/qget [:improvement/id improvement-id] [:lot/_improvement :island/_lots :island/id])
+            (- amount)]
            [:fn/deposit (s/->resident-id user-id [:improvement/id improvement-id])
-            ;; get back only half
-            (/ (:blueprint/price (schema/blueprints (:improvement/type improvement)))
-               2)]])))}
+            amount]]))))}
 
    {:id :command/set-offer!
     :params {:user-id :user/id

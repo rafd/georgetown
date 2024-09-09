@@ -24,7 +24,16 @@
                        (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
                          [[:db/add (:db/id resident) :resident/money-balance
                            (+ (:resident/money-balance resident) amount)]]
-                         (throw (ex-info (str "No resident with id " resident-id) {}))))}]]
+                         (throw (ex-info (str "No resident with id " resident-id) {}))))}
+             {:db/ident :fn/transfer-to-government
+              :db/fn (di/inter-fn
+                       [db island-id amount]
+                       (if-let [island (datalevin.core/entity db [:island/id island-id])]
+                         [[:db/add (:db/id island) :island/government-money-balance
+                           (+ (:island/government-money-balance island) amount)]]
+                         (throw (ex-info (str "No island with id " island-id) {}))))}
+
+             ]]
     (georgetown.db/transact! [v])))
 
 (defn create-island! []
