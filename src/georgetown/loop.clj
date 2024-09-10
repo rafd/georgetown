@@ -537,6 +537,9 @@
         new-resident-balances (merge-resource-maps
                                 new-resident-balances
                                 resident-interest-deltas)
+        resident-net-cashflow (merge-resource-maps
+                                resident-net-cashflow
+                                resident-interest-deltas)
         new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
         new-net-money-balance (+ new-government-balance
                                  new-resident-balance
