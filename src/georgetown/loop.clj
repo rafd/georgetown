@@ -131,12 +131,23 @@
   ;; target a 50:50 split, with larger % the further away from 50:50
   ;; which should act as a regulator
   ;; y = 0.005 * ln( x / ( 1 - x ) )
-  (- 1 (* 0.005 (Math/log (/ ratio
-                             (- 1 ratio))))))
+  (cond
+    (<= ratio 0)
+    1.10
+    (<= 1 ratio)
+    0.90
+    :else
+    (- 1 (* 0.005 (Math/log (/ ratio
+                               (- 1 ratio)))))))
 
-#_(interest-demurrage-rate 0.2)
+#_(interest-demurrage-rate -1)
+#_(interest-demurrage-rate 0)
+#_(interest-demurrage-rate 0.00001)
 #_(interest-demurrage-rate 0.5)
 #_(interest-demurrage-rate 0.6)
+#_(interest-demurrage-rate 0.99999)
+#_(interest-demurrage-rate 1)
+#_(interest-demurrage-rate 2)
 
 (defn simulate
   [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
@@ -441,6 +452,10 @@
                {:resource/money money-amount}]))
        (into {})))
 
+(defn merge-resource-maps
+  [& maps]
+  (apply merge-with (partial merge-with (fnil + 0)) maps))
+
 (defn tick!
   [island-id]
   (let [sim-in (extract-data-for-simulation island-id)
@@ -455,14 +470,14 @@
         resident-market-amounts (resident-market-net-amounts sim-out)
         resident-operations-amounts {} #_(resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
-        resident-net-cashflow (merge-with (partial merge-with (fnil + 0))
-                                          resident-market-amounts
-                                          resident-operations-amounts
-                                          resident-debt-payments
-                                          resident-taxes)
-        new-resident-balances (merge-with (partial merge-with (fnil + 0))
-                                          resident-balances
-                                          resident-net-cashflow)
+        resident-net-cashflow (merge-resource-maps
+                                resident-market-amounts
+                                resident-operations-amounts
+                                resident-debt-payments
+                                resident-taxes)
+        new-resident-balances (merge-resource-maps
+                                resident-balances
+                                resident-net-cashflow)
         ;; GOVERNMENT
         government-money-balance (db/q '[:find ?balance .
                                          :in $ ?island-id
@@ -509,17 +524,19 @@
         initial-resident-citizen-cash-ratio (/ new-resident-balance
                                                new-net-money-balance)
         interest-rate (interest-demurrage-rate initial-resident-citizen-cash-ratio)
-        delta (- (* new-resident-balance interest-rate)
-                 new-resident-balance)
-        new-citizen-balance (+ new-citizen-balance (- delta))
         resident-interest-deltas (->> new-resident-balances
                                       (x/transform
                                         [x/MAP-VALS :resource/money]
-                                        (partial * (- 1 interest-rate))))
-        new-resident-balances (->> new-resident-balances
-                                   (x/transform
-                                     [x/MAP-VALS :resource/money]
-                                     (partial * interest-rate)))
+                                        (fn [x]
+                                          (if (pos? x)
+                                            (- (* x interest-rate) x)
+                                            0))))
+        resident-delta (reduce + (map :resource/money (vals resident-interest-deltas)))
+        new-citizen-balance (- new-citizen-balance
+                               resident-delta)
+        new-resident-balances (merge-resource-maps
+                                new-resident-balances
+                                resident-interest-deltas)
         new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
         new-net-money-balance (+ new-government-balance
                                  new-resident-balance
@@ -553,7 +570,7 @@
           [:db/add [:resident/id resident-id]
            :resident/private-stats
            {:stats.private/net-cashflow (:resource/money net-cashflow)
-            :stats.private/stabilization-payment (- (:resource/money (resident-interest-deltas resident-id)))}])
+            :stats.private/stabilization-payment (:resource/money (resident-interest-deltas resident-id))}])
         (for [[resident-id balance] new-resident-balances]
           [:db/add [:resident/id resident-id]
            :resident/money-balance (:resource/money balance)])
