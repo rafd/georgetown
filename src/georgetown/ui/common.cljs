@@ -85,7 +85,7 @@
 
 (defn button [opts & content]
   [:button (assoc opts
-             :tw "bg-gray-500 text-white px-1 inline-flex items-center whitespace-nowrap")
+             :tw "bg-gray-500 text-white px-1 inline-flex items-center whitespace-nowrap disabled:bg-red-600")
    (into [:<>]
          content)])
 

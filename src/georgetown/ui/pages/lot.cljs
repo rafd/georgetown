@@ -155,7 +155,8 @@
                            (:io/amount io)
                            0
                            (:io/resource io)]])])]
-                   [ui/button {:on-click (fn []
+                   [ui/button {:disabled (< @state/money-balance (:blueprint/price blueprint))
+                               :on-click (fn []
                                            (state/exec!
                                              :command/build!
                                              {:lot-id (:lot/id lot)
