@@ -46,6 +46,11 @@
           (mapcat (fn [[improvement resident-id]]
                     ;; scale non-prerequisite offer amounts
                     ;; based on prerequisite offer utilization
+
+
+                    ;; TODO handle when labor offer not set yet
+
+
                     (let [grouped-offers (->> (:improvement/offers improvement)
                                               ;; ignore offers that don't have an amount set
                                               ;; (newly created improvements)
@@ -456,17 +461,33 @@
   [& maps]
   (apply merge-with (partial merge-with (fnil + 0)) maps))
 
+(defn sum-money
+  [resource-map]
+  (apply + (map :resource/money (vals resource-map))))
+
 (defn tick!
   [island-id]
   (let [sim-in (extract-data-for-simulation island-id)
         sim-out (simulate sim-in)
+        ;; balances
+        government-money-balance (db/q '[:find ?balance .
+                                         :in $ ?island-id
+                                         :where
+                                         [?island :island/id ?island-id]
+                                         [?island :island/government-money-balance ?balance]]
+                                       island-id)
+        citizen-balance (:sim.out/citizen-money-balance sim-out)
+        resident-balances (resident-resource-balances island-id)
+        resident-balance (sum-money resident-balances)
+        net-money-balance (+ government-money-balance
+                             citizen-balance
+                             resident-balance)
         ;; joy
         joy (* (:sim.out/leisure-percent sim-out)
                (:sim.out/population sim-out))
         ;; loans
         {:keys [loan-txs resident-debt-payments]} (loans island-id)
         ;; resident money
-        resident-balances (resident-resource-balances island-id)
         resident-market-amounts (resident-market-net-amounts sim-out)
         resident-operations-amounts {} #_(resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
@@ -479,25 +500,24 @@
                                 resident-balances
                                 resident-net-cashflow)
         ;; GOVERNMENT
-        government-money-balance (db/q '[:find ?balance .
-                                         :in $ ?island-id
-                                         :where
-                                         [?island :island/id ?island-id]
-                                         [?island :island/government-money-balance ?balance]]
-                                       island-id)
-        government-revenues (- (apply + (map :resource/money (vals resident-taxes))))
-        ;; government redistributes 50% of tax revenues as citizens dividend
+        government-revenues (- (sum-money resident-taxes))
         citizens-dividend  (+ government-money-balance
                               government-revenues)
         government-expenses (- citizens-dividend)
+        money-supply-target (* 1000
+                               (:sim.out/population sim-out))
+        ;; NOTE: printing money here
+        helicopter-money (max 0
+                              (- money-supply-target
+                                 net-money-balance))
         ;; currently, this will always be 0
         ;; but doing the calculation anyway in case the above changes
         new-government-balance (+ government-money-balance
                                   government-revenues
                                   government-expenses)
-        citizen-balance (:sim.out/citizen-money-balance sim-out)
         new-citizen-balance (+ citizen-balance
-                               citizens-dividend)
+                               citizens-dividend
+                               helicopter-money)
         ;; get improvement offer utilization (based on the tenders)
         offer-id->utilization (->> [:resource/shelter :resource/food :resource/money]
                                    (mapcat (fn [resource]
@@ -511,11 +531,7 @@
                                                              (:tender/fill-ratio tender))])))))
                                    (into {}))
         ;; net money
-        resident-balance (reduce + (map :resource/money (vals resident-balances)))
-        net-money-balance (+ government-money-balance
-                             resident-balance
-                             citizen-balance)
-        new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
+        new-resident-balance (sum-money new-resident-balances)
         new-net-money-balance (+ new-government-balance
                                  new-resident-balance
                                  new-citizen-balance)
@@ -531,7 +547,7 @@
                                           (if (pos? x)
                                             (- (* x interest-rate) x)
                                             0))))
-        resident-delta (reduce + (map :resource/money (vals resident-interest-deltas)))
+        resident-delta (sum-money resident-interest-deltas)
         new-citizen-balance (- new-citizen-balance
                                resident-delta)
         new-resident-balances (merge-resource-maps
@@ -540,18 +556,12 @@
         resident-net-cashflow (merge-resource-maps
                                 resident-net-cashflow
                                 resident-interest-deltas)
-        new-resident-balance (reduce + (map :resource/money (vals new-resident-balances)))
+        new-resident-balance (sum-money new-resident-balances)
         new-net-money-balance (+ new-government-balance
                                  new-resident-balance
                                  new-citizen-balance)
         resident-citizen-cash-ratio (/ new-resident-balance
-                                       new-net-money-balance)
-        ;; due to rounding errors, the total money supply occasionally decreases
-        ;; fix that here, by giving the government some net money to carry over
-        new-government-balance (+ new-government-balance
-                                  1
-                                  #_(- new-net-money-balance
-                                       net-money-balance))]
+                                       new-net-money-balance)]
     (db/transact!
       (concat
         (for [[k v] {:island/public-stats
