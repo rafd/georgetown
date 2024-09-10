@@ -598,7 +598,7 @@
   (reset! scheduler
             (chime/chime-at
               (chime/periodic-seq (Instant/now)
-                                  (Duration/ofSeconds 5))
+                                  (Duration/ofSeconds 2))
               (fn [time]
                 (tick-all!))
               {:on-finished (fn []
