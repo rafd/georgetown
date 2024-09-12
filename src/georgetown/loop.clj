@@ -280,7 +280,7 @@
                                (/ 1 1000))
         newcomer-count (randomize (max (- potential-supported-population population) 0)
                                   (/ (+ 1 ;; 1, so it's never 0 chance
-                                        leisure-percent) 40))
+                                        leisure-percent) 200))
         ;; don't let population go to 0, or there's no going back
         new-population (max 1
                             (+ population
