@@ -52,7 +52,7 @@
          :blueprint/label "House"
          :blueprint/icon "🏠"
          :blueprint/description "Provides shelter"
-         :blueprint/price 1000
+         :blueprint/price 5000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/shelter
@@ -70,7 +70,7 @@
          :blueprint/label "Apartment"
          :blueprint/icon "🏢"
          :blueprint/description "Provides shelter"
-         :blueprint/price 10000
+         :blueprint/price 50000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/shelter
@@ -88,7 +88,7 @@
          :blueprint/label "Farm"
          :blueprint/icon "🌽"
          :blueprint/description "Produces food"
-         :blueprint/price 1000
+         :blueprint/price 5000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
@@ -117,7 +117,7 @@
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
          :blueprint/description "Produces food"
-         :blueprint/price 10000
+         :blueprint/price 50000
          :blueprint/io
          [{:io/direction :io.direction/output
            :io/resource :resource/food
@@ -146,7 +146,7 @@
          :blueprint/label "Monument"
          :blueprint/icon "🗿"
          :blueprint/description "It's not good for anything, but looks cool I guess?"
-         :blueprint/price 50000
+         :blueprint/price 500000
          :blueprint/io []
          :blueprint/offerables []}
         ]
