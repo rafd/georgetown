@@ -50,7 +50,7 @@
       [:input {:type "number"
                :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
                :name "rate"
-               :min (when locked? (:deed/rate deed) 0)
+               :min (if locked? (:deed/rate deed) 0)
                :default-value (:deed/rate deed)
                :on-change on-change
                :step 1}]
