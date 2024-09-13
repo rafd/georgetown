@@ -46,39 +46,29 @@
           (mapcat (fn [[improvement resident-id]]
                     ;; scale non-prerequisite offer amounts
                     ;; based on prerequisite offer utilization
-
-
-                    ;; TODO handle when labor offer not set yet
-
-
-                    (let [grouped-offers (->> (:improvement/offers improvement)
-                                              ;; ignore offers that don't have an amount set
-                                              ;; (newly created improvements)
-                                              (filter :offer/amount)
-                                              (group-by (fn [offer]
-                                                          (if (:offerable/prerequisite?
-                                                                (schema/offerables
-                                                                  (:offer/type offer)))
-                                                            ::prereq
-                                                            ::no-prereq))))
-                          has-prerequisites? (->> (:improvement/type improvement)
-                                                  schema/blueprints
-                                                  :blueprint/offerables
-                                                  (some :offerable/prerequisite?))
-                          overall-prerequisite-utilization (if has-prerequisites?
-                                                             (->> (grouped-offers true)
-                                                                  (map :offer/utilization)
-                                                                  (filter some?) ;; when starting out, prereqs are nil
-                                                                  (apply min 1))
+                    (let [offers-by-offerable-id (zipmap
+                                                   (map :offer/type (:improvement/offers improvement))
+                                                   (:improvement/offers improvement))
+                          prerequisites (->> (:improvement/type improvement)
+                                             schema/blueprints
+                                             :blueprint/offerables
+                                             (filter :offerable/prerequisite?))
+                          net-prerequisite-utilization (if (seq prerequisites)
+                                                         (->> prerequisites
+                                                              (map :offerable/id)
+                                                              (map offers-by-offerable-id)
+                                                              (map :offer/utilization)
+                                                              ;; new improvements don't have offers set, so can get nils
+                                                              (map (fn [u]
+                                                                     (if (nil? u) 0 u)))
+                                                              (apply min))
                                                              1)]
-                      (->> (concat (grouped-offers ::prereq)
-                                   (->> (grouped-offers ::no-prereq)
-                                        (map (fn [offer]
-                                               (-> offer
-                                                   (assoc ::adjusted-utilization overall-prerequisite-utilization))))))
+                      (->> (:improvement/offers improvement)
                            (map (fn [offer]
                                   (let [offerable (schema/offerables (:offer/type offer))
-                                        adjusted-utilization (or (::adjusted-utilization offer) 1)]
+                                        adjusted-utilization (if (:offerable/prerequisite? offerable)
+                                                               1
+                                                               net-prerequisite-utilization)]
                                     {:tender/resident-id resident-id
                                      :tender/offer-id (:offer/id offer)
                                      :tender/improvement-id (:improvement/id improvement)
