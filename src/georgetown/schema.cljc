@@ -235,7 +235,7 @@
   (merge (mr/schemas m/default-registry)
          {:neg-int (m/-simple-schema {:type :neg-int :pred neg-int?})
           :whole-int (m/-simple-schema {:type :whole-int :pred #(or (zero? %)
-                                                                    pos-int?)})
+                                                                    (pos-int? %))})
           :pos-int (m/-simple-schema {:type :pos-int :pred pos-int?})}
          (->> schema
               (map (fn [[k vs]]
