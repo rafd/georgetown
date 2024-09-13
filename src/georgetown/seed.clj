@@ -24,16 +24,20 @@
           (exec! :command/borrow-loan!
                  {:user-id user-id
                   :resident-id resident-id})
+          (exec! :command/borrow-loan!
+                 {:user-id user-id
+                  :resident-id resident-id})
+          (exec! :command/borrow-loan!
+                 {:user-id user-id
+                  :resident-id resident-id})
+
           (doseq [[index [improvement-type offers]]
                   (map-indexed vector
                                [;; house
                                 [:improvement.type/house {:offer/house.rental 2}]
-                                [:improvement.type/house {:offer/house.rental 3}]
                                 ;; farm
                                 [:improvement.type/farm {:offer/farm.food 12
                                                          :offer/farm.job 10}]
-                                [:improvement.type/farm {:offer/farm.food 13
-                                                         :offer/farm.job 11}]
                                 ;; big farm
                                 #_[:improvement.type/big-farm {:offer/big-farm.food 30
                                                                :offer/big-farm.job 20}]
@@ -43,23 +47,24 @@
               (exec! :command/buy-lot!
                      {:user-id user-id
                       :lot-id lot-id})
-              (exec! :command/change-rate!
-                     {:user-id user-id
-                      :lot-id lot-id
-                      :rate 1})
-              (when improvement-type
-                (exec! :command/build!
+              (let [deed-id (s/qget [:lot/id lot-id] [:lot/deed :deed/id])]
+                (exec! :command/change-rate!
                        {:user-id user-id
-                        :lot-id lot-id
-                        :improvement-type improvement-type})
-                (let [improvement-id (:improvement/id (:lot/improvement
-                                                        (s/by-id [:lot/id lot-id]
-                                                                 [{:lot/improvement [:improvement/id]}])))]
-                  (doseq [[offer-key amount] offers]
-                    (exec! :command/set-offer!
-                           {:user-id user-id
-                            :improvement-id improvement-id
-                            :offer-type offer-key
-                            :offer-amount amount})))))))))))
+                        :deed-id deed-id
+                        :rate 1})
+                (when improvement-type
+                  (exec! :command/build!
+                         {:user-id user-id
+                          :lot-id lot-id
+                          :improvement-type improvement-type})
+                  (let [improvement-id (:improvement/id (:lot/improvement
+                                                          (s/by-id [:lot/id lot-id]
+                                                                   [{:lot/improvement [:improvement/id]}])))]
+                    (doseq [[offer-key amount] offers]
+                      (exec! :command/set-offer!
+                             {:user-id user-id
+                              :improvement-id improvement-id
+                              :offer-type offer-key
+                              :offer-amount amount}))))))))))))
 
 #_(seed!)
