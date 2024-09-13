@@ -51,6 +51,17 @@
                           :improvement/offers
                           x/ALL]))))
 
+(defn subscribe
+  [[source & path]]
+  (r/reaction
+    (x/select-one
+      (->> path
+           (map (fn [x]
+                  (get {:ALL x/ALL} x x))))
+      (case source
+        :PRIVATE @resident
+        :PUBLIC @island))))
+
 (defn set-island-id! [id]
   (when (not= id @island-id)
     (reset! island-id id)

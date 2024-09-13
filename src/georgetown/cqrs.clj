@@ -101,7 +101,9 @@
                           {:lot/deed
                            [:deed/id
                             :deed/rate
-                            {:resident/_deeds [:resident/id]}]}])]
+                            {:resident/_deeds [:resident/id]}]}])
+            current-epoch (s/qget [:lot/id lot-id]
+                                  [:island/_lots :island/epoch])]
         (if-let [deed (:lot/deed lot)]
           (let [refund-amount (or (:blueprint/price (schema/blueprints (:improvement/type (:lot/improvement lot))))
                                   0)]
@@ -115,31 +117,47 @@
                ;; create new deed
                {:db/id -1
                 :deed/id (uuid/random)
-                :deed/rate (inc (:deed/rate deed))}
+                :deed/rate (inc (:deed/rate deed))
+                :deed/rate-change-at current-epoch}
                [:db/add [:lot/id lot-id] :lot/deed -1]
                [:db/add [:resident/id resident-id] :resident/deeds -1]]))
           (db/transact!
             [;; create new deed
              {:db/id -1
               :deed/id (uuid/random)
-              :deed/rate 0}
+              :deed/rate 0
+              :deed/rate-changed-at current-epoch}
              [:db/add [:lot/id lot-id] :lot/deed -1]
              [:db/add [:resident/id resident-id] :resident/deeds -1]]))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id
-             :lot-id :lot/id
+             :deed-id :deed/id
              :rate :deed/rate}
     :conditions
-    (fn [{:keys [user-id lot-id]}]
+    (fn [{:keys [user-id deed-id rate]}]
       [[#(s/exists? :user/id user-id)]
-       [#(s/exists? :lot/id lot-id)]
-       [#(s/owns? user-id [:lot/id lot-id])]])
+       [#(s/exists? :deed/id deed-id)]
+       [#(s/owns? user-id [:deed/id deed-id])]
+       [;; docs.lot.change-rate - when changing the tax rate, it cannot be lowered for 1 year
+        #(let [{current-rate :deed/rate
+                changed-at :deed/rate-changed-at}
+               (s/by-id [:deed/id deed-id]
+                        [:deed/rate
+                         :deed/rate-changed-at])]
+           (or (< current-rate rate)
+               (let [expiry (+ 365 changed-at)
+                     current-epoch (s/qget [:deed/id deed-id]
+                                           [:lot/_deed
+                                            :island/_lots
+                                            :island/epoch])]
+                 (< expiry current-epoch))))]])
     :effect
-    (fn [{:keys [lot-id rate]}]
-      (let [deed (:lot/deed (s/by-id [:lot/id lot-id] [{:lot/deed [:deed/id]}]))]
-        (db/transact!
-          [[:db/add [:deed/id (:deed/id deed)] :deed/rate rate]])))}
+    (fn [{:keys [deed-id rate]}]
+      (db/transact!
+        [{:deed/id deed-id
+          :deed/rate rate
+          :deed/rate-changed-at (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])}]))}
 
    {:id :command/abandon!
     :params {:user-id :user/id

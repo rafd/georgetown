@@ -210,7 +210,8 @@
    :entity/deed
    {:deed/id {:spec :uuid
               :db/unique :db.unique/identity}
-    :deed/rate {:spec :whole-int}}
+    :deed/rate {:spec :whole-int}
+    :deed/rate-changed-at {:spec :pos-int}}
 
    :entity/improvement
    {:improvement/id {:spec :uuid

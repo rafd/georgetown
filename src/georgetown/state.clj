@@ -196,6 +196,17 @@
   [user-id [attr id]]
   (some?
     (case attr
+      :deed/id
+      (db/q '[:find ?deed .
+              :in $ ?user-id ?deed-id
+              :where
+              [?deed :deed/id ?deed-id]
+              [?resident :resident/deeds ?deed]
+              [?user :user/residents ?resident]
+              [?user :user/id ?user-id]]
+            user-id
+            id)
+
       :resident/id
       (db/q '[:find ?resident .
               :in $ ?user-id ?resident-id

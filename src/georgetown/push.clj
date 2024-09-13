@@ -66,6 +66,7 @@
                            :loan/annual-interest-rate]}
                          {:resident/deeds
                           [:deed/id
+                           :deed/rate-changed-at
                            {:lot/_deed
                             [:lot/id
                              {:lot/improvement

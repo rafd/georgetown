@@ -1,5 +1,6 @@
 (ns georgetown.ui.pages.lot
   (:require
+    [reagent.core :as r]
     [bloom.commons.fontawesome :as fa]
     [bloom.commons.debounce :as debounce]
     [bloom.commons.pages :as pages]
@@ -33,26 +34,40 @@
                          250)}]])
 
 (defn deed-rate-view
-  [{:keys [lot-id deed-rate]}]
-  [:div {:tw "border-1 p-1"}
-   [ui/label-with-info
-    "Land Tax Rate"
-    "self assessed land tax rate; another resident may acquire your lot by paying a higher rate"]
-   [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
-    [:input {:type "number"
-             :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
-             :name "rate"
-             :min 0
-             :default-value deed-rate
-             :on-change (debounce/debounce
-                          (fn [e]
-                            (state/exec!
-                              :command/change-rate!
-                              {:lot-id lot-id
-                               :rate (js/parseInt (.. e -target -value))}))
-                          250)
-             :step 1}]
-    [ui/resource-icons [:resource/money :resource/time]]]])
+  [{:keys [deed-id deed-rate]}]
+  (r/with-let [now (state/subscribe [:PUBLIC :island/epoch])
+               changed-at (state/subscribe [:PRIVATE :resident/deeds
+                                            :ALL
+                                            (fn [deed]
+                                              (= (:deed/id deed) deed-id))
+                                            :deed/rate-changed-at])
+               on-change (debounce/debounce
+                           (fn [e]
+                             (state/exec!
+                               :command/change-rate!
+                               {:deed-id deed-id
+                                :rate (js/parseInt (.. e -target -value))}))
+                           250)]
+    (let [expiry (+ @changed-at 365)
+          minimum-rate (if (< @now expiry)
+                         deed-rate
+                         0)]
+      [:div {:tw "border-1 p-1"}
+       [ui/label-with-info
+        "Land Tax Rate"
+        "Self assessed land tax rate, paid per day. Another resident may acquire your lot by paying a higher rate. Rate can only be decreased after 1 year."]
+       [:div {:tw "text-xs"}
+        (when (< 0 minimum-rate)
+          (str "Minimum rate of " deed-rate " for " (- expiry @now) " more days"))]
+       [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
+        [:input {:type "number"
+                 :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
+                 :name "rate"
+                 :min minimum-rate
+                 :default-value deed-rate
+                 :on-change on-change
+                 :step 1}]
+        [ui/resource-icons [:resource/money :resource/time]]]])))
 
 (defn sidebar
   [lot-id]
@@ -87,7 +102,7 @@
            (cond
              owner?
              [:<>
-              [deed-rate-view {:lot-id (:lot/id lot)
+              [deed-rate-view {:deed-id (:deed/id deed)
                                :deed-rate (or (:deed/rate deed) 0)}]
 
               (when (nil? improvement)
