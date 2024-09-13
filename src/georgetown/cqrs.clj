@@ -159,21 +159,26 @@
           :deed/rate rate
           :deed/rate-changed-at (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])}]))}
 
+   ;; docs.lot.abandon - a lot can be abandoned
    {:id :command/abandon!
     :params {:user-id :user/id
-             :lot-id :lot/id}
+             :deed-id :deed/id}
     :conditions
-    (fn [{:keys [user-id lot-id]}]
+    (fn [{:keys [user-id deed-id]}]
       [[#(s/exists? :user/id user-id)]
-       [#(s/exists? :lot/id lot-id)]
-       [#(s/owns? user-id [:lot/id lot-id])]
-       [#(nil? (:lot/improvement (s/by-id [:lot/id lot-id] [:lot/improvement])))]])
+       [#(s/exists? :deed/id deed-id)]
+       [#(s/owns? user-id [:deed/id deed-id])]
+       [;; docs.lot.abandon - a lot cannot be abandoned if there is still an improvement on it
+        #(nil? (s/qget [:deed/id deed-id] [:lot/_deed :lot/improvement]))]
+       [;; docs.lot.abandon - a lot cannot be abandoned if the rate has been changed within the last year
+        #(let [changed-at (s/qget [:deed/id deed-id] [:deed/rate-changed-at])
+               expiry (+ 365 changed-at)
+               current-epoch (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])]
+           (< expiry current-epoch))]])
     :effect
-    (fn [{:keys [lot-id]}]
+    (fn [{:keys [deed-id]}]
       (db/transact!
-        [[:db/retractEntity [:deed/id (:deed/id
-                                        (:lot/deed
-                                          (s/by-id [:lot/id lot-id] [{:lot/deed [:deed/id]}])))]]]))}
+        [[:db/retractEntity [:deed/id deed-id]]]))}
 
    {:id :command/build!
     :params {:user-id :user/id

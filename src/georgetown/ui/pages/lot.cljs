@@ -34,40 +34,56 @@
                          250)}]])
 
 (defn deed-rate-view
-  [{:keys [deed-id deed-rate]}]
-  (r/with-let [now (state/subscribe [:PUBLIC :island/epoch])
-               changed-at (state/subscribe [:PRIVATE :resident/deeds
-                                            :ALL
-                                            (fn [deed]
-                                              (= (:deed/id deed) deed-id))
-                                            :deed/rate-changed-at])
-               on-change (debounce/debounce
+  [{:keys [deed locked?]}]
+  (r/with-let [on-change (debounce/debounce
                            (fn [e]
                              (state/exec!
                                :command/change-rate!
-                               {:deed-id deed-id
+                               {:deed-id (:deed/id deed)
                                 :rate (js/parseInt (.. e -target -value))}))
                            250)]
+    [:div {:tw "border-1 p-1"}
+     [ui/label-with-info
+      "Land Tax Rate"
+      "Self assessed land tax rate, paid per day. Another resident may acquire your lot by paying a higher rate. Rate can only be decreased after 1 year."]
+     [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
+      [:input {:type "number"
+               :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
+               :name "rate"
+               :min (when locked? (:deed/rate deed) 0)
+               :default-value (:deed/rate deed)
+               :on-change on-change
+               :step 1}]
+      [ui/resource-icons [:resource/money :resource/time]]]]))
+
+(defn abandon-button-view
+  [{:keys [deed locked?]}]
+  [ui/button {:disabled locked?
+              :on-click (fn []
+                          (state/exec!
+                            :command/abandon!
+                            {:deed-id (:deed/id deed)}))}
+   "Abandon"])
+
+(defn deed-actions-view
+  [{:keys [deed has-improvement?]}]
+  (r/with-let [now (state/subscribe [:PUBLIC :island/epoch])
+               changed-at (state/subscribe [:PRIVATE :resident/deeds
+                                            :ALL
+                                            (fn [{:deed/keys [id]}]
+                                              (= id (:deed/id deed)))
+                                            :deed/rate-changed-at])]
     (let [expiry (+ @changed-at 365)
-          minimum-rate (if (< @now expiry)
-                         deed-rate
-                         0)]
-      [:div {:tw "border-1 p-1"}
-       [ui/label-with-info
-        "Land Tax Rate"
-        "Self assessed land tax rate, paid per day. Another resident may acquire your lot by paying a higher rate. Rate can only be decreased after 1 year."]
-       [:div {:tw "text-xs"}
-        (when (< 0 minimum-rate)
-          (str "Minimum rate of " deed-rate " for " (- expiry @now) " more days"))]
-       [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
-        [:input {:type "number"
-                 :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
-                 :name "rate"
-                 :min minimum-rate
-                 :default-value deed-rate
-                 :on-change on-change
-                 :step 1}]
-        [ui/resource-icons [:resource/money :resource/time]]]])))
+          locked? (< @now expiry)]
+      [:div
+       (when locked?
+         [:div {:tw "text-xs"}
+          (str "Cannot abandon or set rate below " (:deed/rate deed) " for " (- expiry @now) " more days")])
+       [deed-rate-view {:deed deed
+                        :locked? locked?}]
+       (when (not has-improvement?)
+         [abandon-button-view {:deed deed
+                               :locked? locked?}])])))
 
 (defn sidebar
   [lot-id]
@@ -101,16 +117,8 @@
           [block {:label "Actions"}
            (cond
              owner?
-             [:<>
-              [deed-rate-view {:deed-id (:deed/id deed)
-                               :deed-rate (or (:deed/rate deed) 0)}]
-
-              (when (nil? improvement)
-                [ui/button {:on-click (fn []
-                                        (state/exec!
-                                          :command/abandon!
-                                          {:lot-id (:lot/id lot)}))}
-                 "Abandon"])]
+             [deed-actions-view {:deed deed
+                                 :has-improvement? (boolean improvement)}]
              resident?
              [:div {:tw "border-1 p-1"}
               [ui/button {:on-click
