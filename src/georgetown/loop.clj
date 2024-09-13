@@ -313,6 +313,16 @@
        :sim.out/leisure-percent leisure-percent
        :sim.out/population new-population})))
 
+(defn resident-bankruptcy-txs
+  [resident-resource-balances]
+  ;; docs.bankruptcy - if a resident's money balance every falls below 0, they are bankrupt, and removed from the island
+  (->> resident-resource-balances
+       (keep (fn [[resident-id resources]]
+               (when (< (:resource/money resources) 0)
+                 resident-id)))
+       (map (fn [resident-id]
+              [:db/retractEntity [:resident/id resident-id]]))))
+
 (defn resident-market-net-amounts
   "For each resident, +/- for each resource, from buying/selling on markets"
   [sim-out]
@@ -579,8 +589,8 @@
            :resident/money-balance (:resource/money balance)])
         (for [[offer-id utilization] offer-id->utilization]
           [:db/add [:offer/id offer-id] :offer/utilization utilization])
-        (for [tx loan-txs]
-          tx)))))
+        loan-txs
+        (resident-bankruptcy-txs resident-balances)))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]
