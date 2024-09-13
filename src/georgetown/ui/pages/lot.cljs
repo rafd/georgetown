@@ -201,7 +201,7 @@
                                            (filter
                                              (fn [offer]
                                                (and
-                                                 (= (first (:offer/id offer))
+                                                 (= (:improvement/id (:improvement/_offers offer))
                                                     (:improvement/id improvement))
                                                  (= (:offer/type offer)
                                                     (:offerable/id offerable)))))

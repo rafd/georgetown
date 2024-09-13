@@ -32,7 +32,7 @@
            lot-count-height (inc y-range)
            improvement-id->offers (->> @state/offers
                                        (group-by (fn [offer]
-                                                   (first (:offer/id offer)))))]
+                                                   (:improvement/id (:improvement/_offers offer)))))]
        [:<>
         [:div.menu {:tw "absolute top-0 left-0 right-0 z-20 px-1 flex justify-between"}
          [:div {:tw "space-x-1"}

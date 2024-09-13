@@ -222,7 +222,7 @@
     :improvement/offers {:rel/many :entity/offer}}
 
    :entity/offer
-   {:offer/id {:spec [:vec :uuid :keyword]
+   {:offer/id {:spec :uuid
                :db/unique :db.unique/identity}
     :offer/type {:spec (into [:enum]
                              (keys offerables))

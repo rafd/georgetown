@@ -17,7 +17,7 @@
   (let [resident-id (:resident/id @state/resident)
         improvement-id->offers (->> @state/offers
                                     (group-by (fn [offer]
-                                                (first (:offer/id offer)))))
+                                                (:improvement/id (:improvement/_offers offer)))))
         lot-lines (for [lot (->> @state/island
                                  :island/lots)
                         :let [deed (:lot/deed lot)]

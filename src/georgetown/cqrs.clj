@@ -249,12 +249,20 @@
                         (= (:offerable/id offerable) offer-type))))]])
     :effect
     (fn [{:keys [improvement-id offer-type offer-amount]}]
-      (db/transact!
-        [{:improvement/id improvement-id
-          :improvement/offers
-          [{:offer/id [improvement-id offer-type]
-            :offer/type offer-type
-            :offer/amount offer-amount}]}]))}
+      (let [?existing-offer-id (->> (s/by-id [:improvement/id improvement-id]
+                                             [{:improvement/offers
+                                               [:offer/id :offer/type]}])
+                                    :improvement/offers
+                                    (filter (fn [offer]
+                                              (= offer-type (:offer/type offer))))
+                                    first
+                                    :offer/id)]
+        (db/transact!
+          [{:improvement/id improvement-id
+            :improvement/offers
+            [{:offer/id (or ?existing-offer-id (uuid/random))
+              :offer/type offer-type
+              :offer/amount offer-amount}]}])))}
 
    {:id :command/borrow-loan!
     :params {:user-id :user/id

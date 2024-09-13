@@ -72,7 +72,11 @@
                              {:lot/improvement
                               [:improvement/id
                                {:improvement/offers
-                                [*]}]}]}]}]) .
+                                [:offer/id
+                                 :offer/type
+                                 :offer/amount
+                                 :offer/utilization
+                                 {:improvement/_offers [:improvement/id]}]}]}]}]}]) .
             :in $ ?user-id ?island-id
             :where
             [?user :user/id ?user-id]
