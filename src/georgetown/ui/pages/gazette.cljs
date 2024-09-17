@@ -12,6 +12,8 @@
 (defn x-stats [path]
   (x/select path @state/public-stats-history))
 
+(def kv-row-tw "flex justify-between items-center gap-2")
+
 (defn stats-view
   [island]
   [:section
@@ -22,13 +24,13 @@
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
-        [:td {:col-span 2} "money supply"]
+        [:td "money supply"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
        [:tr
-        [:td {:col-span 2} "citizen savings"]
+        [:td "citizen savings"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-money-balance stats) 0 :resource/money]
          "/"
@@ -39,12 +41,13 @@
           (x-stats [x/ALL :sim.out/money-savings-goal])]]]
        [:tr
         [:td {:tw "align-top"} "resident:citizen cash ratio"]
-        [:td {:tw "align-top"}
-         [:div "before"]
-         [:div "after"]]
         [:td {:tw "text-right align-top"}
-         [:div [ui/value (ui/format (:sim.out/cash-ratio-before stats) 3)]]
-         [:div [ui/value (ui/format (:sim.out/cash-ratio-after stats) 3)]]]
+         [:div {:tw kv-row-tw}
+          [:span "before"]
+          [ui/value (ui/format (:sim.out/cash-ratio-before stats) 3)]]
+         [:div {:tw kv-row-tw}
+          [:span "after"]
+          [ui/value (ui/format (:sim.out/cash-ratio-after stats) 3)]]]
         [:td
          [:div [dataviz/sparkline
                 {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
@@ -53,7 +56,7 @@
                 {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
                 (x-stats [x/ALL :sim.out/cash-ratio-after])]]]]
        [:tr
-        [:td {:col-span 2}
+        [:td
          [ui/label-with-info
           "stabilization rate"
           "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"]]
@@ -62,7 +65,7 @@
                     {:y-min 0.8 :y-max 1.2 :y-line 1.0 :bar-width 2}
                     (x-stats [x/ALL :sim.out/stabilization-rate])]]]]
        [:tr
-        [:td {:col-span 2} "citizen food reserves"]
+        [:td "citizen food reserves"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/citizen-food-balance stats) 0 :resource/food]
          "/"
@@ -74,12 +77,13 @@
       [:tbody
        [:tr
         [:td {:tw "align-top"} "population"]
-        [:td
-         [:div "supportable"]
-         [:div "current"]]
         [:td {:tw "text-right"}
-         [:div [ui/resource-amount (:sim.out/max-supported-population stats) 0 :resource/citizen]]
-         [:div [ui/resource-amount (:sim.out/population stats) 0 :resource/citizen]]]
+         [:div {:tw kv-row-tw}
+          [:span "supportable"]
+          [ui/resource-amount (:sim.out/max-supported-population stats) 0 :resource/citizen]]
+         [:div {:tw kv-row-tw}
+          [:span "current"]
+          [ui/resource-amount (:sim.out/population stats) 0 :resource/citizen]]]
         [:td
          [dataviz/multi-sparkline
           (x-stats [x/ALL :sim.out/population])
@@ -98,22 +102,25 @@
              ^{:key resource-id}
              [:tr
               [:td {:tw "align-top"} (:resource/label resource)]
-              [:td {:tw "align-top"}
-               [:div "available"]
-               [:div "demand"]
-               [:div "supplied"]
-               [:div "price"]
-               [:div "cost"]]
               [:td {:tw "text-right tabular-nums align-top"}
                #_[:div [ui/resource-amount supply 0 resource-id]]
-               [:div [ui/resource-amount available-supply 0 resource-id]]
-               [:div [ui/resource-amount demand 0 resource-id]]
-               [:div [ui/resource-amount supply 0 resource-id]]
-               [:div
+               [:div {:tw kv-row-tw}
+                [:span "available"]
+                [ui/resource-amount available-supply 0 resource-id]]
+               [:div {:tw kv-row-tw}
+                [:span "demand"]
+                [ui/resource-amount demand 0 resource-id]]
+               [:div {:tw kv-row-tw}
+                [:span "supplied"]
+                [ui/resource-amount supply 0 resource-id]]
+               [:div {:tw kv-row-tw}
+                [:span "price"]
                 (if invert?
                   [ui/resource-amount (/ 1 clearing-price) 2 resource-id resource-b-id]
                   [ui/resource-amount clearing-price 2 resource-b-id resource-id])]
-               [:div [ui/resource-amount cost 0 resource-b-id]]]
+               [:div {:tw kv-row-tw}
+                [:span "cost"]
+                [ui/resource-amount cost 0 resource-b-id]]]
               [:td
                [:span {:tw "text-xs"} "supply, demand"]
                [dataviz/multi-sparkline
@@ -128,20 +135,22 @@
              {:keys [demand available-supply supply clearing-price]} (get-in stats [:sim.out/resources :resource/labour])]
          [:tr
           [:td {:tw "align-top"} "labour"]
-          [:td
-           [ui/label-with-info
+          [:td {:tw "text-right tabular-nums align-top"}
+           [:div {:tw kv-row-tw}
+            [ui/label-with-info
             "available"
             "labour hours available in population"]
-           [ui/label-with-info
+            [ui/resource-amount available-supply 0 :resource/labour]]
+           [:div {:tw kv-row-tw}
+            [ui/label-with-info
             "offered"
             "labour hours offered by jobs"]
-           [ui/label-with-info
+            [ui/resource-amount demand 0 :resource/labour]]
+           [:div {:tw kv-row-tw}
+            [ui/label-with-info
             "transacted"
-            "labour hours actually worked"]]
-          [:td {:tw "text-right tabular-nums align-top"}
-           [:div [ui/resource-amount available-supply 0 :resource/labour]]
-           [:div [ui/resource-amount demand 0 :resource/labour]]
-           [:div [ui/resource-amount supply 0 :resource/labour]]]
+            "labour hours actually worked"]
+            [ui/resource-amount supply 0 :resource/labour]]]
           [:td {:tw "align-top"}
            [:span {:tw "text-xs"} "transacted, available"]
            [dataviz/multi-sparkline
@@ -151,9 +160,10 @@
           [:td clearing-price]])
        [:tr
         [:td "leisure"]
-        [:td "percent"]
         [:td {:tw "text-right tabular-nums align-top"}
-         [ui/resource-amount (:sim.out/leisure-percent stats) 2 :resource/labour]]
+         [:div {:tw kv-row-tw}
+          [:span "percent"]
+          [ui/resource-amount (:sim.out/leisure-percent stats) 2 :resource/labour]]]
         [:td
          [dataviz/multi-sparkline
           (x-stats [x/ALL :sim.out/leisure-percent])
