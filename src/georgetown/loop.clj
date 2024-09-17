@@ -128,9 +128,9 @@
   ;; y = 0.005 * ln( x / ( 1 - x ) )
   (cond
     (<= ratio 0)
-    1.10
+    10
     (<= 1 ratio)
-    0.90
+    0.01
     :else
     (- 1 (* 0.005 (Math/log (/ ratio
                                (- 1 ratio)))))))
@@ -146,7 +146,15 @@
 
 (defn simulate
   [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
-  (let [
+  (let [;population 1
+        potential-money-supply (->> tenders
+                                   (keep
+                                      (fn [tender]
+                                        (let [[resource amount] (:tender/supply tender)]
+                                          (when (= resource :resource/money)
+                                            amount))))
+                                    (apply +))
+
         ;; FOOD
         base-food-demand (* food-demand-per-person-per-tick population)
         food-savings-goal (* ticks-of-food-savings base-food-demand)
@@ -154,32 +162,31 @@
                          ;; HACK: force a minimum, so there's always a food market
                          (/ base-food-demand 4))
         {food-market-clearing-price :market/clearing-unit-price
-         food-supplied :market/amount-supplied
-         food-cost :market/total-cost
+         food-supplied :market/demand-filled
+         food-cost :market/supply-consumed
          food-tenders :market/tenders}
-        (m/market :resource/food food-demand :resource/money tenders)
+        (m/market :resource/food food-demand
+                  :resource/money (+ citizen-money-balance potential-money-supply)
+                  tenders)
 
         ;; SHELTER
         base-shelter-demand (* shelter-demand-per-person-per-tick population)
         ;; can't "store" shelter, so demand = base-demand
         shelter-demand base-shelter-demand
         {shelter-market-clearing-price :market/clearing-unit-price
-         shelter-supplied :market/amount-supplied
-         shelter-cost :market/total-cost
+         shelter-supplied :market/demand-filled
+         shelter-cost :market/supply-consumed
          shelter-tenders :market/tenders}
-        (m/market :resource/shelter shelter-demand :resource/money tenders)
+        (m/market :resource/shelter shelter-demand
+                  :resource/money (+ citizen-money-balance
+                                     (- food-cost)
+                                     potential-money-supply)
+                  tenders)
 
         ;; MONEY
         ;; citizens will work to save up shelter and food
-        potential-money-supply (->> tenders
-                                    (keep
-                                      (fn [tender]
-                                        (let [[resource amount] (:tender/supply tender)]
-                                          (when (= resource :resource/money)
-                                            amount))))
-                                    (apply +))
         base-money-demand (+ shelter-cost food-cost)
-        government-stimulus (if (< (+ citizen-money-balance potential-money-supply)
+        government-stimulus 0 #_(if (< (+ citizen-money-balance potential-money-supply)
                                    base-money-demand)
                               (do (println "citizens broke; government stimulus")
                                   1000)
@@ -188,15 +195,18 @@
         money-demand (max (- money-savings-goal citizen-money-balance)
                           ;; HACK: force a minimum
                           ;; b/c sims "don't realize that food supply requires labor"
-                          (if food-market-clearing-price
+                          (if (and shelter-market-clearing-price food-market-clearing-price)
                             (+ (* shelter-market-clearing-price base-shelter-demand)
                                (* food-market-clearing-price base-food-demand))
                             1000))
+        potential-labour-supply (* max-labour-supply-per-person-per-tick population)
         {money-market-clearing-price :market/clearing-unit-price
-         money-supplied :market/amount-supplied
-         money-cost :market/total-cost
+         money-supplied :market/demand-filled
+         money-cost :market/supply-consumed
          money-tenders :market/tenders}
-        (m/market :resource/money money-demand :resource/labour tenders)
+        (m/market :resource/money money-demand
+                  :resource/labour potential-labour-supply
+                  tenders)
         money-cost (Math/ceil money-cost) ;; in terms of labour hours
 
         ;; LABOUR
@@ -207,15 +217,16 @@
                                            (when (= resource :resource/labour)
                                              amount))))
                                      (apply +))
-        potential-labour-supply (* max-labour-supply-per-person-per-tick population)
         labour-supplied (min potential-labour-supply
                              money-cost)
 
         ;; LEISURE
         leisure-hours (- potential-labour-supply
                          labour-supplied)
-        leisure-percent (/ leisure-hours
-                           potential-labour-supply)
+        leisure-percent (if (zero? potential-labour-supply)
+                          0
+                          (/ leisure-hours
+                             potential-labour-supply))
 
         ;; CITIZEN BALANCES
         new-citizen-money-balance (+ citizen-money-balance
@@ -230,6 +241,8 @@
                                     (- food-consumed))
 
         ;; POPULATION
+        ;; TODO this has already been scaled by utilization
+        ;; but should probably be using "max theoretically possible" amount
         potential-food-supply (->> tenders
                                    (keep
                                      (fn [tender]
@@ -249,11 +262,12 @@
                                                  food-demand-per-person-per-tick)
                                               (/ potential-shelter-supply
                                                  shelter-demand-per-person-per-tick)))
-        supported-population (Math/floor
-                               (min (/ new-citizen-food-balance
-                                       food-demand-per-person-per-tick)
-                                    (/ shelter-supplied
-                                       shelter-demand-per-person-per-tick)))
+        supported-population (max 0
+                                  (Math/floor
+                                    (min (/ new-citizen-food-balance
+                                            food-demand-per-person-per-tick)
+                                         (/ shelter-supplied
+                                            shelter-demand-per-person-per-tick))))
         ;; emigrating citizens take a fraction of the money with them
         #_#_citizen-money-balance (* (- 1 (/ population-emigration population))
                                      citizen-money-balance)
@@ -268,10 +282,11 @@
                                     0.5)
         death-count (randomize supported-population
                                (/ 1 1000))
-        newcomer-count (randomize (max (- potential-supported-population population) 0)
-                                  (/ (+ 1 ;; 1, so it's never 0 chance
-                                        leisure-percent) 200))
-        ;; don't let population go to 0, or there's no going back
+        newcomer-count (if (zero? population)
+                         (if (< (rand) 0.2) 1 0)
+                         (randomize (max (- potential-supported-population population) 0)
+                                    (/ (+ 1 ;; 1, so it's never 0 chance
+                                          leisure-percent) 200)))
         new-population (max 1
                             (+ population
                                (- emigration-count)
