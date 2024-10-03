@@ -236,9 +236,10 @@
                                      (+ money-supplied)
                                      (+ government-stimulus))
         food-consumed (* food-demand-per-person-per-tick population)
-        new-citizen-food-balance (+ citizen-food-balance
-                                    (+ food-supplied)
-                                    (- food-consumed))
+        new-citizen-food-balance (max 0
+                                      (+ citizen-food-balance
+                                         (+ food-supplied)
+                                         (- food-consumed)))
 
         ;; POPULATION
         ;; TODO this has already been scaled by utilization
