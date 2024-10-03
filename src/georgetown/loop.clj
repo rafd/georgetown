@@ -258,11 +258,12 @@
                                             (when (= resource :resource/shelter)
                                               amount))))
                                       (apply +))
-        potential-supported-population (Math/floor
-                                         (min (/ potential-food-supply
-                                                 food-demand-per-person-per-tick)
-                                              (/ potential-shelter-supply
-                                                 shelter-demand-per-person-per-tick)))
+        potential-supported-population (max 1 ;; for now, b/c it gets into a weird loop otherwise
+                                            (Math/floor
+                                              (min (/ potential-food-supply
+                                                      food-demand-per-person-per-tick)
+                                                   (/ potential-shelter-supply
+                                                      shelter-demand-per-person-per-tick))))
         supported-population (max 0
                                   (Math/floor
                                     (min (/ new-citizen-food-balance
