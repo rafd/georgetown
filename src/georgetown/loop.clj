@@ -337,8 +337,21 @@
        (keep (fn [[resident-id resources]]
                (when (< (:resource/money resources) 0)
                  resident-id)))
-       (map (fn [resident-id]
-              [:db/retractEntity [:resident/id resident-id]]))))
+       (mapcat (fn [resident-id]
+                 (conj
+                   ;; retract improvements
+                   (->> (db/q '[:find [?improvement ...]
+                                :in $ ?resident-id
+                                :where
+                                [?resident :resident/id ?resident-id]
+                                [?resident :resident/deeds ?deed]
+                                [?lot :lot/deed ?deed]
+                                [?lot :lot/improvement ?improvement]]
+                              resident-id)
+                        (map (fn [e]
+                               [:db/retractEntity e])))
+                   ;; and the resident (and nested entities)
+                   [:db/retractEntity [:resident/id resident-id]])))))
 
 (defn resident-market-net-amounts
   "For each resident, +/- for each resource, from buying/selling on markets"

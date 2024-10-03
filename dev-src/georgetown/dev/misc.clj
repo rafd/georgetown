@@ -11,3 +11,12 @@
 #_(db/q '[:find [(pull ?resident [*]) ...]
         :where
         [?resident :resident/id _]])
+
+(defn clear-orphaned-improvements! []
+  (->> (db/q '[:find [?improvement ...]
+               :where
+               [?lot :lot/improvement ?improvement]
+               [(missing? $ ?lot :lot/deed)]])
+       (map (fn [e]
+              [:db/retractEntity e]))
+       (db/transact!)))
