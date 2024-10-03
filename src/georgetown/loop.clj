@@ -158,7 +158,7 @@
         ;; FOOD
         base-food-demand (* food-demand-per-person-per-tick population)
         food-savings-goal (* ticks-of-food-savings base-food-demand)
-        food-demand (max (- food-savings-goal citizen-food-balance)
+        food-demand (max (- (+ food-savings-goal base-food-demand) citizen-food-balance)
                          ;; HACK: force a minimum, so there's always a food market
                          (/ base-food-demand 4))
         {food-market-clearing-price :market/clearing-unit-price
