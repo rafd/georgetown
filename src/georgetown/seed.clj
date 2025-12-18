@@ -8,6 +8,9 @@
   (db/retract-all!)
   (s/initialize!)
   (s/create-island!)
+  nil)
+
+(defn seed-plus! []
   (let [island (first (s/all-of-type :island/id [:island/id
                                                  {:island/lots [:lot/id]}]))
         island-id (:island/id island)
@@ -58,8 +61,8 @@
                           :lot-id lot-id
                           :improvement-type improvement-type})
                   (let [improvement-id (:improvement/id (:lot/improvement
-                                                          (s/by-id [:lot/id lot-id]
-                                                                   [{:lot/improvement [:improvement/id]}])))]
+                                                         (s/by-id [:lot/id lot-id]
+                                                                  [{:lot/improvement [:improvement/id]}])))]
                     (doseq [[offer-key amount] offers]
                       (exec! :command/set-offer!
                              {:user-id user-id
@@ -68,3 +71,4 @@
                               :offer-amount amount}))))))))))))
 
 #_(seed!)
+#_(seed-plus!)
