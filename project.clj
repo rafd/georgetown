@@ -7,7 +7,7 @@
                  [io.github.escherize/huff "0.2.12"]
                  [ring/ring-defaults "0.5.0"]
                  [com.hyperfiddle/rcf "20220926-202227"]
-                 [tada "0.2.2"]
+                 [tada "0.3.0"]
                  [jarohen/chime "0.3.3"]
                  [com.draines/postal "2.0.3"]
                  [applied-science/js-interop "0.4.2"]
