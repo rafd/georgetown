@@ -283,7 +283,7 @@
         emigration-count (randomize (- population supported-population)
                                     0.5)
         death-count (randomize supported-population
-                               (/ 1 1000))
+                               (/ 1 5000))
         newcomer-count (if (zero? population)
                          (if (< (rand) 0.2) 1 0)
                          (randomize (max (- potential-supported-population population) 0)
