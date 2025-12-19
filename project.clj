@@ -27,5 +27,6 @@
              {:source-paths ["dev-src"]}
              :uberjar
              {:aot :all
-              :prep-tasks [["omni" "compile"]
+              :prep-tasks ["javac"
+                           ["omni" "compile"]
                            "compile"]}})
