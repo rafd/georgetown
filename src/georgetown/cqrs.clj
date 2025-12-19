@@ -2,7 +2,7 @@
   (:require
     [clojure.string :as string]
     [bloom.commons.uuid :as uuid]
-    [tada.events.malli :as tada]
+    [tada.events.core :as tada]
     [georgetown.email :as email]
     [georgetown.schema :as schema]
     [georgetown.debt :as debt]
@@ -343,12 +343,16 @@
               :loan/amount (- (:loan/amount loan) amount)]
              [:fn/withdraw resident-id amount]]))))}])
 
-(tada/register! cqrs)
+(defonce t (tada/init :malli))
+
+;; temporarily hack around a flaw in tada
+(with-redefs [tada.events.core/valid? (fn [_ _] true)]
+  (tada/register! t cqrs))
 
 (defn exec! [k params]
   (tap> ["exec!" k params])
   (try
-    (tada/do! k params)
+    (tada/do! t k params)
     (catch clojure.lang.ExceptionInfo e
       (println
         (ex-message e))

@@ -1,12 +1,13 @@
 (ns georgetown.routes
   (:require
-    [tada.events.malli :as tada]
+    [tada.events.core :as tada]
+    [georgetown.cqrs :as cqrs]
     [georgetown.push :as push]))
 
 (defn dispatch-event!
   [event-id event-params]
   (try
-    (if-let [return (tada/do! event-id event-params)]
+    (if-let [return (tada/do! cqrs/t event-id event-params)]
       {:status 200
        :body return}
       {:status 200})
