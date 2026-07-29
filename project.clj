@@ -14,7 +14,7 @@
                  [applied-science/js-interop "0.4.2"]
 
                  ;; db
-                 [datalevin "0.9.20"]
+                 [datalevin "1.0.0"]
                  [com.taoensso/nippy "3.3.0"]
                  [io.airlift/aircompressor "0.26"]]
   :main georgetown.core

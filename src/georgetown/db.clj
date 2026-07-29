@@ -58,23 +58,26 @@
     nil)
 
 ;; WATCHERS
-;; when either the conn or watchers change, re-register watchers
+;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;
+;; use d/listen! instead, re-registering whenever the conn or watchers change
 
 (defonce watchers (atom {}))
 
 (defn watch! [k f]
   (swap! watchers assoc k f))
 
+(defn- register-watchers! []
+  (doseq [[k f] @watchers]
+    (d/listen! (conn) k f)))
+
 (add-watch watchers
   ::watcher-watcher
   (fn [_ _ _ _]
-    (doseq [[k f] @watchers]
-      (add-watch (conn) k f))))
+    (register-watchers!)))
 
 (add-watch conn-atom
   ::conn-watcher
   (fn [_ _ _ _]
-    (doseq [[k f] @watchers]
-      (add-watch (conn) k f))))
+    (register-watchers!)))
 
 

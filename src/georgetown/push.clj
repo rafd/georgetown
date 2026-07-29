@@ -158,7 +158,7 @@
   []
   (db/watch!
     ::push
-    (fn [_ _ _ _]
+    (fn [_report]
       (on-db-change!)))
   nil)
 
