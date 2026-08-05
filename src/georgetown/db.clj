@@ -1,20 +1,20 @@
 (ns georgetown.db
   (:require
-    [datalevin.core :as d]
+    [dat.api :as dat]
     [georgetown.schema :as schema]
     [georgetown.config :as config]))
 
-(defonce conn-atom (atom nil))
+(defonce db-atom (atom nil))
 
 (defn connect! []
-  (reset! conn-atom
-          (d/get-conn (config/get :db-dir)
-            (schema/->datalevin schema/schema))))
+  (reset! db-atom
+          (dat/init! :dat.db/datalevin schema/schema
+                     {:dir (config/get :db-dir)})))
 
-(defn conn []
-  (if (nil? @conn-atom)
+(defn db []
+  (if (nil? @db-atom)
     (connect!)
-    @conn-atom))
+    @db-atom))
 
 (defn remove-nil-vals [m]
   (->> m
@@ -22,32 +22,31 @@
                  (some? v)))
        (into {})))
 
-(defn transact! [& args]
-  (apply d/transact (conn) args))
+(defn transact! [txs]
+  (dat/transact! (db) txs))
 
 (defn q [query & args]
-  (apply d/q query @(conn) args))
+  (apply dat/q query @(db) args))
 
 #_(connect!)
 
 ;; all
-#_(d/q '[:find [?e ...]
-         :where [?e _ _]]
-       @(conn))
+#_(q '[:find [?e ...]
+       :where [?e _ _]])
 
 ;; drop all
-#_(d/clear @conn-atom)
+#_(dat/clear! db-atom)
 
 ;; TODO close when app closes
 ;; or else lock gets stuck
-#_(d/close @conn-atom)
+#_(dat/close! db-atom)
 
 ;; reset
 #_(do
-    (when @conn-atom
-      (d/clear @conn-atom)
-      (reset! conn-atom nil))
+    (when @db-atom
+      (dat/clear! db-atom))
     (connect!))
+
 
 
 (defn retract-all! []
@@ -59,7 +58,7 @@
 
 ;; WATCHERS
 ;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;
-;; use d/listen! instead, re-registering whenever the conn or watchers change
+;; use datalevin.core/listen! instead, re-registering whenever the conn or watchers change
 
 (defonce watchers (atom {}))
 
@@ -68,16 +67,14 @@
 
 (defn- register-watchers! []
   (doseq [[k f] @watchers]
-    (d/listen! (conn) k f)))
+    ((requiring-resolve 'datalevin.core/listen!) (dat/conn (db)) k f)))
 
 (add-watch watchers
   ::watcher-watcher
   (fn [_ _ _ _]
     (register-watchers!)))
 
-(add-watch conn-atom
-  ::conn-watcher
+(add-watch db-atom
+  ::db-watcher
   (fn [_ _ _ _]
     (register-watchers!)))
-
-

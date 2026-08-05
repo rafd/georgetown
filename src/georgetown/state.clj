@@ -1,7 +1,7 @@
 (ns georgetown.state
   (:require
     [clojure.string :as string]
-    [bloom.commons.uuid :as uuid]
+    [dat.api :as dat]
     [georgetown.db :as db]
     [georgetown.island :as island]
     [datalevin.interpret :as di]))
@@ -9,33 +9,31 @@
 ;; register functions
 (defn register-functions! []
   #_:clj-kondo/ignore
-  (doseq [v [{:db/ident :fn/withdraw
-              :db/fn
-              (di/inter-fn
-                [db resident-id amount]
-                (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-                  (if (<= amount (:resident/money-balance resident))
-                    [[:db/add (:db/id resident) :resident/money-balance
-                      (- (:resident/money-balance resident) amount)]]
-                    (throw (ex-info "Insuffient funds" {})))
-                  (throw (ex-info (str "No resident with id " resident-id) {}))))}
-             {:db/ident :fn/deposit
-              :db/fn (di/inter-fn
-                       [db resident-id amount]
-                       (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-                         [[:db/add (:db/id resident) :resident/money-balance
-                           (+ (:resident/money-balance resident) amount)]]
-                         (throw (ex-info (str "No resident with id " resident-id) {}))))}
-             {:db/ident :fn/transfer-to-government
-              :db/fn (di/inter-fn
-                       [db island-id amount]
-                       (if-let [island (datalevin.core/entity db [:island/id island-id])]
-                         [[:db/add (:db/id island) :island/government-money-balance
-                           (+ (:island/government-money-balance island) amount)]]
-                         (throw (ex-info (str "No island with id " island-id) {}))))}
-
-             ]]
-    (georgetown.db/transact! [v])))
+  (dat/register-fn! (db/db) :fn/withdraw
+    (di/inter-fn
+      [db resident-id amount]
+      (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
+        (if (<= amount (:resident/money-balance resident))
+          [[:db/add (:db/id resident) :resident/money-balance
+            (- (:resident/money-balance resident) amount)]]
+          (throw (ex-info "Insuffient funds" {})))
+        (throw (ex-info (str "No resident with id " resident-id) {})))))
+  #_:clj-kondo/ignore
+  (dat/register-fn! (db/db) :fn/deposit
+    (di/inter-fn
+      [db resident-id amount]
+      (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
+        [[:db/add (:db/id resident) :resident/money-balance
+          (+ (:resident/money-balance resident) amount)]]
+        (throw (ex-info (str "No resident with id " resident-id) {})))))
+  #_:clj-kondo/ignore
+  (dat/register-fn! (db/db) :fn/transfer-to-government
+    (di/inter-fn
+      [db island-id amount]
+      (if-let [island (datalevin.core/entity db [:island/id island-id])]
+        [[:db/add (:db/id island) :island/government-money-balance
+          (+ (:island/government-money-balance island) amount)]]
+        (throw (ex-info (str "No island with id " island-id) {}))))))
 
 (defn create-island! []
   (db/transact!

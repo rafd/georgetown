@@ -1,8 +1,7 @@
 (ns georgetown.schema
   (:require
-    [bloom.commons.uuid :as uuid]
-    [malli.core :as m]
-    [malli.registry :as mr]))
+    [malli.registry :as mr]
+    [dat.malli :as dm]))
 
 (defn key-by [f coll]
   (into {} (map (juxt f identity) coll)))
@@ -161,133 +160,100 @@
 (def Email
   [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"])
 
+;; https://docs.datomic.com/schema/schema-reference.html
 (def schema
   {:entity/island
-   {:island/id {:spec :uuid
-                :db/unique :db.unique/identity}
-    :island/seed {:spec :pos-int}
+   {:island/id {:dat/type :db.type/uuid
+                :dat/unique :dat.unique/identity}
+    :island/seed {:dat/type :db.type/long
+                  :dat/spec :pos-int}
     :island/public-stats {}
-    :island/population {:spec :pos-int}
-    :island/government-money-balance {:spec :pos-int}
-    :island/citizen-money-balance {:spec :pos-int}
-    :island/citizen-food-balance {:spec :pos-int}
-    :island/joy {:spec :pos-int}
-    :island/residents {:rel/many :entity/resident}
-    :island/lots {:rel/many :entity/lot}
-    :island/epoch {:spec :pos-int}}
+    :island/population {:dat/type :db.type/long
+                        :dat/spec :pos-int}
+    :island/government-money-balance {:dat/type :db.type/long
+                                      :dat/spec :pos-int}
+    :island/citizen-money-balance {:dat/type :db.type/long
+                                   :dat/spec :pos-int}
+    :island/citizen-food-balance {:dat/type :db.type/long
+                                  :dat/spec :pos-int}
+    :island/joy {:dat/type :db.type/long
+                 :dat/spec :pos-int}
+    :island/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
+                       :dat/component? true}
+    :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
+                  :dat/component? true}
+    :island/epoch {:dat/type :db.type/long
+                   :dat/spec :pos-int}}
 
    :entity/user
-   {:user/id {:spec :uuid
-              :db/unique :db.unique/identity}
-    :user/email {:spec Email
-                 :db/valueType :db.type/string
-                 :db/unique :db.unique/identity}
-    :user/residents {:rel/many :entity/resident}}
+   {:user/id {:dat/type :db.type/uuid
+              :dat/unique :dat.unique/identity}
+    :user/email {:dat/type :db.type/string
+                 :dat/spec Email
+                 :dat/unique :dat.unique/identity}
+    :user/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
+                     :dat/component? true}}
 
    :entity/resident
-   {:resident/id {:spec :uuid
-                   :db/unique :db.unique/identity}
+   {:resident/id {:dat/type :db.type/uuid
+                  :dat/unique :dat.unique/identity}
     :resident/private-stats {}
-    :resident/money-balance {:spec :pos-int}
-    :resident/deeds {:rel/many :entity/deed}
-    :resident/loans {:rel/many :entity/loan}}
+    :resident/money-balance {:dat/type :db.type/long
+                             :dat/spec :pos-int}
+    :resident/deeds {:dat/rel [:dat.rel/many :entity/deed :deed/id]
+                     :dat/component? true}
+    :resident/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
+                     :dat/component? true}}
 
    :entity/loan
-   {:loan/id {:spec :uuid
-              :db/unique :db.unique/identity}
-    :loan/amount {:spec :pos-int}
-    :loan/annual-interest-rate {:spec :float} ;; positive, typically between 0 and 0.3
-    :loan/minimum-daily-payment-amount {:spec :pos-int}
-    :loan/daily-payment-amount {:spec :pos-int}}
+   {:loan/id {:dat/type :db.type/uuid
+              :dat/unique :dat.unique/identity}
+    :loan/amount {:dat/type :db.type/long
+                  :dat/spec :pos-int}
+    :loan/annual-interest-rate {:dat/type :db.type/float} ;; positive, typically between 0 and 0.3
+    :loan/minimum-daily-payment-amount {:dat/type :db.type/long
+                                        :dat/spec :pos-int}
+    :loan/daily-payment-amount {:dat/type :db.type/long
+                                :dat/spec :pos-int}}
 
    :entity/lot
-   {:lot/id {:spec :uuid
-             :db/unique :db.unique/identity}
-    :lot/x {:spec :pos-int}
-    :lot/y {:spec :pos-int}
-    :lot/deed {:rel/one :entity/deed}
-    :lot/improvement {:rel/one :entity/improvement}
-    :lot/elevation {:spec :float} ;; 0 and 1
-    :lot/moisture {:spec :float} ;; 0 and 1
+   {:lot/id {:dat/type :db.type/uuid
+             :dat/unique :dat.unique/identity}
+    :lot/x {:dat/type :db.type/long
+            :dat/spec :pos-int}
+    :lot/y {:dat/type :db.type/long
+            :dat/spec :pos-int}
+    :lot/deed {:dat/rel [:dat.rel/one :entity/deed :deed/id]}
+    :lot/improvement {:dat/rel [:dat.rel/one :entity/improvement :improvement/id]}
+    :lot/elevation {:dat/type :db.type/float} ;; 0 and 1
+    :lot/moisture {:dat/type :db.type/float} ;; 0 and 1
     }
 
    :entity/deed
-   {:deed/id {:spec :uuid
-              :db/unique :db.unique/identity}
-    :deed/rate {:spec :whole-int}
-    :deed/rate-changed-at {:spec :pos-int}}
+   {:deed/id {:dat/type :db.type/uuid
+              :dat/unique :dat.unique/identity}
+    :deed/rate {:dat/type :db.type/long
+                :dat/spec :whole-int}
+    :deed/rate-changed-at {:dat/type :db.type/long
+                           :dat/spec :pos-int}}
 
    :entity/improvement
-   {:improvement/id {:spec :uuid
-                     :db/unique :db.unique/identity}
-    :improvement/type {:spec (into [:enum]
-                                   (keys blueprints))
-                       :db/valueType :db.type/keyword}
-    :improvement/offers {:rel/many :entity/offer}}
+   {:improvement/id {:dat/type :db.type/uuid
+                     :dat/unique :dat.unique/identity}
+    :improvement/type {:dat/type :db.type/keyword
+                       :dat/spec (into [:enum] (keys blueprints))}
+    :improvement/offers {:dat/rel [:dat.rel/many :entity/offer :offer/id]
+                         :dat/component? true}}
 
    :entity/offer
-   {:offer/id {:spec :uuid
-               :db/unique :db.unique/identity}
-    :offer/type {:spec (into [:enum]
-                             (keys offerables))
-                 :db/valueType :db.type/keyword}
-    :offer/amount {:spec :pos-int}
-    :offer/utilization {:spec :float} ;; between 0 and 1
+   {:offer/id {:dat/type :db.type/uuid
+               :dat/unique :dat.unique/identity}
+    :offer/type {:dat/type :db.type/keyword
+                 :dat/spec (into [:enum] (keys offerables))}
+    :offer/amount {:dat/type :db.type/long
+                   :dat/spec :pos-int}
+    :offer/utilization {:dat/type :db.type/float} ;; between 0 and 1
     }})
 
 (mr/set-default-registry!
-  (merge (mr/schemas m/default-registry)
-         {:neg-int (m/-simple-schema {:type :neg-int :pred neg-int?})
-          :whole-int (m/-simple-schema {:type :whole-int :pred #(or (zero? %)
-                                                                    (pos-int? %))})
-          :pos-int (m/-simple-schema {:type :pos-int :pred pos-int?})}
-         (->> schema
-              (map (fn [[k vs]]
-                     [k (into [:map]
-                              (update-vals vs :spec))]))
-              (into {}))
-         (->> schema
-              (mapcat val)
-              (map (fn [[k v]]
-                     [k (:spec v)]))
-              (into {}))))
-
-;; https://docs.datomic.com/schema/schema-reference.html
-;; https://github.com/metosin/malli?tab=readme-ov-file#built-in-schemas
-(def malli-type->datalog-type
-  {:uuid :db.type/uuid
-   :integer :db.type/long
-   :pos-int :db.type/long
-   :whole-int :db.type/long
-   :string :db.type/string
-   :float :db.type/float
-   :keyword :db.type/keyword
-   :boolean :db.type/boolean
-   :inst :db.type/instant})
-
-(defn ->datalevin
-  [schema]
-  (->> schema
-       vals
-       (apply concat)
-       (map (fn [[k o]]
-              [k
-               {:db/unique (:db/unique o)
-                :db/valueType (or (:db/valueType o)
-                                  (when (or (:rel/one o)
-                                            (:rel/many o))
-                                    :db.type/ref)
-                                  (malli-type->datalog-type (:spec o))
-                                  ;; datelevin is fine with undefined types
-                                  (println "No type for " k))
-                :db/cardinality (or (when (:rel/many o)
-                                      :db.cardinality/many)
-                                  (:db/cardinality o)
-                                  :db.cardinality/one)
-                :db/isComponent (when (:rel/many o)
-                                  true)}]))
-       (into {})))
-
-#_(tap> (->datalevin schema))
-
-
+  (dm/->malli-registry schema))
