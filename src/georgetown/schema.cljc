@@ -1,7 +1,8 @@
 (ns georgetown.schema
   (:require
-    [malli.registry :as mr]
-    [dat.malli :as dm]))
+   [malli.registry :as mr]
+   [dat.malli :as dm]
+   [georgetown.math :as math]))
 
 (defn key-by [f coll]
   (into {} (map (juxt f identity) coll)))
@@ -180,6 +181,8 @@
                  :dat/spec :pos-int}
     :island/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
                        :dat/component? true}
+    :island/sims {:dat/rel [:dat.rel/many :entity/sim :sim/id]
+                  :dat/component? true}
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
                   :dat/component? true}
     :island/epoch {:dat/type :db.type/long
@@ -194,7 +197,7 @@
     :user/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
                      :dat/component? true}}
 
-   :entity/resident
+   :entity/resident ;; users on an island
    {:resident/id {:dat/type :db.type/uuid
                   :dat/unique :dat.unique/identity}
     :resident/private-stats {}
@@ -204,6 +207,44 @@
                      :dat/component? true}
     :resident/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
                      :dat/component? true}}
+
+   :entity/sim
+   (-> {:sim/id {:dat/type :db.type/uuid
+                 :dat/unique :dat.unique/identity}
+        :sim/savings {:dat/type :db.type/long
+                      :dat/spec [:int {:min 0}]
+                      ::generator-immigrant (fn []
+                                              (int (* 10000 (math/beta 4 4))))
+                      ::generator-baby (fn [] 0)}
+        :sim/age {:dat/type :db.type/long
+                  :dat/spec [:int {:min 0}]
+                  ::generator-immigrant (fn []
+                                          (int (* 100 (math/beta 20 50))))
+                  ::generator-baby (fn [] 0)}}
+       (into (for [k [:sim/preference.security
+                      :sim/preference.self-improvement
+                      :sim/preference.physical-stress
+                      :sim/preference.mental-stress
+                      :sim/preference.spiritual-activity
+                      :sim/preference.social-activity
+                      :sim/preference.physical-activity
+                      :sim/preference.intellectual-activity
+                      :sim/talent.intellect
+                      :sim/talent.fitness
+                      :sim/talent.social]]
+               [k {:dat/type :db.type/float
+                   :dat/spec [:float {:min 0 :max 1}]
+                   ::generator-immigrant (fn [] (math/beta 4 4))
+                   ::generator-baby (fn [] (math/beta 4 4))}]))
+       (into (for [k [:sim/skill.intellect
+                      :sim/skill.fitness
+                      :sim/skill.social
+                      :sim/physical-stress
+                      :sim/mental-stress]]
+               [k {:dat/type :db.type/float
+                   :dat/spec [:float {:min 0 :max 1}]
+                   ::generator-immigrant (fn [] (math/beta 4 4))
+                   ::generator-baby (fn [] 0.1)}])))
 
    :entity/loan
    {:loan/id {:dat/type :db.type/uuid
@@ -225,9 +266,10 @@
             :dat/spec :pos-int}
     :lot/deed {:dat/rel [:dat.rel/one :entity/deed :deed/id]}
     :lot/improvement {:dat/rel [:dat.rel/one :entity/improvement :improvement/id]}
-    :lot/elevation {:dat/type :db.type/float} ;; 0 and 1
-    :lot/moisture {:dat/type :db.type/float} ;; 0 and 1
-    }
+    :lot/elevation {:dat/type :db.type/float
+                    :dat/spec [:float {:min 0 :max 1}]}
+    :lot/moisture {:dat/type :db.type/float
+                   :dat/spec [:float {:min 0 :max 1}]}}
 
    :entity/deed
    {:deed/id {:dat/type :db.type/uuid
@@ -252,7 +294,8 @@
                  :dat/spec (into [:enum] (keys offerables))}
     :offer/amount {:dat/type :db.type/long
                    :dat/spec :pos-int}
-    :offer/utilization {:dat/type :db.type/float} ;; between 0 and 1
+    :offer/utilization {:dat/type :db.type/float
+                        :dat/spec [:float {:min 0 :max 1}]}
     }})
 
 (mr/set-default-registry!

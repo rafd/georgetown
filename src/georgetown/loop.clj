@@ -5,7 +5,8 @@
     [georgetown.debt :as debt]
     [georgetown.schema :as schema]
     [georgetown.db :as db]
-    [georgetown.market :as m])
+    [georgetown.market :as m]
+    [georgetown.sim :as sim])
   (:import
     [java.time Instant Duration]))
 
@@ -119,6 +120,7 @@
 (def food-demand-per-person-per-tick 1) ;; 1 food ~= meals
 (def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
 (def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
+(def sim-immigration-chance 1/50)
 
 (defn interest-demurrage-rate [ratio]
   ;; to prevent hoarding / incentive cash spending, money loses value over time
@@ -620,7 +622,9 @@
         (for [[offer-id utilization] offer-id->utilization]
           [:db/add [:offer/id offer-id] :offer/utilization utilization])
         loan-txs
-        (resident-bankruptcy-txs resident-balances)))))
+        (resident-bankruptcy-txs resident-balances)))
+    (when (< (rand) sim-immigration-chance)
+      (db/add-sim! island-id (sim/random ::schema/generator-immigrant)))))
 
 (defn tick-all! []
   (doseq [island-id (db/q '[:find [?island-id ...]

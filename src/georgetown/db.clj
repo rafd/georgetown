@@ -25,6 +25,12 @@
 (defn transact! [txs]
   (dat/transact! (db) txs))
 
+(defn add-sim!
+  [island-id sim]
+  (transact!
+    [{:island/id island-id
+      :island/sims [sim]}]))
+
 (defn q [query & args]
   (apply dat/q query @(db) args))
 

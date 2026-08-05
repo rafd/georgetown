@@ -22,6 +22,7 @@
                  :island/joy
                  {:island/residents
                   [:resident/id]}
+                 {:island/sims [*]}
                  {:island/lots
                   [:lot/id
                    :lot/x

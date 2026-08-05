@@ -45,7 +45,10 @@
            "🏝️"]
           [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
                :title "gazette"}
-           "📈"]]
+           "📈"]
+          [:a {:href (pages/path-for [:page/sims {:island-id (:island/id island)}])
+               :title "sims"}
+           "👤"]]
          [:div.epoch {:tw "bg-white px-1"}
           [ui/value-with-icon (date (:island/epoch island)) "🗓️"]]
          [:div.joy {:tw "bg-white px-1"}

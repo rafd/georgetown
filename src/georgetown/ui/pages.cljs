@@ -6,6 +6,8 @@
    [georgetown.ui.pages.lot]
    [georgetown.ui.pages.finances]
    [georgetown.ui.pages.gazette]
+   [georgetown.ui.pages.sims]
    #_[georgetown.ui.pages.debug]))
+
 
 
