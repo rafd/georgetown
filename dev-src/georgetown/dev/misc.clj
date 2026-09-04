@@ -1,6 +1,6 @@
 (ns georgetown.dev.misc
   (:require
-    [georgetown.db :as db]))
+    [georgetown.server.db :as db]))
 
 ;; grant all residencies some money
 #_(doseq [r-id (db/q '[:find [?resident ...]
@@ -31,21 +31,5 @@
               [:db/retractEntity e-id]))
        (db/transact!)))
 
-(defn redominate-balances! []
-  (do
-   (->> (db/q '[:find ?e ?balance
-                :where
-                [?e :resident/money-balance ?balance]
-                [(< 1000 ?balance)]])
-        (map (fn [[ e-id balance]]
-               [:db/add e-id :resident/money-balance (int (/ balance 10))]))
-        (db/transact!))
 
-   (->> (db/q '[:find ?e ?balance
-                :where
-                [?e :island/citizen-money-balance ?balance]
-                [(< 1000 ?balance)]])
-        (map (fn [[ e-id balance]]
-               [:db/add e-id :island/citizen-money-balance (int (/ balance 10))]))
-        (db/transact!))))
 

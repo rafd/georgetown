@@ -20,7 +20,7 @@
                  [io.airlift/aircompressor "0.26"]]
   :main georgetown.core
   :plugins [[io.bloomventures/omni "0.34.0"]]
-  :omni-config georgetown.omni-config/omni-config
+  :omni-config georgetown.server.omni-config/omni-config
   :profiles {:dev
              {:source-paths ["dev-src"]}
              :uberjar

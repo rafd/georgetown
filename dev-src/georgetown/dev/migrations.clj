@@ -1,6 +1,6 @@
 (ns georgetown.dev.migrations
   (:require
-    [georgetown.db :as db]))
+    [georgetown.server.db :as db]))
 
 (defn m2024-09-13-add-deed-changed-at []
   (->> (db/q '[:find [?d ...]

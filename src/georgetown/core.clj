@@ -2,14 +2,14 @@
   (:gen-class)
   (:require
     [bloom.omni.core :as omni]
-    [georgetown.omni-config :as omni-config]
-    [georgetown.loop :as loop]
-    [georgetown.cqrs]
-    [georgetown.push :as push]))
+    [georgetown.server.omni-config :as omni-config]
+    [georgetown.server.push :as push]
+    [georgetown.server.scheduler :as scheduler]
+    [georgetown.server.tada]))
 
 (defn start! []
   (omni/start! omni/system omni-config/omni-config)
-  (loop/initialize!)
+  (scheduler/initialize!)
   (push/initialize!)
   nil)
 
@@ -17,4 +17,3 @@
   (start!))
 
 #_(start!)
-

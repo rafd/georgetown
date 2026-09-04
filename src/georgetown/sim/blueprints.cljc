@@ -1,0 +1,231 @@
+(ns georgetown.sim.blueprints
+  (:require
+    [malli.core :as malli]
+    [georgetown.sim.types :as types]))
+
+(def blueprints
+  (->> [{:blueprint/id :improvement.type/house
+         :blueprint/label "House"
+         :blueprint/icon "🏠"
+         :blueprint/description "Provides shelter"
+         :blueprint/price 5000
+         :blueprint/offerables
+         [{:offerable/id :offer/house.rental
+           :offerable/label "Rental"
+           :offerable/capacity 2
+           :offerable/time-shifts #{:time-shift/night}
+           :offerable/var [{:var/id :var/rent-rate
+                            :var/label "Rent"
+                            :var/unit [:/ :resource/money :resource/shelter]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/from-sim :resource/money :var/rent-rate]
+            [:effect.direction/to-sim :resource/shelter 1]
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]
+            [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
+
+        {:blueprint/id :improvement.type/apartment
+         :blueprint/label "Apartment"
+         :blueprint/icon "🏢"
+         :blueprint/description "Provides shelter"
+         :blueprint/price 50000
+         :blueprint/offerables
+         [{:offerable/id :offer/apartment.rental
+           :offerable/label "Rental"
+           :offerable/capacity 25
+           :offerable/time-shifts #{:time-shift/night}
+           :offerable/var [{:var/id :var/rent-rate
+                            :var/label "Rent"
+                            :var/unit [:/ :resource/money :resource/shelter]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/from-sim :resource/money :var/rent-rate]
+            [:effect.direction/to-sim :resource/shelter 1]
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress 0.02]
+            [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
+
+
+        {:blueprint/id :improvement.type/park
+         :blueprint/label "Park"
+         :blueprint/icon "🌳"
+         :blueprint/description "A tranquil place for replenish the soul"
+         :blueprint/price 5000
+         :blueprint/offerables
+         [{:offerable/id :offer/park.leisure
+           :offerable/label "Stroll"
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/var []
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]]}]}
+
+        {:blueprint/id :improvement.type/farm
+         :blueprint/label "Farm"
+         :blueprint/icon "🌽"
+         :blueprint/description "Produces food"
+         :blueprint/price 5000
+         :blueprint/offerables
+         [{:offerable/id :offer/farm.job
+           :offerable/label "Job"
+           :offerable/capacity 2
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.1
+                                                  :sim/skill.fitness 0.8
+                                                  :sim/skill.social 0.1}
+           :offerable/var [{:var/id :var/job-rate
+                            :var/label "Job Rate"
+                            :var/unit [:/ :resource/money :resource/time]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/to-sim :resource/money :var/job-rate]
+            [:effect.direction/from-player :resource/money :var/job-rate]
+            [:effect.direction/to-player :resource/food 12]]}]}
+
+        {:blueprint/id :improvement.type/food-market
+         :blueprint/label "Food Market"
+         :blueprint/icon "🛒"
+         :blueprint/description "Players sell food to Sims"
+         :blueprint/price 5000
+         :blueprint/stocks [{:stock/resource :resource/labour}]
+         :blueprint/offerables
+         [{:offerable/id :offer/food-market.job
+           :offerable/label "Job"
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
+                                                  :sim/skill.fitness 0.1
+                                                  :sim/skill.social 0.5}
+           :offerable/var [{:var/id :var/job-rate
+                            :var/label "Job Rate"
+                            :var/unit [:/ :resource/money :resource/time]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/to-sim :resource/money :var/job-rate]
+            [:effect.direction/to-sim :sim/physical-stress 0.02]
+            [:effect.direction/to-self :resource/labour 10]
+            [:effect.direction/from-player :resource/money :var/job-rate]]}
+
+          {:offerable/id :offer/food-market.offer
+           :offerable/label "Selling Food"
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/var [{:var/id :var/food-price
+                            :var/label "Food Price"
+                            :var/unit [:/ :resource/money :resource/food]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/money :var/food-price]
+            [:effect.direction/to-sim :resource/food 1]
+            [:effect.direction/from-self :resource/labour 0.5]
+            [:effect.direction/from-player :resource/food 1]
+            [:effect.direction/to-player :resource/money :var/food-price]]}]}
+
+        {:blueprint/id :improvement.type/big-farm
+         :blueprint/label "Big Farm"
+         :blueprint/icon "🚜"
+         :blueprint/description "Produces food"
+         :blueprint/price 50000
+         :blueprint/offerables
+         [{:offerable/id :offer/big-farm.job
+           :offerable/label "Job"
+           :offerable/capacity 10
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
+                                                  :sim/skill.fitness 0.5
+                                                  :sim/skill.social 0.1}
+           :offerable/var [{:var/id :var/job-rate
+                            :var/label "Job Rate"
+                            :var/unit [:/ :resource/money :resource/time]}]
+           :offerable/effects
+           [[:effect.direction/from-sim :resource/time 1]
+            [:effect.direction/to-sim :resource/money :var/job-rate]
+            [:effect.direction/to-sim :sim/physical-stress 0.02]
+            [:effect.direction/from-player :resource/money :var/job-rate]
+            [:effect.direction/to-player :resource/food 20]]}]}
+
+        {:blueprint/id :improvement.type/monument
+         :blueprint/label "Monument"
+         :blueprint/icon "🗿"
+         :blueprint/description "It's not good for anything, but looks cool I guess?"
+         :blueprint/price 500000
+         :blueprint/offerables []}
+        ]
+       (types/key-by :blueprint/id)))
+
+(malli/assert [:map-of :keyword types/Blueprint] blueprints)
+#_(malli.error/humanize (malli/explain [:map-of :keyword types/Blueprint] blueprints))
+
+(def offerables
+  (->> blueprints
+       vals
+       (mapcat :blueprint/offerables)
+       (types/key-by :offerable/id)))
+
+(def sim-attributes
+  {:sim/physical-stress {:sim-attribute/icon "😰"
+                         :sim-attribute/label "physical stress"}
+   :sim/mental-stress {:sim-attribute/icon "🤯"
+                       :sim-attribute/label "mental stress"}
+   :sim/skill.intellect {:sim-attribute/icon "🧠"
+                         :sim-attribute/label "intellect"}
+   :sim/skill.fitness {:sim-attribute/icon "💪"
+                       :sim-attribute/label "fitness"}
+   :sim/skill.social {:sim-attribute/icon "🗣️"
+                      :sim-attribute/label "social"}})
+
+(defn resolve-effect-amount
+  [offer [_direction _target amount]]
+  (if (keyword? amount)
+    ;; offerables currently have at most one var, so the offer's amount is its value
+    (:offer/amount offer)
+    amount))
+
+(defn effect-sum
+  [offer direction target]
+  (->> (:offerable/effects (offerables (:offer/type offer)))
+       (filter (fn [[effect-direction effect-target _]]
+                 (and (= direction effect-direction)
+                      (= target effect-target))))
+       (map (fn [effect]
+              (resolve-effect-amount offer effect)))
+       (reduce + 0)))
+
+(defn offer-category
+  [offer]
+  (let [offerable (offerables (:offer/type offer))
+        direction-targets (->> (:offerable/effects offerable)
+                               (map (fn [[direction target _amount]]
+                                      [direction target]))
+                               set)]
+    (cond
+      (contains? direction-targets [:effect.direction/to-sim :resource/food])
+      :offer.category/food-sale
+      (contains? direction-targets [:effect.direction/to-sim :resource/shelter])
+      :offer.category/housing
+      (contains? direction-targets [:effect.direction/from-sim :resource/time])
+      :offer.category/time
+      :else
+      :offer.category/other)))
+
+(defn offer-exchange-resource
+  "The non-money resource an offer trades (food for a farm job, shelter for a rental, ...)"
+  [offerable]
+  (->> (:offerable/effects offerable)
+       (keep (fn [[direction target _amount]]
+               (when (and (contains? #{:effect.direction/from-player
+                                       :effect.direction/to-player
+                                       :effect.direction/to-sim} direction)
+                          (contains? types/resources target)
+                          (not= :resource/money target))
+                 target)))
+       first))

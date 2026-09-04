@@ -1,7 +1,7 @@
 (ns georgetown.dev.gen
   (:require
-   [georgetown.db :as db]
-   [georgetown.island :as island]))
+   [georgetown.server.db :as db]
+   [georgetown.sim.island :as island]))
 
 (defn replace! [seed]
   (let [new-island (island/generate seed)
@@ -35,9 +35,9 @@
 ;; 3154
 ;; 4343
 
-#_(georgetown.db/q
+#_(georgetown.server.db/q
     '[:find ?seed .
       :where
       [_ :island/seed ?seed]])
 
-#_(georgetown.seed/seed!)
+#_(georgetown.dev.seed/seed!)
