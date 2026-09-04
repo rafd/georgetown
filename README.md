@@ -67,33 +67,4 @@ It is not about amassing the most cash (try it - it will lead to an economics co
 
 ## Development
 
-- stack
-  - Front End
-    - [Clojurescript](https://clojure.org)
-    - [Reagent](https://clojure.org)
-  - Back End
-     - [Clojure](https://clojure.org)
-     - [Datalevin](https://github.com/juji-io/datalevin) (datomic-like graph db)
-     - [Tada](https://github.com/rafd/tada)
-     - Omni (unreleased SPA web framework)
-
-- the core loop
-  - front-end ajax long-polls for a single island's state
-  - on database changes, all connected clients are sent new data (public and private)
-  - back-end ticks every second, calculating new state (sending updates)
-  - front-end user actions send an ajax request (changing database, triggering updates)
-
-- getting started
-  - install java, clojure
-  - clone the repo
-  - create a `config.edn`
-    - ```
-      {:http-port 9365
-       :environment :dev
-       :db-dir "data/datalevin"
-       :website-base-url "http://localhost:9365"
-       :auth-cookie-secret "0123456789123456"
-       :auth-token-secret "0123456789123456"}
-       ```
-  - `lein repl`
-  - `(start!)`
+See [docs/DEV.md](docs/DEV.md).
