@@ -229,12 +229,19 @@
                                            first)]]
                       ^{:key (:offerable/id offerable)}
                       [:div {:tw "border-1 p-1 space-y-1"}
-                       [:div.header {:tw "flex"}
+                       [:div.header {:tw "flex items-center"}
                         [:div.offer-type {:tw "grow"}
                          (:offerable/icon offerable) " "
                          (:offerable/label offerable)]
-                        [:div.utilization
-                         (Math/round (* (or (:offer/utilization offer) 0) 100)) "%"]]
+                        (let [utilization (or (:offer/utilization offer) 0)]
+                          [:div.utilization {:tw "flex items-center gap-1"
+                                             :title (str (Math/round (* utilization 100)) "%")}
+                           (when-let [capacity (:offerable/capacity offerable)]
+                             [:span (Math/round (* utilization capacity)) " / " capacity])
+                           [ui/pie {:tw "w-0.6rem h-0.6rem"
+                                    :bg-color "#ddd"
+                                    :fg-color "green"}
+                            utilization]])]
                        [:div {:tw "text-xs text-gray-500 flex gap-2"}
                         [:span (->> [:time-shift/morning
                                      :time-shift/afternoon
@@ -242,9 +249,7 @@
                                      :time-shift/night]
                                     (filter (:offerable/time-shifts offerable))
                                     (map ui/shift-icons)
-                                    (apply str))]
-                        (when-let [capacity (:offerable/capacity offerable)]
-                          [:span "capacity " capacity])]
+                                    (apply str))]]
                        (doall
                          (for [offerable-var (:offerable/var offerable)]
                            ^{:key (:var/id offerable-var)}

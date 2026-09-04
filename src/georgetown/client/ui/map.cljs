@@ -143,7 +143,11 @@
                               {:tw "bg-black px-0.75 py-0.5 gap-0.5 flex items-center"
                                :style {:font-size "0.5em"}}
                               [:div (:offerable/icon offerable)]
-                              [:div {:title (Math/round (* 100 (:offer/utilization offer)))}
+                              [:div {:title (let [percent (str (Math/round (* 100 (:offer/utilization offer))) "%")]
+                                              (if-let [capacity (:offerable/capacity offerable)]
+                                                (str (Math/round (* (:offer/utilization offer) capacity)) " / " capacity
+                                                     " (" percent ")")
+                                                percent))}
                                [ui/pie {:tw "w-0.6rem h-0.6rem"
                                         :bg-color "#333"
                                         :fg-color "green"}
