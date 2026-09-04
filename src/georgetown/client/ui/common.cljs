@@ -1,5 +1,6 @@
 (ns georgetown.client.ui.common
   (:require
+    [clojure.string :as string]
     [bloom.commons.fontawesome :as fa]
     [georgetown.sim.types :as types]
     [georgetown.client.state :as state]))
@@ -45,11 +46,30 @@
    label
    [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]])
 
-(def shift-icons
-  {:time-shift/morning "🌅"
-   :time-shift/afternoon "☀️"
-   :time-shift/evening "🌆"
-   :time-shift/night "🌙"})
+(def shift-positions
+  [[:time-shift/morning [4 10]]
+   [:time-shift/afternoon [10 4]]
+   [:time-shift/evening [16 10]]
+   [:time-shift/night [10 16]]])
+
+(defn shift-indicator
+  [shifts]
+  [:svg {:width "1em"
+         :height "1em"
+         :view-box "0 0 20 20"}
+   [:title (->> shift-positions
+                (map first)
+                (filter shifts)
+                (map name)
+                (string/join ", "))]
+   (for [[shift [x y]] shift-positions]
+     ^{:key shift}
+     [:circle {:cx x
+               :cy y
+               :r 3.5
+               :fill (if (contains? shifts shift)
+                       "black"
+                       "#ddd")}])])
 
 (defn resource-icon
   [resource-id]

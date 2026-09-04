@@ -54,7 +54,7 @@
          [:div.epoch {:tw "bg-white px-1"}
           [ui/value-with-icon
            (date (:island/epoch island))
-           (ui/shift-icons (constants/epoch->shift (:island/epoch island)))]]
+           [ui/shift-indicator #{(constants/epoch->shift (:island/epoch island))}]]]
          [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
          (if @state/player

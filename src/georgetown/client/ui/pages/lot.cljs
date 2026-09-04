@@ -230,9 +230,11 @@
                       ^{:key (:offerable/id offerable)}
                       [:div {:tw "border-1 p-1 space-y-1"}
                        [:div.header {:tw "flex items-center"}
-                        [:div.offer-type {:tw "grow"}
-                         (:offerable/icon offerable) " "
-                         (:offerable/label offerable)]
+                        [:div.offer-type {:tw "grow flex items-center gap-1"}
+                         [:span
+                          (:offerable/icon offerable) " "
+                          (:offerable/label offerable)]
+                         [ui/shift-indicator (:offerable/time-shifts offerable)]]
                         (let [utilization (or (:offer/utilization offer) 0)]
                           [:div.utilization {:tw "flex items-center gap-1"
                                              :title (str (Math/round (* utilization 100)) "%")}
@@ -242,14 +244,6 @@
                                     :bg-color "#ddd"
                                     :fg-color "green"}
                             utilization]])]
-                       [:div {:tw "text-xs text-gray-500 flex gap-2"}
-                        [:span (->> [:time-shift/morning
-                                     :time-shift/afternoon
-                                     :time-shift/evening
-                                     :time-shift/night]
-                                    (filter (:offerable/time-shifts offerable))
-                                    (map ui/shift-icons)
-                                    (apply str))]]
                        (doall
                          (for [offerable-var (:offerable/var offerable)]
                            ^{:key (:var/id offerable-var)}
