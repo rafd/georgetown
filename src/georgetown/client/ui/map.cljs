@@ -57,6 +57,8 @@
            [ui/shift-indicator #{(constants/epoch->shift (:island/epoch island))}]]]
          [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
+         [:div.population {:tw "bg-white px-1"}
+          [ui/resource-amount (:sim.out/population (:island/public-stats island)) 0 :resource/citizen]]
          (if @state/player
            [:div {:tw "flex gap-1"}
             (doall
