@@ -11,21 +11,21 @@
   #_:clj-kondo/ignore
   (dat/register-fn! (db/db) :fn/withdraw
     (di/inter-fn
-      [db resident-id amount]
-      (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-        (if (<= amount (:resident/money-balance resident))
-          [[:db/add (:db/id resident) :resident/money-balance
-            (- (:resident/money-balance resident) amount)]]
+      [db player-id amount]
+      (if-let [player (datalevin.core/entity db [:player/id player-id])]
+        (if (<= amount (:player/money-balance player))
+          [[:db/add (:db/id player) :player/money-balance
+            (- (:player/money-balance player) amount)]]
           (throw (ex-info "Insuffient funds" {})))
-        (throw (ex-info (str "No resident with id " resident-id) {})))))
+        (throw (ex-info (str "No player with id " player-id) {})))))
   #_:clj-kondo/ignore
   (dat/register-fn! (db/db) :fn/deposit
     (di/inter-fn
-      [db resident-id amount]
-      (if-let [resident (datalevin.core/entity db [:resident/id resident-id])]
-        [[:db/add (:db/id resident) :resident/money-balance
-          (+ (:resident/money-balance resident) amount)]]
-        (throw (ex-info (str "No resident with id " resident-id) {})))))
+      [db player-id amount]
+      (if-let [player (datalevin.core/entity db [:player/id player-id])]
+        [[:db/add (:db/id player) :player/money-balance
+          (+ (:player/money-balance player) amount)]]
+        (throw (ex-info (str "No player with id " player-id) {})))))
   #_:clj-kondo/ignore
   (dat/register-fn! (db/db) :fn/transfer-to-government
     (di/inter-fn
@@ -117,44 +117,44 @@
           [?user :user/id ?user-id]]
         email))
 
-(defn ->resident-id
+(defn ->player-id
   [user-id [id-attr id]]
   (case id-attr
     :loan/id
-    (db/q '[:find ?resident-id .
+    (db/q '[:find ?player-id .
             :in $ ?user-id ?loan-id
             :where
             [?user :user/id ?user-id]
             [?loan :loan/id ?loan-id]
-            [?resident :resident/loans ?loan]
-            [?resident :resident/id ?resident-id]]
+            [?player :player/loans ?loan]
+            [?player :player/id ?player-id]]
           user-id
           id)
     :island/id
-    (db/q '[:find ?resident-id .
+    (db/q '[:find ?player-id .
             :in $ ?user-id ?island-id
             :where
             [?user :user/id ?user-id]
             [?island :island/id ?island-id]
-            [?user :user/residents ?resident]
-            [?island :island/residents ?resident]
-            [?resident :resident/id ?resident-id]]
+            [?user :user/players ?player]
+            [?island :island/players ?player]
+            [?player :player/id ?player-id]]
           user-id
           id)
     :lot/id
-    (db/q '[:find ?resident-id .
+    (db/q '[:find ?player-id .
             :in $ ?user-id ?lot-id
             :where
             [?lot :lot/id ?lot-id]
             [?user :user/id ?user-id]
             [?island :island/lots ?lot]
-            [?user :user/residents ?resident]
-            [?island :island/residents ?resident]
-            [?resident :resident/id ?resident-id]]
+            [?user :user/players ?player]
+            [?island :island/players ?player]
+            [?player :player/id ?player-id]]
           user-id
           id)
     :improvement/id
-    (db/q '[:find ?resident-id .
+    (db/q '[:find ?player-id .
             :in $ ?user-id ?improvement-id
             :where
             [?improvement :improvement/id ?improvement-id]
@@ -162,21 +162,21 @@
             [?lot :lot/id ?lot-id]
             [?user :user/id ?user-id]
             [?island :island/lots ?lot]
-            [?user :user/residents ?resident]
-            [?island :island/residents ?resident]
-            [?resident :resident/id ?resident-id]]
+            [?user :user/players ?player]
+            [?island :island/players ?player]
+            [?player :player/id ?player-id]]
           user-id
           id)))
 
 (defn can-afford?
-  [resident-id amount]
+  [player-id amount]
   (<= amount
       (db/q '[:find ?balance .
-              :in $ ?resident-id
+              :in $ ?player-id
               :where
-              [?resident :resident/id ?resident-id]
-              [?resident :resident/money-balance ?balance]]
-            resident-id)))
+              [?player :player/id ?player-id]
+              [?player :player/money-balance ?balance]]
+            player-id)))
 
 (defn owns?
   ;; TODO rename to related-to?
@@ -188,18 +188,18 @@
               :in $ ?user-id ?deed-id
               :where
               [?deed :deed/id ?deed-id]
-              [?resident :resident/deeds ?deed]
-              [?user :user/residents ?resident]
+              [?player :player/deeds ?deed]
+              [?user :user/players ?player]
               [?user :user/id ?user-id]]
             user-id
             id)
 
-      :resident/id
-      (db/q '[:find ?resident .
-              :in $ ?user-id ?resident-id
+      :player/id
+      (db/q '[:find ?player .
+              :in $ ?user-id ?player-id
               :where
-              [?resident :resident/id ?resident-id]
-              [?user :user/residents ?resident]
+              [?player :player/id ?player-id]
+              [?user :user/players ?player]
               [?user :user/id ?user-id]]
             user-id
             id)
@@ -208,8 +208,8 @@
               :in $ ?user-id ?loan-id
               :where
               [?loan :loan/id ?loan-id]
-              [?resident :resident/loans ?loan]
-              [?user :user/residents ?resident]
+              [?player :player/loans ?loan]
+              [?user :user/players ?player]
               [?user :user/id ?user-id]]
             user-id
             id)
@@ -219,8 +219,8 @@
               :where
               [?lot :lot/id ?lot-id]
               [?lot :lot/deed ?deed]
-              [?resident :resident/deeds ?deed]
-              [?user :user/residents ?resident]
+              [?player :player/deeds ?deed]
+              [?user :user/players ?player]
               [?user :user/id ?user-id]]
             user-id
             id)
@@ -231,8 +231,8 @@
               [?improvement :improvement/id ?improvement-id]
               [?lot :lot/improvement ?improvement]
               [?lot :lot/deed ?deed]
-              [?resident :resident/deeds ?deed]
-              [?user :user/residents ?resident]
+              [?player :player/deeds ?deed]
+              [?user :user/players ?player]
               [?user :user/id ?user-id]]
             user-id
             id))))

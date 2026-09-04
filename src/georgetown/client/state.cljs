@@ -32,18 +32,18 @@
 
 (defonce island (r/atom nil))
 
-(defonce resident (r/atom nil))
+(defonce player (r/atom nil))
 
 (defonce private-stats-history (r/atom '()))
 (defonce public-stats-history (r/atom '()))
 
 (defonce money-balance
-  (r/reaction (:resident/money-balance @resident)))
+  (r/reaction (:player/money-balance @player)))
 
 (defonce offers (r/reaction
-                  (->> @resident
+                  (->> @player
                        (x/select
-                         [:resident/deeds
+                         [:player/deeds
                           x/ALL
                           :lot/_deed
                           x/ALL
@@ -59,14 +59,14 @@
            (map (fn [x]
                   (get {:ALL x/ALL} x x))))
       (case source
-        :PRIVATE @resident
+        :PRIVATE @player
         :PUBLIC @island))))
 
 (defn set-island-id! [id]
   (when (not= id @island-id)
     (reset! island-id id)
     (reset! island nil)
-    (reset! resident nil)
+    (reset! player nil)
     (reset! public-stats-history '())
     (reset! private-stats-history '())))
 
@@ -82,14 +82,14 @@
                                (js/setTimeout get-island-state 10000))
                    :on-success (fn [client-state]
                                  (reset! user (:client-state/user client-state))
-                                 (reset! resident (:client-state/resident client-state))
+                                 (reset! player (:client-state/player client-state))
                                  (reset! island (:client-state/island client-state))
                                  (swap! public-stats-history
                                         (fn [prev]
                                           (take 60 (conj prev (:island/public-stats (:client-state/island client-state))))))
                                  (swap! private-stats-history
                                         (fn [prev]
-                                          (take 360 (conj prev (:resident/private-stats (:client-state/resident client-state))))))
+                                          (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))
                                  (js/setTimeout get-island-state 0))})))
 
 (defonce _watcher

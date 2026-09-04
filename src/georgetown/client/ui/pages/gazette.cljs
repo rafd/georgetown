@@ -35,7 +35,7 @@
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/total-citizen-savings])]]]
        [:tr
-        [:td {:tw "align-top"} "resident:citizen cash ratio"]
+        [:td {:tw "align-top"} "player:citizen cash ratio"]
         [:td {:tw "text-right align-top"}
          [:div {:tw kv-row-tw}
           [:span "before"]

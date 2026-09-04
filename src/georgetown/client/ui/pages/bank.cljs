@@ -73,8 +73,8 @@
                      (fn [e]
                        (state/exec!
                          :command/borrow-loan!
-                         {:resident-id
-                          (:resident/id @state/resident)}))}
+                         {:player-id
+                          (:player/id @state/player)}))}
           "Borrow"]])]]]])
 
 (defn bank-view []
@@ -82,15 +82,15 @@
    [:h1 "Bank"]
    [:h2 "Outstanding Loans"]
    [:div {:tw "space-y-2"}
-    (for [loan (->> @state/resident
-                    :resident/loans)]
+    (for [loan (->> @state/player
+                    :player/loans)]
       ^{:key (:loan/id loan)}
       [loan-view loan])]
 
    [:h2 "New Loan Offer"]
    (if-let [offer (debt/next-potential-loan
-                    (->> @state/resident
-                         :resident/loans
+                    (->> @state/player
+                         :player/loans
                          count))]
      [loan-view offer]
      "None")])

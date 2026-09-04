@@ -45,21 +45,21 @@
                        :where
                        [?island :island/id ?island-id]]
                      island-id)
-        residents (->> (db/q '[:find [(pull ?resident
-                                            [:resident/id
-                                             :resident/money-balance
-                                             {:resident/stocks [:stock/id
-                                                                :stock/resource
-                                                                :stock/amount]}]) ...]
-                               :in $ ?island-id
-                               :where
-                               [?island :island/id ?island-id]
-                               [?island :island/residents ?resident]]
-                             island-id)
-                       (map (fn [resident]
-                              [(:resident/id resident)
-                               {:resident/money-balance (:resident/money-balance resident)
-                                :resident/stocks (stocks-by-resource (:resident/stocks resident))}]))
+        players (->> (db/q '[:find [(pull ?player
+                                          [:player/id
+                                           :player/money-balance
+                                           {:player/stocks [:stock/id
+                                                            :stock/resource
+                                                            :stock/amount]}]) ...]
+                             :in $ ?island-id
+                             :where
+                             [?island :island/id ?island-id]
+                             [?island :island/players ?player]]
+                           island-id)
+                       (map (fn [player]
+                              [(:player/id player)
+                               {:player/money-balance (:player/money-balance player)
+                                :player/stocks (stocks-by-resource (:player/stocks player))}]))
                        (into {}))
         improvements (->> (db/q '[:find (pull ?improvement
                                               [:improvement/id
@@ -70,20 +70,20 @@
                                                {:improvement/stocks [:stock/id
                                                                      :stock/resource
                                                                      :stock/amount]}])
-                                  ?resident-id
+                                  ?player-id
                                   :in $ ?island-id
                                   :where
                                   [?island :island/id ?island-id]
                                   [?island :island/lots ?lot]
                                   [?lot :lot/improvement ?improvement]
                                   [?lot :lot/deed ?deed]
-                                  [?resident :resident/deeds ?deed]
-                                  [?resident :resident/id ?resident-id]]
+                                  [?player :player/deeds ?deed]
+                                  [?player :player/id ?player-id]]
                                 island-id)
-                          (map (fn [[improvement resident-id]]
+                          (map (fn [[improvement player-id]]
                                  [(:improvement/id improvement)
                                   {:improvement/type (:improvement/type improvement)
-                                   :improvement/owner-id resident-id
+                                   :improvement/owner-id player-id
                                    :improvement/offers (:improvement/offers improvement)
                                    :improvement/stocks (stocks-by-resource (:improvement/stocks improvement))}]))
                           (into {}))
@@ -103,10 +103,10 @@
                       (map (fn [citizen]
                              [(:citizen/id citizen) citizen]))
                       (into {}))
-     :world/residents residents
-     :world/initial-resident-balances (->> residents
-                                           (map (fn [[resident-id resident]]
-                                                  [resident-id (:resident/money-balance resident)]))
+     :world/players players
+     :world/initial-player-balances (->> players
+                                           (map (fn [[player-id player]]
+                                                  [player-id (:player/money-balance player)]))
                                            (into {}))
      :world/improvements improvements
      :world/offers offers
@@ -120,16 +120,16 @@
 
 ;; ---- world accessors/mutators ----
 
-(defn resident-stock-amount [world resident-id resource]
-  (or (get-in world [:world/residents resident-id :resident/stocks resource :stock/amount])
+(defn player-stock-amount [world player-id resource]
+  (or (get-in world [:world/players player-id :player/stocks resource :stock/amount])
       0.0))
 
 (defn improvement-stock-amount [world improvement-id resource]
   (or (get-in world [:world/improvements improvement-id :improvement/stocks resource :stock/amount])
       0.0))
 
-(defn update-resident-stock [world resident-id resource f amount]
-  (update-in world [:world/residents resident-id :resident/stocks resource]
+(defn update-player-stock [world player-id resource f amount]
+  (update-in world [:world/players player-id :player/stocks resource]
              (fn [stock]
                (-> (or stock {:stock/resource resource
                               :stock/amount 0.0})
@@ -144,8 +144,8 @@
                    (update :stock/amount (fn [existing]
                                            (max 0.0 (f existing amount))))))))
 
-(defn update-resident-money [world resident-id amount]
-  (update-in world [:world/residents resident-id :resident/money-balance] + amount))
+(defn update-player-money [world player-id amount]
+  (update-in world [:world/players player-id :player/money-balance] + amount))
 
 (defn update-citizen-savings [world citizen-id amount]
   (update-in world [:world/citizens citizen-id :citizen/savings]
@@ -155,7 +155,7 @@
 ;; ---- food & housing markets ----
 
 (defn food-sale-tenders
-  "Sequential per resident, so combined offers cannot sell more food than the resident holds."
+  "Sequential per player, so combined offers cannot sell more food than the player holds."
   [world]
   (->> (:world/offers world)
        (filter (fn [offer]
@@ -177,12 +177,12 @@
                          {:remaining-food (- remaining-food quantity)
                           :tenders (conj tenders
                                          {:tender/offer-id (:offer/id offer)
-                                          :tender/resident-id owner-id
+                                          :tender/player-id owner-id
                                           :tender/improvement-id (:offer/improvement-id offer)
                                           :tender/unit-price (:offer/amount offer)
                                           :tender/supply [:resource/food quantity]
                                           :tender/demand [:resource/money (* quantity (:offer/amount offer))]})}))
-                     {:remaining-food (resident-stock-amount world owner-id :resource/food)
+                     {:remaining-food (player-stock-amount world owner-id :resource/food)
                       :tenders []}
                      owner-offers))))))
 
@@ -195,7 +195,7 @@
               (let [capacity (or (:offerable/capacity (blueprints/offerables (:offer/type offer)))
                                  0)]
                 {:tender/offer-id (:offer/id offer)
-                 :tender/resident-id (:offer/owner-id offer)
+                 :tender/player-id (:offer/owner-id offer)
                  :tender/improvement-id (:offer/improvement-id offer)
                  :tender/unit-price (:offer/amount offer)
                  :tender/supply [:resource/shelter capacity]
@@ -263,10 +263,10 @@
                     (let [fill-amount (or (:tender/fill-amount tender) 0)
                           revenue (* fill-amount (:tender/unit-price tender))]
                       (-> memo
-                          (update-resident-money (:tender/resident-id tender) revenue)
+                          (update-player-money (:tender/player-id tender) revenue)
                           (cond->
                             (= :resource/food resource)
-                            (-> (update-resident-stock (:tender/resident-id tender) :resource/food - fill-amount)
+                            (-> (update-player-stock (:tender/player-id tender) :resource/food - fill-amount)
                                 (update-improvement-stock (:tender/improvement-id tender) :resource/labour - fill-amount)))
                           (assoc-in [:world/utilizations (:tender/offer-id tender)]
                                     (double (or (:tender/fill-ratio tender) 0))))))
@@ -290,7 +290,7 @@
   remaining capacity (and solvent owners); nil means idle.
   Later: replaced by an optimizer over citizen preferences (same interface),
   which will also use :allocate.in/food-price and :allocate.in/shelter-price."
-  [{:allocate.in/keys [citizens offers resident-budgets]}]
+  [{:allocate.in/keys [citizens offers player-budgets]}]
   (:allocations
     (reduce
       (fn [{:keys [allocations capacities budgets] :as memo} citizen]
@@ -318,7 +318,7 @@
                                 (when-let [capacity (:offerable/capacity (blueprints/offerables (:offer/type offer)))]
                                   [(:offer/id offer) capacity])))
                         (into {}))
-       :budgets resident-budgets}
+       :budgets player-budgets}
       (shuffle citizens))))
 
 (def skill->talent
@@ -374,12 +374,12 @@
               world*)
             :effect.direction/from-player
             (if (= :resource/money target)
-              (update-resident-money world* (:offer/owner-id offer) (- amount))
-              (update-resident-stock world* (:offer/owner-id offer) target - amount))
+              (update-player-money world* (:offer/owner-id offer) (- amount))
+              (update-player-stock world* (:offer/owner-id offer) target - amount))
             :effect.direction/to-player
             (if (= :resource/money target)
-              (update-resident-money world* (:offer/owner-id offer) amount)
-              (update-resident-stock world* (:offer/owner-id offer) target +
+              (update-player-money world* (:offer/owner-id offer) amount)
+              (update-player-stock world* (:offer/owner-id offer) target +
                                      (* amount productivity-factor)))
             :effect.direction/from-self
             (update-improvement-stock world* (:offer/improvement-id offer) target - amount)
@@ -404,10 +404,10 @@
         allocations (allocate-shift
                       {:allocate.in/citizens (vals (:world/citizens world))
                        :allocate.in/offers time-offers
-                       :allocate.in/resident-budgets (->> (:world/residents world)
-                                                          (map (fn [[resident-id resident]]
-                                                                 [resident-id
-                                                                  (max 0 (:resident/money-balance resident))]))
+                       :allocate.in/player-budgets (->> (:world/players world)
+                                                          (map (fn [[player-id player]]
+                                                                 [player-id
+                                                                  (max 0 (:player/money-balance player))]))
                                                           (into {}))
                        :allocate.in/food-price (get-in world [:world/stats :resource/food :clearing-price])
                        :allocate.in/shelter-price (get-in world [:world/stats :resource/shelter :clearing-price])})
@@ -503,7 +503,7 @@
 
 (defn interest-demurrage-rate [ratio]
   ;; to prevent hoarding / incentive cash spending, money loses value over time
-  ;; bad things happen when residents lose all their money, and when citizens lose all their money
+  ;; bad things happen when players lose all their money, and when citizens lose all their money
   ;; target a 50:50 split, with larger % the further away from 50:50
   ;; which should act as a regulator
   ;; y = 0.005 * ln( x / ( 1 - x ) )
@@ -516,74 +516,74 @@
     (- 1 (* 0.005 (Math/log (/ ratio
                                (- 1 ratio)))))))
 
-(defn resident-bankruptcy-txs
-  [resident-money-balances]
-  ;; docs.bankruptcy - if a resident's money balance every falls below 0, they are bankrupt, and removed from the island
-  (->> resident-money-balances
-       (keep (fn [[resident-id balance]]
+(defn player-bankruptcy-txs
+  [player-money-balances]
+  ;; docs.bankruptcy - if a player's money balance every falls below 0, they are bankrupt, and removed from the island
+  (->> player-money-balances
+       (keep (fn [[player-id balance]]
                (when (< balance 0)
-                 resident-id)))
-       (mapcat (fn [resident-id]
+                 player-id)))
+       (mapcat (fn [player-id]
                  (conj
                    ;; retract improvements
                    (->> (db/q '[:find [?improvement ...]
-                                :in $ ?resident-id
+                                :in $ ?player-id
                                 :where
-                                [?resident :resident/id ?resident-id]
-                                [?resident :resident/deeds ?deed]
+                                [?player :player/id ?player-id]
+                                [?player :player/deeds ?deed]
                                 [?lot :lot/deed ?deed]
                                 [?lot :lot/improvement ?improvement]]
-                              resident-id)
+                              player-id)
                         (map (fn [improvement-entity]
                                [:db/retractEntity improvement-entity])))
-                   ;; and the resident (and nested entities)
-                   [:db/retractEntity [:resident/id resident-id]])))))
+                   ;; and the player (and nested entities)
+                   [:db/retractEntity [:player/id player-id]])))))
 
 (defn loans
   [island-id]
   (let [payments
         (->> (db/q
                ;; need loan-id so that it doesn't dedupe
-               '[:find [(pull ?loan [* {:resident/_loans
-                                        [:resident/id]}]) ...]
+               '[:find [(pull ?loan [* {:player/_loans
+                                        [:player/id]}]) ...]
                  :in $ ?island-id
                  :where
                  [?island :island/id ?island-id]
-                 [?island :island/residents ?resident]
-                 [?resident :resident/loans ?loan]]
+                 [?island :island/players ?player]
+                 [?player :player/loans ?loan]]
                island-id)
              (map (fn [loan]
                     [loan
-                     (-> loan :resident/_loans :resident/id)
+                     (-> loan :player/_loans :player/id)
                      (min (Math/ceil (:loan/amount loan))
                           (:loan/daily-payment-amount loan))])))]
     {:loan-txs
      (->> payments
-          (map (fn [[loan _resident-id payment-amount]]
+          (map (fn [[loan _player-id payment-amount]]
                  (if (<= (- (:loan/amount loan)
                             payment-amount)
                          0)
                    [:db/retractEntity [:loan/id (:loan/id loan)]]
                    [:db/add [:loan/id (:loan/id loan)]
                     :loan/amount (debt/new-amount loan)]))))
-     :resident-debt-payments
+     :player-debt-payments
      (->> payments
-          (reduce (fn [memo [_loan resident-id payment-amount]]
-                    (update memo resident-id (fnil + 0) (- payment-amount)))
+          (reduce (fn [memo [_loan player-id payment-amount]]
+                    (update memo player-id (fnil + 0) (- payment-amount)))
                   {}))}))
 
 (defn taxes
-  "For each resident, money spent on deed taxes."
+  "For each player, money spent on deed taxes."
   [island-id]
   (->> (db/q
          ;; need deed-id so that it doesn't dedupe
-         '[:find ?resident-id ?rate ?deed-id
+         '[:find ?player-id ?rate ?deed-id
            :in $ ?island-id
            :where
            [?island :island/id ?island-id]
-           [?island :island/residents ?resident]
-           [?resident :resident/id ?resident-id]
-           [?resident :resident/deeds ?deed]
+           [?island :island/players ?player]
+           [?player :player/id ?player-id]
+           [?player :player/deeds ?deed]
            [?deed :deed/id ?deed-id]
            [?deed :deed/rate ?rate]]
          island-id)
@@ -624,16 +624,16 @@
         population (count citizens)
 
         ;; loans & taxes
-        {:keys [loan-txs resident-debt-payments]} (loans island-id)
-        resident-taxes (taxes island-id)
-        world (reduce (fn [memo [resident-id amount]]
-                        (update-resident-money memo resident-id amount))
+        {:keys [loan-txs player-debt-payments]} (loans island-id)
+        player-taxes (taxes island-id)
+        world (reduce (fn [memo [player-id amount]]
+                        (update-player-money memo player-id amount))
                       world
-                      (merge-with + resident-debt-payments resident-taxes))
+                      (merge-with + player-debt-payments player-taxes))
 
         ;; government: taxes come in, everything goes back out as a citizens dividend
         government-money-balance (:world/government-money-balance world)
-        government-revenues (->> resident-taxes
+        government-revenues (->> player-taxes
                                  vals
                                  (reduce + 0)
                                  -)
@@ -644,14 +644,14 @@
         total-citizen-savings (->> citizens
                                (map :citizen/savings)
                                (reduce + 0.0))
-        resident-balance (->> (:world/residents world)
+        player-balance (->> (:world/players world)
                               vals
-                              (map :resident/money-balance)
+                              (map :player/money-balance)
                               (reduce + 0))
         net-money-balance (+ new-government-balance
                              citizens-dividend
                              total-citizen-savings
-                             resident-balance)
+                             player-balance)
         helicopter-money (max 0
                               (- (* constants/money-supply-target-per-citizen population)
                                  net-money-balance))
@@ -671,27 +671,27 @@
                                (reduce + 0.0))
         net-money-balance (+ new-government-balance
                              total-citizen-savings
-                             resident-balance)
+                             player-balance)
         cash-ratio-before (if (zero? net-money-balance)
                             0
-                            (/ resident-balance net-money-balance))
+                            (/ player-balance net-money-balance))
         interest-rate (interest-demurrage-rate cash-ratio-before)
-        resident-interest-deltas (->> (:world/residents world)
-                                      (map (fn [[resident-id resident]]
-                                             [resident-id
-                                              (let [balance (:resident/money-balance resident)]
+        player-interest-deltas (->> (:world/players world)
+                                      (map (fn [[player-id player]]
+                                             [player-id
+                                              (let [balance (:player/money-balance player)]
                                                 (if (pos? balance)
                                                   (- (* balance interest-rate) balance)
                                                   0))]))
                                       (into {}))
-        interest-delta-total (->> resident-interest-deltas
+        interest-delta-total (->> player-interest-deltas
                                   vals
                                   (reduce + 0))
-        world (reduce (fn [memo [resident-id delta]]
-                        (update-resident-money memo resident-id delta))
+        world (reduce (fn [memo [player-id delta]]
+                        (update-player-money memo player-id delta))
                       world
-                      resident-interest-deltas)
-        ;; residents' interest is paid by (or paid to) the citizens, per capita
+                      player-interest-deltas)
+        ;; players' interest is paid by (or paid to) the citizens, per capita
         world (if (pos? population)
                 (reduce (fn [memo citizen-id]
                           (update-citizen-savings memo citizen-id (/ (- interest-delta-total) population)))
@@ -700,11 +700,11 @@
                 world)
 
         ;; final balances
-        final-resident-balances (->> (:world/residents world)
-                                     (map (fn [[resident-id resident]]
-                                            [resident-id (:resident/money-balance resident)]))
+        final-player-balances (->> (:world/players world)
+                                     (map (fn [[player-id player]]
+                                            [player-id (:player/money-balance player)]))
                                      (into {}))
-        final-resident-balance (->> final-resident-balances
+        final-player-balance (->> final-player-balances
                                     vals
                                     (reduce + 0))
         final-citizen-savings (->> (:world/citizens world)
@@ -713,10 +713,10 @@
                                (reduce + 0.0))
         final-net-money-balance (+ new-government-balance
                                    final-citizen-savings
-                                   final-resident-balance)
+                                   final-player-balance)
         cash-ratio-after (if (zero? final-net-money-balance)
                            0
-                           (/ final-resident-balance final-net-money-balance))
+                           (/ final-player-balance final-net-money-balance))
 
         ;; JOY
         joy (->> (:world/citizens world)
@@ -774,20 +774,20 @@
           (update citizen :citizen/savings double))
         (for [citizen-id dead-citizen-ids]
           [:db/retractEntity [:citizen/id citizen-id]])
-        ;; residents
-        (mapcat (fn [[resident-id resident]]
+        ;; players
+        (mapcat (fn [[player-id player]]
                   (concat
-                    [[:db/add [:resident/id resident-id]
-                      :resident/money-balance (long (:resident/money-balance resident))]
-                     [:db/add [:resident/id resident-id]
-                      :resident/private-stats
+                    [[:db/add [:player/id player-id]
+                      :player/money-balance (long (:player/money-balance player))]
+                     [:db/add [:player/id player-id]
+                      :player/private-stats
                       {:stats.private/net-cashflow (double
-                                                     (- (:resident/money-balance resident)
-                                                        (get-in world [:world/initial-resident-balances resident-id] 0)))
-                       :stats.private/stabilization-payment (double (get resident-interest-deltas resident-id 0))}]]
-                    (stock-txs :resident/id resident-id
-                               :resident/stocks (:resident/stocks resident))))
-                (:world/residents world))
+                                                     (- (:player/money-balance player)
+                                                        (get-in world [:world/initial-player-balances player-id] 0)))
+                       :stats.private/stabilization-payment (double (get player-interest-deltas player-id 0))}]]
+                    (stock-txs :player/id player-id
+                               :player/stocks (:player/stocks player))))
+                (:world/players world))
         ;; improvement stocks
         (mapcat (fn [[improvement-id improvement]]
                   (stock-txs :improvement/id improvement-id
@@ -797,7 +797,7 @@
         (for [[offer-id utilization] (:world/utilizations world)]
           [:db/add [:offer/id offer-id] :offer/utilization utilization])
         loan-txs
-        (resident-bankruptcy-txs final-resident-balances)))
+        (player-bankruptcy-txs final-player-balances)))
     ;; births & immigration
     (dotimes [_ (randomize population constants/birth-chance-per-citizen-per-tick)]
       (db/add-citizen! island-id (citizen/random ::schema/generator-baby)))

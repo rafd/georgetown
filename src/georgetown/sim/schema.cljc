@@ -22,8 +22,8 @@
                                       :dat/spec types/PosInt}
     :island/joy {:dat/type :db.type/long
                  :dat/spec types/PosInt}
-    :island/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
-                       :dat/component? true}
+    :island/players {:dat/rel [:dat.rel/many :entity/player :player/id]
+                     :dat/component? true}
     :island/citizens {:dat/rel [:dat.rel/many :entity/citizen :citizen/id]
                   :dat/component? true}
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
@@ -37,21 +37,21 @@
     :user/email {:dat/type :db.type/string
                  :dat/spec Email
                  :dat/unique :dat.unique/identity}
-    :user/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
-                     :dat/component? true}}
+    :user/players {:dat/rel [:dat.rel/many :entity/player :player/id]
+                   :dat/component? true}}
 
-   :entity/resident ;; users on an island
-   {:resident/id {:dat/type :db.type/uuid
-                  :dat/unique :dat.unique/identity}
-    :resident/private-stats {}
-    :resident/money-balance {:dat/type :db.type/long
-                             :dat/spec types/PosInt}
-    :resident/stocks {:dat/rel [:dat.rel/many :entity/stock :stock/id]
-                      :dat/component? true}
-    :resident/deeds {:dat/rel [:dat.rel/many :entity/deed :deed/id]
-                     :dat/component? true}
-    :resident/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
-                     :dat/component? true}}
+   :entity/player ;; users on an island
+   {:player/id {:dat/type :db.type/uuid
+                :dat/unique :dat.unique/identity}
+    :player/private-stats {}
+    :player/money-balance {:dat/type :db.type/long
+                           :dat/spec types/PosInt}
+    :player/stocks {:dat/rel [:dat.rel/many :entity/stock :stock/id]
+                    :dat/component? true}
+    :player/deeds {:dat/rel [:dat.rel/many :entity/deed :deed/id]
+                   :dat/component? true}
+    :player/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
+                   :dat/component? true}}
 
    :entity/citizen
    (-> {:citizen/id {:dat/type :db.type/uuid

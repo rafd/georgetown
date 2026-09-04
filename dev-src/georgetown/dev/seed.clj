@@ -24,16 +24,16 @@
         (tada/exec! :command/immigrate!
                {:user-id user-id
                 :island-id island-id})
-        (let [resident-id (s/->resident-id user-id [:island/id island-id])]
+        (let [player-id (s/->player-id user-id [:island/id island-id])]
           (tada/exec! :command/borrow-loan!
                  {:user-id user-id
-                  :resident-id resident-id})
+                  :player-id player-id})
           (tada/exec! :command/borrow-loan!
                  {:user-id user-id
-                  :resident-id resident-id})
+                  :player-id player-id})
           (tada/exec! :command/borrow-loan!
                  {:user-id user-id
-                  :resident-id resident-id})
+                  :player-id player-id})
 
           (doseq [[index [improvement-type offers]]
                   (map-indexed vector

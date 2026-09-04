@@ -53,7 +53,7 @@
           [ui/value-with-icon (date (:island/epoch island)) "🗓️"]]
          [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
-         (if @state/resident
+         (if @state/player
            [:div {:tw "flex gap-1"}
             [:div {:tw "bg-white px-1"}
              [ui/resource-amount @state/money-balance 0 :resource/money]]
@@ -106,11 +106,11 @@
                        {:tw "h-full block relative"
                         :style {:border-width "2px"
                                 :border-style "solid"
-                                :border-color (->color (:user/id (:user/_residents (:resident/_deeds deed))))}}
+                                :border-color (->color (:user/id (:user/_players (:player/_deeds deed))))}}
                        [:div.rate
                         {:tw "absolute top-0 left-0 py-0.5 px-1 text-white tabular-nums"
                          :style {:font-size "0.5em"
-                                 :background-color (->color (:user/id (:user/_residents (:resident/_deeds deed))))}}
+                                 :background-color (->color (:user/id (:user/_players (:player/_deeds deed))))}}
                         (:deed/rate deed)]
                        (when improvement
                          [:div.improvement

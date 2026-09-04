@@ -24,15 +24,15 @@
            per-unit)))))
 
 (defn cashflow-table []
-  (let [resident-id (:resident/id @state/resident)
+  (let [player-id (:player/id @state/player)
         improvement-id->offers (->> @state/offers
                                     (group-by (fn [offer]
                                                 (:improvement/id (:improvement/_offers offer)))))
         lot-lines (for [lot (->> @state/island
                                  :island/lots)
                         :let [deed (:lot/deed lot)]
-                        :when (= (:resident/id (:resident/_deeds deed))
-                                 resident-id)
+                        :when (= (:player/id (:player/_deeds deed))
+                                 player-id)
                         :let [improvement (:lot/improvement lot)
                               revenue-offer (->> (improvement-id->offers (:improvement/id improvement))
                                                  (keep (fn [offer]
@@ -52,8 +52,8 @@
                      :total (+ (:offer/net-amount revenue-offer)
                                (- (:offer/net-amount expense-offer))
                                (- (:deed/rate deed)))})
-        debt-lines (->> @state/resident
-                        :resident/loans
+        debt-lines (->> @state/player
+                        :player/loans
                         (map (fn [loan]
                                {:type ::loan
                                 :id (:loan/id loan)
@@ -62,7 +62,7 @@
                       debt-lines
                       [{:type ::demurrage
                         :id ::demurrage
-                        :total (-> @state/resident :resident/private-stats :stats.private/stabilization-payment)}])]
+                        :total (-> @state/player :player/private-stats :stats.private/stabilization-payment)}])]
     [:table
      [:tbody
       [:tr

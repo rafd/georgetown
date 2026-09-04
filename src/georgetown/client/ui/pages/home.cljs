@@ -17,7 +17,7 @@
          :href (pages/path-for [:page/island {:island-id (:island/id island)}])}
         [iso/iso-view island]
         [:div {:tw "absolute top-0 right-0"}
-         (count (:island/residents island))
+         (count (:island/players island))
          "👑"]
         [:div {:tw "absolute bottom-0 right-0"}
          (apply str (drop 30 (str (:island/id island))))]])]))

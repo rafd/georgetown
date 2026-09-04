@@ -17,8 +17,8 @@
                  :island/government-money-balance
                  :island/public-stats
                  :island/joy
-                 {:island/residents
-                  [:resident/id]}
+                 {:island/players
+                  [:player/id]}
                  {:island/citizens [*]}
                  {:island/lots
                   [:lot/id
@@ -29,9 +29,9 @@
                    {:lot/deed
                     [:deed/id
                      :deed/rate
-                     {:resident/_deeds
-                      [:resident/id
-                       {:user/_residents
+                     {:player/_deeds
+                      [:player/id
+                       {:user/_players
                         [:user/id]}]}]}
                    {:lot/improvement
                     [:improvement/id
@@ -50,24 +50,24 @@
             [?user :user/id ?user-id]]
           user-id)))
 
-(defn resident-state
+(defn player-state
   [user-id island-id]
   (when user-id
-    (db/q '[:find (pull ?resident
-                        [:resident/id
-                         :resident/money-balance
-                         :resident/private-stats
-                         {:resident/stocks
+    (db/q '[:find (pull ?player
+                        [:player/id
+                         :player/money-balance
+                         :player/private-stats
+                         {:player/stocks
                           [:stock/id
                            :stock/resource
                            :stock/amount]}
-                         {:resident/loans
+                         {:player/loans
                           [:loan/id
                            :loan/amount
                            :loan/daily-payment-amount
                            :loan/minimum-daily-payment-amount
                            :loan/annual-interest-rate]}
-                         {:resident/deeds
+                         {:player/deeds
                           [:deed/id
                            :deed/rate-changed-at
                            {:lot/_deed
@@ -84,8 +84,8 @@
             :where
             [?user :user/id ?user-id]
             [?island :island/id ?island-id]
-            [?island :island/residents ?resident]
-            [?user :user/residents ?resident]]
+            [?island :island/players ?player]
+            [?user :user/players ?player]]
           user-id
           island-id)))
 
@@ -106,7 +106,7 @@
          :body
          {:client-state/island (island-state island-id)
           :client-state/user (user-state user-id)
-          :client-state/resident (resident-state user-id island-id)}}
+          :client-state/player (player-state user-id island-id)}}
         {:status 400})
       (http/as-channel request
         {:on-open (fn [ch]
@@ -123,7 +123,7 @@
   []
   ;; minimally calculate the various states
   ;; island-state is the same for all watchers of an island
-  ;; user-state and resident-state would be the same for a user with multiple sessions open
+  ;; user-state and player-state would be the same for a user with multiple sessions open
   (let [s @subscriptions ;; deref here and reuse, to avoid race conditions
         island-states (let [island-ids (->> (vals s)
                                             (map :sub/island-id)
@@ -136,11 +136,11 @@
                                         set)]
                       (zipmap user-ids
                               (map user-state user-ids)))
-        resident-states (let [user-island-ids (->> (vals s)
+        player-states (let [user-island-ids (->> (vals s)
                                                    (map (juxt :sub/user-id :sub/island-id))
                                                    set)]
                           (zipmap user-island-ids
-                                  (map (fn [[user-id island-id]] (resident-state user-id island-id)) user-island-ids)))]
+                                  (map (fn [[user-id island-id]] (player-state user-id island-id)) user-island-ids)))]
     (->> s
          (pmap (fn [[session-id {:sub/keys [user-id island-id channel]}]]
                  (http/send! channel
@@ -152,7 +152,7 @@
                               (m/encode encoder "application/transit+json"
                                         {:client-state/island (island-states island-id)
                                          :client-state/user (user-states user-id)
-                                         :client-state/resident (resident-states [user-id island-id])})})))
+                                         :client-state/player (player-states [user-id island-id])})})))
          doall)))
 
 (defn initialize!

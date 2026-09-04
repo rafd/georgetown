@@ -77,7 +77,7 @@
     [:div {:tw "border-1 p-1"}
      [ui/label-with-info
       "Land Tax Rate"
-      "Self assessed land tax rate, paid per day. Another resident may acquire your lot by paying a higher rate. Rate can only be decreased after 1 year."]
+      "Self assessed land tax rate, paid per day. Another player may acquire your lot by paying a higher rate. Rate can only be decreased after 1 year."]
      [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
       [:input {:type "number"
                :tw "border p-1 bg-yellow-100 rounded text-right max-w-5em"
@@ -100,7 +100,7 @@
 (defn deed-actions-view
   [{:keys [deed has-improvement?]}]
   (r/with-let [now (state/subscribe [:PUBLIC :island/epoch])
-               changed-at (state/subscribe [:PRIVATE :resident/deeds
+               changed-at (state/subscribe [:PRIVATE :player/deeds
                                             :ALL
                                             (fn [{:deed/keys [id]}]
                                               (= id (:deed/id deed)))
@@ -128,12 +128,12 @@
       (let [deed (:lot/deed lot)
             improvement (:lot/improvement lot)
             logged-in? @state/user
-            resident? @state/resident
+            player? @state/player
             owner? (and
                      logged-in?
-                     resident?
-                     (= (:resident/id (:resident/_deeds deed))
-                        (:resident/id @state/resident)))]
+                     player?
+                     (= (:player/id (:player/_deeds deed))
+                        (:player/id @state/player)))]
         ^{:key lot-id}
         [:div
          [:div "Lot " (:lot/x lot) "," (:lot/y lot)
@@ -150,7 +150,7 @@
             [:div {:tw "bg-#c4ad97 text-#592510"}
              [:div.owner
               "Owned by:"
-              (:user/id (:user/_residents (:resident/_deeds deed)))]
+              (:user/id (:user/_players (:player/_deeds deed)))]
              [:div.rate
               "Rate:" (:deed/rate deed)]]
             [:div "Unowned"])
@@ -159,7 +159,7 @@
              owner?
              [deed-actions-view {:deed deed
                                  :has-improvement? (boolean improvement)}]
-             resident?
+             player?
              [:div {:tw "border-1 p-1"}
               [ui/button {:on-click
                           (fn []

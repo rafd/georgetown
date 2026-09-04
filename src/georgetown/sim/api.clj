@@ -18,7 +18,7 @@
                                       :lot/y
                                       :lot/elevation
                                       :lot/moisture]}
-                       :island/residents]))}
+                       :island/players]))}
 
 
    {:id :command/create-island!
@@ -35,17 +35,17 @@
     (fn [{:keys [user-id island-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :island/id island-id)]
-       [#(nil? (s/->resident-id user-id [:island/id island-id]))]])
+       [#(nil? (s/->player-id user-id [:island/id island-id]))]])
     :effect
     (fn [{:keys [user-id island-id]}]
       (db/transact!
         [{:db/id -1
-          :resident/id (uuid/random)
-          :resident/money-balance 0}
+          :player/id (uuid/random)
+          :player/money-balance 0}
          [:db/add [:island/id island-id]
-          :island/residents -1]
+          :island/players -1]
          [:db/add [:user/id user-id]
-          :user/residents -1]]))}
+          :user/players -1]]))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
@@ -54,19 +54,19 @@
     (fn [{:keys [user-id lot-id]}]
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :lot/id lot-id)]
-       [#(s/->resident-id user-id [:lot/id lot-id])] ;; is resident on this island
+       [#(s/->player-id user-id [:lot/id lot-id])] ;; is player on this island
        [#(not (s/owns? user-id [:lot/id lot-id]))]]
       ;; TODO check if can afford - :fn/withdraw will throw, so not urgent
       )
     :effect
     (fn [{:keys [user-id lot-id]}]
-      (let [resident-id (s/->resident-id user-id [:lot/id lot-id])
+      (let [player-id (s/->player-id user-id [:lot/id lot-id])
             lot (s/by-id [:lot/id lot-id]
                          [{:lot/improvement [:improvement/type]}
                           {:lot/deed
                            [:deed/id
                             :deed/rate
-                            {:resident/_deeds [:resident/id]}]}])
+                            {:player/_deeds [:player/id]}]}])
             current-epoch (s/qget [:lot/id lot-id]
                                   [:island/_lots :island/epoch])]
         (if-let [deed (:lot/deed lot)]
@@ -74,18 +74,18 @@
                                   0)]
             (db/transact!
               [;; refund previous owner
-               [:fn/deposit (:resident/id (:resident/_deeds deed)) refund-amount]
+               [:fn/deposit (:player/id (:player/_deeds deed)) refund-amount]
                ;; remove previous deed
                [:db/retractEntity [:deed/id (:deed/id deed)]]
                ;; charge new owner
-               [:fn/withdraw resident-id refund-amount]
+               [:fn/withdraw player-id refund-amount]
                ;; create new deed
                {:db/id -1
                 :deed/id (uuid/random)
                 :deed/rate (inc (:deed/rate deed))
                 :deed/rate-change-at current-epoch}
                [:db/add [:lot/id lot-id] :lot/deed -1]
-               [:db/add [:resident/id resident-id] :resident/deeds -1]]))
+               [:db/add [:player/id player-id] :player/deeds -1]]))
           (db/transact!
             [;; create new deed
              {:db/id -1
@@ -93,7 +93,7 @@
               :deed/rate 0
               :deed/rate-changed-at current-epoch}
              [:db/add [:lot/id lot-id] :lot/deed -1]
-             [:db/add [:resident/id resident-id] :resident/deeds -1]]))))}
+             [:db/add [:player/id player-id] :player/deeds -1]]))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id
@@ -156,7 +156,7 @@
        [#(contains? blueprints/blueprints improvement-type)]
        [#(s/owns? user-id [:lot/id lot-id])]
        [#(nil? (:lot/improvement (s/by-id [:lot/id lot-id] [:lot/improvement])))]
-       [#(s/can-afford? (s/->resident-id user-id [:lot/id lot-id])
+       [#(s/can-afford? (s/->player-id user-id [:lot/id lot-id])
                         (:blueprint/price (blueprints/blueprints improvement-type)))]])
     :effect
     (fn [{:keys [user-id lot-id improvement-type]}]
@@ -170,7 +170,7 @@
             (s/qget [:lot/id lot-id] [:island/_lots :island/id])
             amount]
            [:fn/withdraw
-            (s/->resident-id user-id [:lot/id lot-id])
+            (s/->player-id user-id [:lot/id lot-id])
             amount]])))}
 
    {:id :command/demolish!
@@ -192,7 +192,7 @@
            [:fn/transfer-to-government
             (s/qget [:improvement/id improvement-id] [:lot/_improvement :island/_lots :island/id])
             (- amount)]
-           [:fn/deposit (s/->resident-id user-id [:improvement/id improvement-id])
+           [:fn/deposit (s/->player-id user-id [:improvement/id improvement-id])
             amount]]))))}
 
    {:id :command/set-offer!
@@ -231,23 +231,23 @@
 
    {:id :command/borrow-loan!
     :params {:user-id :user/id
-             :resident-id :resident/id}
+             :player-id :player/id}
     :conditions
-    (fn [{:keys [user-id resident-id]}]
+    (fn [{:keys [user-id player-id]}]
       [[#(s/exists? :user/id user-id)]
-       [#(s/exists? :resident/id resident-id)]
-       [#(s/owns? user-id [:resident/id resident-id])]])
+       [#(s/exists? :player/id player-id)]
+       [#(s/owns? user-id [:player/id player-id])]])
     :effect
-    (fn [{:keys [user-id resident-id]}]
-      (let [loan-count (->> (s/by-id [:resident/id resident-id]
-                                     [:resident/loans])
-                            :resident/loans
+    (fn [{:keys [user-id player-id]}]
+      (let [loan-count (->> (s/by-id [:player/id player-id]
+                                     [:player/loans])
+                            :player/loans
                             count)
             loan (debt/next-potential-loan loan-count)]
         (db/transact!
-          [[:fn/deposit resident-id (:loan/amount loan)]
-           {:resident/id resident-id
-            :resident/loans
+          [[:fn/deposit player-id (:loan/amount loan)]
+           {:player/id player-id
+            :player/loans
             [(assoc loan
                :loan/id (uuid/random))]}])))}
 
@@ -279,18 +279,18 @@
       [[#(s/exists? :user/id user-id)]
        [#(s/exists? :loan/id loan-id)]
        [#(s/owns? user-id [:loan/id loan-id])]
-       [#(s/can-afford? (s/->resident-id user-id [:loan/id loan-id])
+       [#(s/can-afford? (s/->player-id user-id [:loan/id loan-id])
                         amount)]])
     :effect
     (fn [{:keys [loan-id amount]}]
       (let [loan (s/by-id [:loan/id loan-id] [:loan/amount
-                                              {:resident/_loans [:resident/id]}])
-            resident-id (:resident/id (:resident/_loans loan))]
+                                              {:player/_loans [:player/id]}])
+            player-id (:player/id (:player/_loans loan))]
         (if (<= (:loan/amount loan) amount)
           (db/transact!
             [[:db/retractEntity [:loan/id loan-id]]
-             [:fn/withdraw resident-id (:loan/amount loan)]])
+             [:fn/withdraw player-id (:loan/amount loan)]])
           (db/transact!
             [[:db/add [:loan/id loan-id]
               :loan/amount (- (:loan/amount loan) amount)]
-             [:fn/withdraw resident-id amount]]))))}])
+             [:fn/withdraw player-id amount]]))))}])
