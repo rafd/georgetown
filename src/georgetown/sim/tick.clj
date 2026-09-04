@@ -493,12 +493,10 @@
        (map :citizen/id)))
 
 (defn emigration-chance
-  "Stressed citizens with little savings are likely to leave the island."
+  "Very stressed citizens are likely to leave the island."
   [citizen]
-  (* constants/base-emigration-chance
-     (mean-stress citizen)
-     (- 1 (clamp01 (/ (:citizen/savings citizen)
-                      constants/money-supply-target-per-citizen)))))
+  (* constants/max-emigration-chance
+     (Math/pow (mean-stress citizen) 4)))
 
 (defn pick-emigrant-citizen-ids [world]
   (->> (:world/citizens world)

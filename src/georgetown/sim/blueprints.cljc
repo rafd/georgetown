@@ -151,6 +151,7 @@
          [{:offerable/id :offer/food-market.job
            :offerable/label "Job"
            :offerable/icon "💼"
+           :offerable/capacity 1
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
@@ -164,7 +165,7 @@
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
             [:effect.direction/to-citizen :citizen/physical-stress 0.02]
-            [:effect.direction/to-self :resource/labour 10]
+            [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
 
           {:offerable/id :offer/food-market.offer
@@ -179,7 +180,7 @@
            :offerable/effects
            [[:effect.direction/from-citizen :resource/money :var/food-price]
             [:effect.direction/to-citizen :resource/food 1]
-            [:effect.direction/from-self :resource/labour 0.5]
+            [:effect.direction/from-self :resource/labour 0.05]
             [:effect.direction/from-player :resource/food 1]
             [:effect.direction/to-player :resource/money :var/food-price]]}]}
 

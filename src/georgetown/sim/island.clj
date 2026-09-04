@@ -12,7 +12,7 @@
     :island/epoch 0
     :island/joy 0
     :island/seed seed
-    :island/citizens (repeatedly 10 (fn [] (citizen/random ::schema/generator-immigrant)))
+    :island/citizens (repeatedly 5 (fn [] (citizen/random ::schema/generator-immigrant)))
     :island/lots
     (let [properties (terrain/lot-properties seed)]
       (for [x (range 20)
