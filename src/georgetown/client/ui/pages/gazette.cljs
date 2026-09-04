@@ -76,9 +76,8 @@
           [:span "unhoused"]
           [ui/resource-amount (:sim.out/unhoused-count stats) 0 :resource/citizen]]]
         [:td
-         [dataviz/multi-sparkline
-          (x-stats [x/ALL :sim.out/hungry-count])
-          (x-stats [x/ALL :sim.out/unhoused-count])]]]
+         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/hungry-count])]]
+         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/unhoused-count])]]]]
        [:tr
         [:td {:tw "align-top"} "stress"]
         [:td {:tw "text-right align-top"}
@@ -111,9 +110,8 @@
           [:span "idle"]
           [ui/resource-amount (:sim.out/idle-count stats) 0 :resource/citizen]]]
         [:td
-         [dataviz/multi-sparkline
-          (x-stats [x/ALL :sim.out/employed-count])
-          (x-stats [x/ALL :sim.out/idle-count])]]]
+         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/employed-count])]]
+         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/idle-count])]]]]
        (doall
          (for [resource-id [:resource/food :resource/shelter]]
            (let [resource (types/resources resource-id)
