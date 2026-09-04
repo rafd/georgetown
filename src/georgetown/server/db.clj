@@ -40,20 +40,9 @@
 #_(q '[:find [?e ...]
        :where [?e _ _]])
 
-;; drop all
-#_(dat/clear! @db-atom)
-
 ;; TODO close when app closes
 ;; or else lock gets stuck
 #_(dat/close! db-atom)
-
-;; reset
-#_(do
-    (when @db-atom
-      (dat/clear! @db-atom))
-    (connect!))
-
-
 
 (defn retract-all! []
   (transact!
@@ -61,6 +50,10 @@
          (q '[:find [?e ...]
               :where [?e _ _]])))
     nil)
+
+(defn clear! []
+  (when @db-atom
+    (dat/clear! @db-atom)))
 
 ;; WATCHERS
 ;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;

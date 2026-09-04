@@ -5,7 +5,8 @@
     [georgetown.server.tada :as tada]))
 
 (defn seed! []
-  (db/retract-all!)
+  #_(db/retract-all!)
+  (db/clear!)
   (db/connect!)
   (s/initialize!)
   (s/create-island!)
