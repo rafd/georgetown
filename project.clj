@@ -2,6 +2,21 @@
   :source-paths ["src"]
   :java-source-paths ["java-src"]
   :dependencies [[org.clojure/clojure "1.11.0"]
+                 ;; >= 1.12 required by or-tools cp-sat: older clojurescript pulls
+                 ;; closure-compiler-unshaded, which bundles an unrelocated protobuf 3
+                 ;; that shadows protobuf-java on the classpath
+                 ;; same exclusions omni used for its own clojurescript dep
+                 [org.clojure/clojurescript "1.12.42"
+                  :exclusions [com.cognitect/transit-clj
+                               com.fasterxml.jackson.core/jackson-core]]
+
+                 ;; optimization
+                 ;; leiningen does not resolve ortools-java's os-activated maven profiles,
+                 ;; so the per-platform natives are listed explicitly
+                 [com.google.ortools/ortools-java "9.15.6755"]
+                 [com.google.ortools/ortools-darwin-aarch64 "9.15.6755"]
+                 [com.google.ortools/ortools-linux-x86-64 "9.15.6755"]
+
                  [io.bloomventures/omni "0.34.0"]
                  [http-kit "2.8.0"]
                  [io.bloomventures/commons "0.14.11"]

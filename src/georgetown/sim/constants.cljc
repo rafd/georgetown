@@ -25,3 +25,11 @@
 (def citizen-immigration-chance (/ 1 50))
 (def max-emigration-chance (/ 1 4))
 (def money-supply-target-per-citizen 600)
+
+;; shift-allocation joy weights
+(def joy-weight-security 1.0)
+(def joy-weight-activity 1.0)
+(def joy-weight-self-improvement 1.0)
+(def joy-weight-stress 1.0)
+;; days of savings at which the security term reaches half its maximum
+(def security-halfway-days 30.0)

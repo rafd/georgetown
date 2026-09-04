@@ -46,8 +46,8 @@
            :offerable/var []
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.1]]}]}
+            [:effect.direction/to-citizen :citizen/physical-stress -0.01]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.01]]}]}
 
         {:blueprint/id :improvement.type/apartment
          :blueprint/label "Apartment"
@@ -247,6 +247,11 @@
                        :citizen-attribute/label "fitness"}
    :citizen/skill.social {:citizen-attribute/icon "🗣️"
                       :citizen-attribute/label "social"}})
+
+(def skill->talent
+  {:citizen/skill.intellect :citizen/talent.intellect
+   :citizen/skill.fitness :citizen/talent.fitness
+   :citizen/skill.social :citizen/talent.social})
 
 (defn resolve-effect-amount
   [offer [_direction _target amount]]

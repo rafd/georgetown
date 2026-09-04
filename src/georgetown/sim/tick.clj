@@ -3,6 +3,7 @@
     [bloom.commons.uuid :as uuid]
     [com.rpl.specter :as x]
     [georgetown.server.db :as db]
+    [georgetown.sim.allocate :as allocate]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.citizen :as citizen]
     [georgetown.sim.constants :as constants]
@@ -283,48 +284,6 @@
 
 ;; ---- work & leisure allocation ----
 
-(defn allocate-shift
-  "Assigns each citizen's current shift to at most one time-offer.
-  Draft implementation: random choice among affordable offers with
-  remaining capacity (and solvent owners); nil means idle.
-  Later: replaced by an optimizer over citizen preferences (same interface),
-  which will also use :allocate.in/food-price and :allocate.in/shelter-price."
-  [{:allocate.in/keys [citizens offers player-budgets]}]
-  (:allocations
-    (reduce
-      (fn [{:keys [allocations capacities budgets] :as memo} citizen]
-        (let [candidates (->> offers
-                              (filter (fn [offer]
-                                        (let [capacity (get capacities (:offer/id offer))]
-                                          (and
-                                            (or (nil? capacity)
-                                                (pos? capacity))
-                                            (<= (:allocate/citizen-money-cost offer)
-                                                (:citizen/savings citizen))
-                                            (<= (:allocate/wage offer)
-                                                (get budgets (:offer/owner-id offer) 0)))))))
-              choice (rand-nth (conj (vec candidates) nil))]
-          (if (nil? choice)
-            (update memo :allocations assoc (:citizen/id citizen) nil)
-            {:allocations (assoc allocations (:citizen/id citizen) (:offer/id choice))
-             :capacities (if (get capacities (:offer/id choice))
-                           (update capacities (:offer/id choice) dec)
-                           capacities)
-             :budgets (update budgets (:offer/owner-id choice) - (:allocate/wage choice))})))
-      {:allocations {}
-       :capacities (->> offers
-                        (keep (fn [offer]
-                                (when-let [capacity (:offerable/capacity (blueprints/offerables (:offer/type offer)))]
-                                  [(:offer/id offer) capacity])))
-                        (into {}))
-       :budgets player-budgets}
-      (shuffle citizens))))
-
-(def skill->talent
-  {:citizen/skill.intellect :citizen/talent.intellect
-   :citizen/skill.fitness :citizen/talent.fitness
-   :citizen/skill.social :citizen/talent.social})
-
 (defn productivity [citizen weights]
   (if (seq weights)
     (->> weights
@@ -339,7 +298,7 @@
                     (fn [level]
                       (clamp01 (+ level
                                   (* constants/learn-rate
-                                     (get citizen* (skill->talent skill))
+                                     (get citizen* (blueprints/skill->talent skill))
                                      weight
                                      (- 1 level)))))))
           citizen
@@ -400,7 +359,7 @@
                                 (assoc offer
                                   :allocate/citizen-money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
                                   :allocate/wage (blueprints/effect-sum offer :effect.direction/from-player :resource/money)))))
-        allocations (allocate-shift
+        allocations (allocate/allocate-shift
                       {:allocate.in/citizens (vals (:world/citizens world))
                        :allocate.in/offers time-offers
                        :allocate.in/player-budgets (->> (:world/players world)
@@ -466,7 +425,7 @@
     (reduce (fn [citizen* skill]
               (update citizen* skill (fn [level] (clamp01 (* level (- 1 decline-factor))))))
             citizen
-            (keys skill->talent))))
+            (keys blueprints/skill->talent))))
 
 (defn run-citizen-maintenance
   [world]
