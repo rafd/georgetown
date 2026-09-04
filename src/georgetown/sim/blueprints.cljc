@@ -13,6 +13,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/house.rental
            :offerable/label "Rental"
+           :offerable/icon "🔑"
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
@@ -27,6 +28,7 @@
             [:effect.direction/to-player :resource/money :var/rent-rate]]}
           {:offerable/id :offer/house.sleep
            :offerable/label "A Good Nights Sleep"
+           :offerable/icon "😴"
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/night}
            :offerable/var []
@@ -36,6 +38,7 @@
             [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
           {:offerable/id :offer/house.relax
            :offerable/label "Relaxing at Home"
+           :offerable/icon "🛋️"
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
@@ -55,6 +58,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/apartment.rental
            :offerable/label "Rental"
+           :offerable/icon "🔑"
            :offerable/capacity 25
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
@@ -69,6 +73,7 @@
             [:effect.direction/to-player :resource/money :var/rent-rate]]}
           {:offerable/id :offer/apartment.sleep
            :offerable/label "A Good Nights Sleep"
+           :offerable/icon "😴"
            :offerable/capacity 25
            :offerable/time-shifts #{:time-shift/night}
            :offerable/var []
@@ -78,6 +83,7 @@
             [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
           {:offerable/id :offer/apartment.relax
            :offerable/label "Relaxing at Home"
+           :offerable/icon "🛋️"
            :offerable/capacity 25
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
@@ -98,6 +104,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/park.leisure
            :offerable/label "Stroll"
+           :offerable/icon "🚶"
            :offerable/capacity 10
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
@@ -117,6 +124,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/farm.job
            :offerable/label "Job"
+           :offerable/icon "💼"
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon}
@@ -142,6 +150,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/food-market.job
            :offerable/label "Job"
+           :offerable/icon "💼"
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
@@ -160,6 +169,7 @@
 
           {:offerable/id :offer/food-market.offer
            :offerable/label "Selling Food"
+           :offerable/icon "🍎"
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
@@ -182,6 +192,7 @@
          :blueprint/offerables
          [{:offerable/id :offer/big-farm.job
            :offerable/label "Job"
+           :offerable/icon "💼"
            :offerable/capacity 10
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon

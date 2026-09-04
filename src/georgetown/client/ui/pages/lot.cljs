@@ -197,7 +197,9 @@
                      (for [offerable (:blueprint/offerables blueprint)]
                        ^{:key (:offerable/id offerable)}
                        [:div {:tw "flex gap-1 items-center flex-wrap"}
-                        [:span {:tw "text-xs"} (:offerable/label offerable)]
+                        [:span {:tw "text-xs"}
+                         (:offerable/icon offerable) " "
+                         (:offerable/label offerable)]
                         [offerable-effects-view nil offerable]])]]
                    [ui/button {:disabled (< @state/money-balance (:blueprint/price blueprint))
                                :on-click (fn []
@@ -229,6 +231,7 @@
                       [:div {:tw "border-1 p-1 space-y-1"}
                        [:div.header {:tw "flex"}
                         [:div.offer-type {:tw "grow"}
+                         (:offerable/icon offerable) " "
                          (:offerable/label offerable)]
                         [:div.utilization
                          (Math/round (* (or (:offer/utilization offer) 0) 100)) "%"]]

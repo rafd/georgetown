@@ -76,6 +76,7 @@
       [:map {:closed true}
        [:offerable/id [:qualified-keyword {:namespace :offer}]]
        [:offerable/label :string]
+       [:offerable/icon :string]
        [:offerable/capacity {:optional true} PosInt]
        [:offerable/time-shifts [:set [:enum
                                       :time-shift/morning

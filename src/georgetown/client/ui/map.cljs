@@ -142,7 +142,7 @@
                              [:div.offer
                               {:tw "bg-black px-0.75 py-0.5 gap-0.5 flex items-center"
                                :style {:font-size "0.5em"}}
-                              [ui/resource-icon (blueprints/offer-exchange-resource offerable)]
+                              [:div (:offerable/icon offerable)]
                               [:div {:title (Math/round (* 100 (:offer/utilization offer)))}
                                [ui/pie {:tw "w-0.6rem h-0.6rem"
                                         :bg-color "#333"
