@@ -177,6 +177,7 @@
                                           :tender/player-id owner-id
                                           :tender/improvement-id (:offer/improvement-id offer)
                                           :tender/unit-price (:offer/amount offer)
+                                          :tender/labour-per-unit labour-needed
                                           :tender/supply [:resource/food quantity]
                                           :tender/demand [:resource/money (* quantity (:offer/amount offer))]})}))
                      {:remaining-food (player-stock-amount world owner-id :resource/food)
@@ -264,7 +265,8 @@
                           (cond->
                             (= :resource/food resource)
                             (-> (update-player-stock (:tender/player-id tender) :resource/food - fill-amount)
-                                (update-improvement-stock (:tender/improvement-id tender) :resource/labour - fill-amount)))
+                                (update-improvement-stock (:tender/improvement-id tender) :resource/labour -
+                                                          (* fill-amount (:tender/labour-per-unit tender 0.0)))))
                           (assoc-in [:world/utilizations (:tender/offer-id tender)]
                                     (double (or (:tender/fill-ratio tender) 0))))))
                   world*
