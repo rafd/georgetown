@@ -253,16 +253,6 @@
                               :improvement-id (:improvement/id improvement)}]
                             (let [[_ money-resource per-resource] (:var/unit offerable-var)]
                               [ui/resource-icons [money-resource per-resource]])]))
-                       (when (and (empty? (:offerable/var offerable))
-                                  (nil? offer))
-                         [ui/button {:on-click
-                                     (fn []
-                                       (state/exec!
-                                         :command/set-offer!
-                                         {:improvement-id (:improvement/id improvement)
-                                          :offer-type (:offerable/id offerable)
-                                          :offer-amount 1}))}
-                          "Activate"])
                        [offerable-effects-view offer offerable]]))
                   [ui/button {:on-click
                               (fn []

@@ -135,6 +135,7 @@
                            (for [offer (->> improvement
                                             :improvement/id
                                             improvement-id->offers
+                                            (filter blueprints/offer-active?)
                                             (sort-by :offer/type))
                                  :let [offerable (blueprints/offerables (:offer/type offer))]]
                              ^{:key (:offer/id offer)}

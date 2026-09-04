@@ -157,6 +157,7 @@
                :dat/unique :dat.unique/identity}
     :offer/type {:dat/type :db.type/keyword
                  :dat/spec (into [:enum] (keys blueprints/offerables))}
+    ;; currently assuming only one var per offer
     :offer/amount {:dat/type :db.type/long
                    :dat/spec types/PosInt}
     :offer/utilization {:dat/type :db.type/float

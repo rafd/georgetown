@@ -64,6 +64,7 @@
    [:blueprint/label :string]
    [:blueprint/icon :string]
    [:blueprint/description :string]
+   [:blueprint/player-buildable? :boolean]
    [:blueprint/price PosInt]
    [:blueprint/stocks {:optional true}
     [:vector

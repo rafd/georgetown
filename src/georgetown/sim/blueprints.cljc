@@ -8,54 +8,97 @@
          :blueprint/label "House"
          :blueprint/icon "🏠"
          :blueprint/description "Provides shelter"
+         :blueprint/player-buildable? true
          :blueprint/price 5000
          :blueprint/offerables
          [{:offerable/id :offer/house.rental
            :offerable/label "Rental"
            :offerable/capacity 2
-           :offerable/time-shifts #{:time-shift/night}
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening
+                                    :time-shift/night}
            :offerable/var [{:var/id :var/rent-rate
                             :var/label "Rent"
                             :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
-           [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+           [[:effect.direction/from-citizen :resource/money :var/rent-rate]
             [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-player :resource/money :var/rent-rate]]}
+          {:offerable/id :offer/house.sleep
+           :offerable/label "A Good Nights Sleep"
+           :offerable/capacity 2
+           :offerable/time-shifts #{:time-shift/night}
+           :offerable/var []
+           :offerable/effects
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :citizen/physical-stress -0.1]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
+          {:offerable/id :offer/house.relax
+           :offerable/label "Relaxing at Home"
+           :offerable/capacity 2
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/var []
+           :offerable/effects
+           [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :citizen/physical-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]
-            [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.1]]}]}
 
         {:blueprint/id :improvement.type/apartment
          :blueprint/label "Apartment"
          :blueprint/icon "🏢"
          :blueprint/description "Provides shelter"
+         :blueprint/player-buildable? true
          :blueprint/price 50000
          :blueprint/offerables
          [{:offerable/id :offer/apartment.rental
            :offerable/label "Rental"
            :offerable/capacity 25
-           :offerable/time-shifts #{:time-shift/night}
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening
+                                    :time-shift/night}
            :offerable/var [{:var/id :var/rent-rate
                             :var/label "Rent"
                             :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
-           [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+           [[:effect.direction/from-citizen :resource/money :var/rent-rate]
             [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-player :resource/money :var/rent-rate]]}
+          {:offerable/id :offer/apartment.sleep
+           :offerable/label "A Good Nights Sleep"
+           :offerable/capacity 25
+           :offerable/time-shifts #{:time-shift/night}
+           :offerable/var []
+           :offerable/effects
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :citizen/physical-stress -0.1]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
+          {:offerable/id :offer/apartment.relax
+           :offerable/label "Relaxing at Home"
+           :offerable/capacity 25
+           :offerable/time-shifts #{:time-shift/morning
+                                    :time-shift/afternoon
+                                    :time-shift/evening}
+           :offerable/var []
+           :offerable/effects
+           [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :citizen/physical-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress 0.02]
-            [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.1]]}]}
 
 
         {:blueprint/id :improvement.type/park
          :blueprint/label "Park"
          :blueprint/icon "🌳"
          :blueprint/description "A tranquil place for replenish the soul"
+         :blueprint/player-buildable? true
          :blueprint/price 5000
          :blueprint/offerables
          [{:offerable/id :offer/park.leisure
            :offerable/label "Stroll"
+           :offerable/capacity 10
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
@@ -69,6 +112,7 @@
          :blueprint/label "Farm"
          :blueprint/icon "🌽"
          :blueprint/description "Produces food"
+         :blueprint/player-buildable? true
          :blueprint/price 5000
          :blueprint/offerables
          [{:offerable/id :offer/farm.job
@@ -92,6 +136,7 @@
          :blueprint/label "Food Market"
          :blueprint/icon "🛒"
          :blueprint/description "Players sell food to Citizens"
+         :blueprint/player-buildable? true
          :blueprint/price 5000
          :blueprint/stocks [{:stock/resource :resource/labour}]
          :blueprint/offerables
@@ -132,6 +177,7 @@
          :blueprint/label "Big Farm"
          :blueprint/icon "🚜"
          :blueprint/description "Produces food"
+         :blueprint/player-buildable? true
          :blueprint/price 50000
          :blueprint/offerables
          [{:offerable/id :offer/big-farm.job
@@ -157,6 +203,7 @@
          :blueprint/label "Monument"
          :blueprint/icon "🗿"
          :blueprint/description "It's not good for anything, but looks cool I guess?"
+         :blueprint/player-buildable? true
          :blueprint/price 500000
          :blueprint/offerables []}
         ]
@@ -170,6 +217,12 @@
        vals
        (mapcat :blueprint/offerables)
        (types/key-by :offerable/id)))
+
+(defn offer-active?
+  "Var-less offers are always active; offers with vars are active once an amount is set."
+  [offer]
+  (or (some? (:offer/amount offer))
+      (empty? (:offerable/var (offerables (:offer/type offer))))))
 
 (def citizen-attributes
   {:citizen/physical-stress {:citizen-attribute/icon "😰"
@@ -187,7 +240,7 @@
   [offer [_direction _target amount]]
   (if (keyword? amount)
     ;; offerables currently have at most one var, so the offer's amount is its value
-    (:offer/amount offer)
+    (or (:offer/amount offer) 0)
     amount))
 
 (defn effect-sum

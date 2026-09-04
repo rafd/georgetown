@@ -87,7 +87,7 @@
         offers (->> improvements
                     (mapcat (fn [[improvement-id improvement]]
                               (->> (:improvement/offers improvement)
-                                   (filter :offer/amount)
+                                   (filter blueprints/offer-active?)
                                    (map (fn [offer]
                                           (assoc offer
                                             :offer/improvement-id improvement-id
@@ -199,7 +199,7 @@
                  :tender/demand [:resource/money (* capacity (:offer/amount offer))]})))))
 
 (defn run-goods-market
-  "Aggregate market for food (every tick) or shelter (night tick).
+  "Aggregate market for food or shelter (every tick).
   Two passes: pass 1 sets the clearing price; citizens that cannot afford it
   go without (and gain stress); pass 2, at the reduced demand, determines
   which suppliers actually sell."
@@ -490,6 +490,21 @@
                  (< (rand) (death-chance citizen))))
        (map :citizen/id)))
 
+(defn emigration-chance
+  "Stressed citizens with little savings are likely to leave the island."
+  [citizen]
+  (* constants/base-emigration-chance
+     (mean-stress citizen)
+     (- 1 (clamp01 (/ (:citizen/savings citizen)
+                      constants/money-supply-target-per-citizen)))))
+
+(defn pick-emigrant-citizen-ids [world]
+  (->> (:world/citizens world)
+       vals
+       (filter (fn [citizen]
+                 (< (rand) (emigration-chance citizen))))
+       (map :citizen/id)))
+
 (defn randomize [n odds]
   (->> (repeatedly (fn [] (< (rand) odds)))
        (take n)
@@ -609,19 +624,26 @@
         night? (= :time-shift/night (:world/shift world))
         world (-> world
                   (run-goods-market :resource/food)
-                  (cond-> night?
-                    (run-goods-market :resource/shelter))
+                  (run-goods-market :resource/shelter)
                   run-allocation
                   run-citizen-maintenance)
         dead-citizen-ids (set (pick-dead-citizen-ids world))
         world (update world :world/citizens
                       (fn [citizens]
                         (apply dissoc citizens dead-citizen-ids)))
+        emigrant-citizen-ids (set (pick-emigrant-citizen-ids world))
+        world (update world :world/citizens
+                      (fn [citizens]
+                        (apply dissoc citizens emigrant-citizen-ids)))
         citizens (vals (:world/citizens world))
         population (count citizens)
 
         ;; loans & taxes
-        {:keys [loan-txs player-debt-payments]} (loans island-id)
+        ;; loan payments are daily, so only charge on the night tick
+        {:keys [loan-txs player-debt-payments]} (if night?
+                                                  (loans island-id)
+                                                  {:loan-txs []
+                                                   :player-debt-payments {}})
         player-taxes (taxes island-id)
         world (reduce (fn [memo [player-id amount]]
                         (update-player-money memo player-id amount))
@@ -731,6 +753,7 @@
           {:sim.out/shift (:world/shift world)
            :sim.out/population population
            :sim.out/deaths (count dead-citizen-ids)
+           :sim.out/emigrations (count emigrant-citizen-ids)
            :sim.out/total-citizen-savings final-citizen-savings
            :sim.out/mean-physical-stress (if (pos? population)
                                            (/ (->> (:world/citizens world)
@@ -769,7 +792,7 @@
         ;; citizens
         (for [citizen (vals (:world/citizens world))]
           (update citizen :citizen/savings double))
-        (for [citizen-id dead-citizen-ids]
+        (for [citizen-id (into dead-citizen-ids emigrant-citizen-ids)]
           [:db/retractEntity [:citizen/id citizen-id]])
         ;; players
         (mapcat (fn [[player-id player]]

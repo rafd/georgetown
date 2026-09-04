@@ -160,12 +160,19 @@
                         (:blueprint/price (blueprints/blueprints improvement-type)))]])
     :effect
     (fn [{:keys [user-id lot-id improvement-type]}]
-      (let [amount (:blueprint/price (blueprints/blueprints improvement-type))]
+      (let [blueprint (blueprints/blueprints improvement-type)
+            amount (:blueprint/price blueprint)]
         (db/transact!
           [{:lot/id lot-id
             :lot/improvement
             {:improvement/id (uuid/random)
-             :improvement/type improvement-type}}
+             :improvement/type improvement-type
+             ;; offers with vars start without an amount, ie. inactive
+             :improvement/offers
+             (->> (:blueprint/offerables blueprint)
+                  (mapv (fn [offerable]
+                          {:offer/id (uuid/random)
+                           :offer/type (:offerable/id offerable)})))}}
            [:fn/transfer-to-government
             (s/qget [:lot/id lot-id] [:island/_lots :island/id])
             amount]
