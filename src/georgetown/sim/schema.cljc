@@ -57,17 +57,17 @@
 
    :entity/citizen
    (-> {:citizen/id {:dat/type :db.type/uuid
-                 :dat/unique :dat.unique/identity}
+                     :dat/unique :dat.unique/identity}
         :citizen/savings {:dat/type :db.type/float
-                      :dat/spec [:double {:min 0}]
-                      ::generator-immigrant (fn []
-                                              (* 1200.0 (math/beta 5 5)))
-                      ::generator-baby (fn [] 0.0)}
+                          :dat/spec [:double {:min 0}]
+                          ::generator-immigrant (fn []
+                                                  (* 1200.0 (math/beta 5 5)))
+                          ::generator-baby (fn [] 0.0)}
         :citizen/age-ticks {:dat/type :db.type/long
-                        :dat/spec [:int {:min 0}]
-                        ::generator-immigrant (fn []
-                                                (int (* 100 time/ticks-per-year (math/beta 20 50))))
-                        ::generator-baby (fn [] 0)}}
+                            :dat/spec [:int {:min 0}]
+                            ::generator-immigrant (fn []
+                                                    (int (* 100 time/ticks-per-year (math/beta 20 50))))
+                            ::generator-baby (fn [] 0)}}
        (into (for [k [;; citizens have different 'preferences' with regards to how they can spend their time
                       ;; preferences range from 0.0 to 1.0, and start around 0.5
                       ;; preferences are set at birth/immigration
