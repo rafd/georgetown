@@ -18,11 +18,11 @@
                             :var/label "Rent"
                             :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/from-sim :resource/money :var/rent-rate]
-            [:effect.direction/to-sim :resource/shelter 1]
-            [:effect.direction/to-sim :sim/physical-stress -0.05]
-            [:effect.direction/to-sim :sim/mental-stress -0.05]
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+            [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]
             [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
 
         {:blueprint/id :improvement.type/apartment
@@ -39,12 +39,12 @@
                             :var/label "Rent"
                             :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/from-sim :resource/money :var/rent-rate]
-            [:effect.direction/to-sim :resource/shelter 1]
-            [:effect.direction/to-sim :sim/physical-stress -0.05]
-            [:effect.direction/to-sim :sim/mental-stress -0.05]
-            [:effect.direction/to-sim :sim/mental-stress 0.02]
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+            [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.02]
             [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
 
 
@@ -61,9 +61,9 @@
                                     :time-shift/evening}
            :offerable/var []
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/to-sim :sim/physical-stress -0.05]
-            [:effect.direction/to-sim :sim/mental-stress -0.05]]}]}
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
 
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
@@ -76,22 +76,22 @@
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon}
-           :offerable/skill-productivity-weights {:sim/skill.intellect 0.1
-                                                  :sim/skill.fitness 0.8
-                                                  :sim/skill.social 0.1}
+           :offerable/skill-productivity-weights {:citizen/skill.intellect 0.1
+                                                  :citizen/skill.fitness 0.8
+                                                  :citizen/skill.social 0.1}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/to-sim :resource/money :var/job-rate]
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :resource/money :var/job-rate]
             [:effect.direction/from-player :resource/money :var/job-rate]
             [:effect.direction/to-player :resource/food 12]]}]}
 
         {:blueprint/id :improvement.type/food-market
          :blueprint/label "Food Market"
          :blueprint/icon "🛒"
-         :blueprint/description "Players sell food to Sims"
+         :blueprint/description "Players sell food to Citizens"
          :blueprint/price 5000
          :blueprint/stocks [{:stock/resource :resource/labour}]
          :blueprint/offerables
@@ -100,16 +100,16 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
-           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
-                                                  :sim/skill.fitness 0.1
-                                                  :sim/skill.social 0.5}
+           :offerable/skill-productivity-weights {:citizen/skill.intellect 0.4
+                                                  :citizen/skill.fitness 0.1
+                                                  :citizen/skill.social 0.5}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/to-sim :resource/money :var/job-rate]
-            [:effect.direction/to-sim :sim/physical-stress 0.02]
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :resource/money :var/job-rate]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.02]
             [:effect.direction/to-self :resource/labour 10]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
 
@@ -122,8 +122,8 @@
                             :var/label "Food Price"
                             :var/unit [:/ :resource/money :resource/food]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/money :var/food-price]
-            [:effect.direction/to-sim :resource/food 1]
+           [[:effect.direction/from-citizen :resource/money :var/food-price]
+            [:effect.direction/to-citizen :resource/food 1]
             [:effect.direction/from-self :resource/labour 0.5]
             [:effect.direction/from-player :resource/food 1]
             [:effect.direction/to-player :resource/money :var/food-price]]}]}
@@ -140,16 +140,16 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
-           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
-                                                  :sim/skill.fitness 0.5
-                                                  :sim/skill.social 0.1}
+           :offerable/skill-productivity-weights {:citizen/skill.intellect 0.4
+                                                  :citizen/skill.fitness 0.5
+                                                  :citizen/skill.social 0.1}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
-           [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/to-sim :resource/money :var/job-rate]
-            [:effect.direction/to-sim :sim/physical-stress 0.02]
+           [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/to-citizen :resource/money :var/job-rate]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.02]
             [:effect.direction/from-player :resource/money :var/job-rate]
             [:effect.direction/to-player :resource/food 20]]}]}
 
@@ -171,17 +171,17 @@
        (mapcat :blueprint/offerables)
        (types/key-by :offerable/id)))
 
-(def sim-attributes
-  {:sim/physical-stress {:sim-attribute/icon "😰"
-                         :sim-attribute/label "physical stress"}
-   :sim/mental-stress {:sim-attribute/icon "🤯"
-                       :sim-attribute/label "mental stress"}
-   :sim/skill.intellect {:sim-attribute/icon "🧠"
-                         :sim-attribute/label "intellect"}
-   :sim/skill.fitness {:sim-attribute/icon "💪"
-                       :sim-attribute/label "fitness"}
-   :sim/skill.social {:sim-attribute/icon "🗣️"
-                      :sim-attribute/label "social"}})
+(def citizen-attributes
+  {:citizen/physical-stress {:citizen-attribute/icon "😰"
+                         :citizen-attribute/label "physical stress"}
+   :citizen/mental-stress {:citizen-attribute/icon "🤯"
+                       :citizen-attribute/label "mental stress"}
+   :citizen/skill.intellect {:citizen-attribute/icon "🧠"
+                         :citizen-attribute/label "intellect"}
+   :citizen/skill.fitness {:citizen-attribute/icon "💪"
+                       :citizen-attribute/label "fitness"}
+   :citizen/skill.social {:citizen-attribute/icon "🗣️"
+                      :citizen-attribute/label "social"}})
 
 (defn resolve-effect-amount
   [offer [_direction _target amount]]
@@ -208,11 +208,11 @@
                                       [direction target]))
                                set)]
     (cond
-      (contains? direction-targets [:effect.direction/to-sim :resource/food])
+      (contains? direction-targets [:effect.direction/to-citizen :resource/food])
       :offer.category/food-sale
-      (contains? direction-targets [:effect.direction/to-sim :resource/shelter])
+      (contains? direction-targets [:effect.direction/to-citizen :resource/shelter])
       :offer.category/housing
-      (contains? direction-targets [:effect.direction/from-sim :resource/time])
+      (contains? direction-targets [:effect.direction/from-citizen :resource/time])
       :offer.category/time
       :else
       :offer.category/other)))
@@ -224,7 +224,7 @@
        (keep (fn [[direction target _amount]]
                (when (and (contains? #{:effect.direction/from-player
                                        :effect.direction/to-player
-                                       :effect.direction/to-sim} direction)
+                                       :effect.direction/to-citizen} direction)
                           (contains? types/resources target)
                           (not= :resource/money target))
                  target)))

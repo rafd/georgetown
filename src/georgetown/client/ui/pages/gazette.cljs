@@ -29,11 +29,11 @@
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
        [:tr
-        [:td "sim savings"]
+        [:td "citizen savings"]
         [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/total-sim-savings stats) 0 :resource/money]]
+         [ui/resource-amount (:sim.out/total-citizen-savings stats) 0 :resource/money]]
         [:td
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/total-sim-savings])]]]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/total-citizen-savings])]]]
        [:tr
         [:td {:tw "align-top"} "resident:citizen cash ratio"]
         [:td {:tw "text-right align-top"}

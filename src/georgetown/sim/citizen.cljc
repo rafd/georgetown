@@ -6,15 +6,15 @@
 
 (defn random [generator-k]
   (assoc (->> schema/schema
-              :entity/sim
+              :entity/citizen
               (map (fn [[k v]]
                      (when-let [g (get v generator-k)]
                        [k (g)])))
               (into {}))
-         :sim/id (uuid/random)))
+         :citizen/id (uuid/random)))
 
-(defn age-in-years [sim]
-  (time/ticks->years (:sim/age-ticks sim)))
+(defn age-in-years [citizen]
+  (time/ticks->years (:citizen/age-ticks citizen)))
 
 #_(random ::schema/generator-immigrant)
 #_(random ::schema/generator-baby)

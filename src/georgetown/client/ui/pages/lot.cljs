@@ -22,8 +22,8 @@
    :time-shift/night "🌙"})
 
 (def direction-labels
-  {:effect.direction/from-sim "sim−"
-   :effect.direction/to-sim "sim+"
+  {:effect.direction/from-citizen "citizen−"
+   :effect.direction/to-citizen "citizen+"
    :effect.direction/from-player "you−"
    :effect.direction/to-player "you+"
    :effect.direction/from-self "stock−"
@@ -37,8 +37,8 @@
      [:span (or amount "?")]
      (if (contains? types/resources target)
        [ui/resource-icon target]
-       [:span {:title (:sim-attribute/label (blueprints/sim-attributes target))}
-        (:sim-attribute/icon (blueprints/sim-attributes target))])]))
+       [:span {:title (:citizen-attribute/label (blueprints/citizen-attributes target))}
+        (:citizen-attribute/icon (blueprints/citizen-attributes target))])]))
 
 (defn offerable-effects-view
   [offer offerable]

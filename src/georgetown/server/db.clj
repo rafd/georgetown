@@ -25,11 +25,11 @@
 (defn transact! [txs]
   (dat/transact! (db) txs))
 
-(defn add-sim!
-  [island-id sim]
+(defn add-citizen!
+  [island-id citizen]
   (transact!
     [{:island/id island-id
-      :island/sims [sim]}]))
+      :island/citizens [citizen]}]))
 
 (defn q [query & args]
   (apply dat/q query @(db) args))

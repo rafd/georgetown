@@ -46,13 +46,13 @@
 (def Resource
   (into [:enum] (keys resources)))
 
-(def SimAttribute
+(def CitizenAttribute
   [:enum
-   :sim/physical-stress
-   :sim/mental-stress
-   :sim/skill.intellect
-   :sim/skill.fitness
-   :sim/skill.social])
+   :citizen/physical-stress
+   :citizen/mental-stress
+   :citizen/skill.intellect
+   :citizen/skill.fitness
+   :citizen/skill.social])
 
 (def VarId [:qualified-keyword {:namespace :var}])
 
@@ -82,11 +82,11 @@
                                       :time-shift/evening
                                       :time-shift/night]]]
        ;; jobs have weights per skill
-       ;; when combined with the skills of a specific sim, they determine the productivity
-       ;; also affect the rate at which sim skills are improved (along with sim talent for that skill)
+       ;; when combined with the skills of a specific citizen, they determine the productivity
+       ;; also affect the rate at which citizen skills are improved (along with citizen talent for that skill)
        [:offerable/skill-productivity-weights {:optional true}
         [:map-of
-         [:enum :sim/skill.intellect :sim/skill.social :sim/skill.fitness]
+         [:enum :citizen/skill.intellect :citizen/skill.social :citizen/skill.fitness]
          [:double {:min 0 :max 1}]]]
        [:offerable/var
         [:vector
@@ -98,13 +98,13 @@
         [:vector
          [:tuple
           [:enum
-           :effect.direction/from-sim
-           :effect.direction/to-sim
+           :effect.direction/from-citizen
+           :effect.direction/to-citizen
            :effect.direction/from-player
            :effect.direction/to-player
            :effect.direction/from-self
            :effect.direction/to-self]
-          [:or Resource SimAttribute]
+          [:or Resource CitizenAttribute]
           [:or number? VarId]]]]]
       [:fn {:error/message "effect refers to a var not declared in :offerable/var"}
        (fn [{:offerable/keys [var effects]}]

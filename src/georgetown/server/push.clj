@@ -19,7 +19,7 @@
                  :island/joy
                  {:island/residents
                   [:resident/id]}
-                 {:island/sims [*]}
+                 {:island/citizens [*]}
                  {:island/lots
                   [:lot/id
                    :lot/x

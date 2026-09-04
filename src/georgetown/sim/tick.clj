@@ -15,15 +15,15 @@
       (max 0.0)
       (min 1.0)))
 
-(defn mean-stress [sim]
-  (/ (+ (:sim/physical-stress sim)
-        (:sim/mental-stress sim))
+(defn mean-stress [citizen]
+  (/ (+ (:citizen/physical-stress citizen)
+        (:citizen/mental-stress citizen))
      2))
 
-(defn stress-sim [sim amount]
-  (-> sim
-      (update :sim/physical-stress (fn [stress] (clamp01 (+ stress amount))))
-      (update :sim/mental-stress (fn [stress] (clamp01 (+ stress amount))))))
+(defn stress-citizen [citizen amount]
+  (-> citizen
+      (update :citizen/physical-stress (fn [stress] (clamp01 (+ stress amount))))
+      (update :citizen/mental-stress (fn [stress] (clamp01 (+ stress amount))))))
 
 (defn epoch->shift [epoch]
   (nth constants/shift-order (mod epoch (count constants/shift-order))))
@@ -40,7 +40,7 @@
   [island-id]
   (let [island (db/q '[:find (pull ?island [:island/epoch
                                             :island/government-money-balance
-                                            {:island/sims [*]}]) .
+                                            {:island/citizens [*]}]) .
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
@@ -99,9 +99,9 @@
     {:world/epoch (:island/epoch island)
      :world/shift (epoch->shift (:island/epoch island))
      :world/government-money-balance (:island/government-money-balance island)
-     :world/sims (->> (:island/sims island)
-                      (map (fn [sim]
-                             [(:sim/id sim) sim]))
+     :world/citizens (->> (:island/citizens island)
+                      (map (fn [citizen]
+                             [(:citizen/id citizen) citizen]))
                       (into {}))
      :world/residents residents
      :world/initial-resident-balances (->> residents
@@ -147,8 +147,8 @@
 (defn update-resident-money [world resident-id amount]
   (update-in world [:world/residents resident-id :resident/money-balance] + amount))
 
-(defn update-sim-savings [world sim-id amount]
-  (update-in world [:world/sims sim-id :sim/savings]
+(defn update-citizen-savings [world citizen-id amount]
+  (update-in world [:world/citizens citizen-id :citizen/savings]
              (fn [savings]
                (max 0.0 (+ savings amount)))))
 
@@ -203,42 +203,42 @@
 
 (defn run-goods-market
   "Aggregate market for food (every tick) or shelter (night tick).
-  Two passes: pass 1 sets the clearing price; sims that cannot afford it
+  Two passes: pass 1 sets the clearing price; citizens that cannot afford it
   go without (and gain stress); pass 2, at the reduced demand, determines
   which suppliers actually sell."
   [world resource]
   (let [tenders (case resource
                   :resource/food (food-sale-tenders world)
                   :resource/shelter (housing-tenders world))
-        sims (vals (:world/sims world))
-        population (count sims)
-        total-savings (->> sims
-                           (map :sim/savings)
+        citizens (vals (:world/citizens world))
+        population (count citizens)
+        total-savings (->> citizens
+                           (map :citizen/savings)
                            (reduce + 0.0))
         {clearing-price :market/clearing-unit-price}
         (m/market resource population
                   :resource/money total-savings
                   tenders)
         buyers (if clearing-price
-                 (->> sims
-                      (filter (fn [sim]
-                                (> (:sim/savings sim) clearing-price))))
+                 (->> citizens
+                      (filter (fn [citizen]
+                                (> (:citizen/savings citizen) clearing-price))))
                  [])
         {demand-filled :market/demand-filled
          supply-consumed :market/supply-consumed
          final-tenders :market/tenders}
         (m/market resource (count buyers)
                   :resource/money (->> buyers
-                                       (map :sim/savings)
+                                       (map :citizen/savings)
                                        (reduce + 0.0))
                   tenders)
         served-count (long demand-filled)
         average-price (if (pos? served-count)
                         (/ supply-consumed demand-filled)
                         0.0)
-        served-sims (take served-count (shuffle buyers))
-        unserved-sims (remove (set (map :sim/id served-sims))
-                              (map :sim/id sims))
+        served-citizens (take served-count (shuffle buyers))
+        unserved-citizens (remove (set (map :citizen/id served-citizens))
+                              (map :citizen/id citizens))
         stress-increase (case resource
                           :resource/food constants/hungry-stress-increase
                           :resource/shelter constants/unhoused-stress-increase)
@@ -249,15 +249,15 @@
     (-> world
         ;; buyers pay the average unit price, so money exactly matches supplier receipts
         (as-> world*
-          (reduce (fn [memo sim]
-                    (update-sim-savings memo (:sim/id sim) (- average-price)))
+          (reduce (fn [memo citizen]
+                    (update-citizen-savings memo (:citizen/id citizen) (- average-price)))
                   world*
-                  served-sims))
+                  served-citizens))
         (as-> world*
-          (reduce (fn [memo sim-id]
-                    (update-in memo [:world/sims sim-id] stress-sim stress-increase))
+          (reduce (fn [memo citizen-id]
+                    (update-in memo [:world/citizens citizen-id] stress-citizen stress-increase))
                   world*
-                  unserved-sims))
+                  unserved-citizens))
         (as-> world*
           (reduce (fn [memo tender]
                     (let [fill-amount (or (:tender/fill-amount tender) 0)
@@ -280,34 +280,34 @@
                    :clearing-price clearing-price
                    :average-price average-price
                    :cost supply-consumed
-                   :unserved-count (count unserved-sims)}))))
+                   :unserved-count (count unserved-citizens)}))))
 
 ;; ---- work & leisure allocation ----
 
 (defn allocate-shift
-  "Assigns each sim's current shift to at most one time-offer.
+  "Assigns each citizen's current shift to at most one time-offer.
   Draft implementation: random choice among affordable offers with
   remaining capacity (and solvent owners); nil means idle.
-  Later: replaced by an optimizer over sim preferences (same interface),
+  Later: replaced by an optimizer over citizen preferences (same interface),
   which will also use :allocate.in/food-price and :allocate.in/shelter-price."
-  [{:allocate.in/keys [sims offers resident-budgets]}]
+  [{:allocate.in/keys [citizens offers resident-budgets]}]
   (:allocations
     (reduce
-      (fn [{:keys [allocations capacities budgets] :as memo} sim]
+      (fn [{:keys [allocations capacities budgets] :as memo} citizen]
         (let [candidates (->> offers
                               (filter (fn [offer]
                                         (let [capacity (get capacities (:offer/id offer))]
                                           (and
                                             (or (nil? capacity)
                                                 (pos? capacity))
-                                            (<= (:allocate/sim-money-cost offer)
-                                                (:sim/savings sim))
+                                            (<= (:allocate/citizen-money-cost offer)
+                                                (:citizen/savings citizen))
                                             (<= (:allocate/wage offer)
                                                 (get budgets (:offer/owner-id offer) 0)))))))
               choice (rand-nth (conj (vec candidates) nil))]
           (if (nil? choice)
-            (update memo :allocations assoc (:sim/id sim) nil)
-            {:allocations (assoc allocations (:sim/id sim) (:offer/id choice))
+            (update memo :allocations assoc (:citizen/id citizen) nil)
+            {:allocations (assoc allocations (:citizen/id citizen) (:offer/id choice))
              :capacities (if (get capacities (:offer/id choice))
                            (update capacities (:offer/id choice) dec)
                            capacities)
@@ -319,56 +319,56 @@
                                   [(:offer/id offer) capacity])))
                         (into {}))
        :budgets resident-budgets}
-      (shuffle sims))))
+      (shuffle citizens))))
 
 (def skill->talent
-  {:sim/skill.intellect :sim/talent.intellect
-   :sim/skill.fitness :sim/talent.fitness
-   :sim/skill.social :sim/talent.social})
+  {:citizen/skill.intellect :citizen/talent.intellect
+   :citizen/skill.fitness :citizen/talent.fitness
+   :citizen/skill.social :citizen/talent.social})
 
-(defn productivity [sim weights]
+(defn productivity [citizen weights]
   (if (seq weights)
     (->> weights
          (map (fn [[skill weight]]
-                (* (get sim skill 0.0) weight)))
+                (* (get citizen skill 0.0) weight)))
          (reduce +))
     1.0))
 
-(defn grow-skills [sim weights]
-  (reduce (fn [sim* [skill weight]]
-            (update sim* skill
+(defn grow-skills [citizen weights]
+  (reduce (fn [citizen* [skill weight]]
+            (update citizen* skill
                     (fn [level]
                       (clamp01 (+ level
                                   (* constants/learn-rate
-                                     (get sim* (skill->talent skill))
+                                     (get citizen* (skill->talent skill))
                                      weight
                                      (- 1 level)))))))
-          sim
+          citizen
           weights))
 
 (defn apply-assignment-effects
-  [world sim-id offer]
+  [world citizen-id offer]
   (let [offerable (blueprints/offerables (:offer/type offer))
-        sim (get-in world [:world/sims sim-id])
-        productivity-factor (productivity sim (:offerable/skill-productivity-weights offerable))
-        world (update-in world [:world/sims sim-id]
+        citizen (get-in world [:world/citizens citizen-id])
+        productivity-factor (productivity citizen (:offerable/skill-productivity-weights offerable))
+        world (update-in world [:world/citizens citizen-id]
                          grow-skills (:offerable/skill-productivity-weights offerable))]
     (reduce
       (fn [world* [direction target _ :as effect]]
         (let [amount (blueprints/resolve-effect-amount offer effect)]
           (case direction
-            :effect.direction/from-sim
+            :effect.direction/from-citizen
             (case target
               :resource/time world*
-              :resource/money (update-sim-savings world* sim-id (- amount))
+              :resource/money (update-citizen-savings world* citizen-id (- amount))
               world*)
-            :effect.direction/to-sim
+            :effect.direction/to-citizen
             (cond
               (= :resource/money target)
-              (update-sim-savings world* sim-id amount)
-              (contains? #{:sim/physical-stress :sim/mental-stress
-                           :sim/skill.intellect :sim/skill.fitness :sim/skill.social} target)
-              (update-in world* [:world/sims sim-id target]
+              (update-citizen-savings world* citizen-id amount)
+              (contains? #{:citizen/physical-stress :citizen/mental-stress
+                           :citizen/skill.intellect :citizen/skill.fitness :citizen/skill.social} target)
+              (update-in world* [:world/citizens citizen-id target]
                          (fn [value] (clamp01 (+ value amount))))
               :else
               world*)
@@ -399,10 +399,10 @@
                                                    shift))))
                          (map (fn [offer]
                                 (assoc offer
-                                  :allocate/sim-money-cost (blueprints/effect-sum offer :effect.direction/from-sim :resource/money)
+                                  :allocate/citizen-money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
                                   :allocate/wage (blueprints/effect-sum offer :effect.direction/from-player :resource/money)))))
         allocations (allocate-shift
-                      {:allocate.in/sims (vals (:world/sims world))
+                      {:allocate.in/citizens (vals (:world/citizens world))
                        :allocate.in/offers time-offers
                        :allocate.in/resident-budgets (->> (:world/residents world)
                                                           (map (fn [[resident-id resident]]
@@ -419,9 +419,9 @@
                              vals
                              (remove nil?)
                              frequencies)]
-    (-> (reduce (fn [world* [sim-id offer-id]]
+    (-> (reduce (fn [world* [citizen-id offer-id]]
                   (if offer-id
-                    (apply-assignment-effects world* sim-id (offers-by-id offer-id))
+                    (apply-assignment-effects world* citizen-id (offers-by-id offer-id))
                     world*))
                 world
                 allocations)
@@ -448,50 +448,50 @@
                                  (filter nil?)
                                  count)))))
 
-;; ---- per-sim maintenance ----
+;; ---- per-citizen maintenance ----
 
-(defn amp-stress [sim]
-  (let [age-factor (+ 0.5 (/ (citizen/age-in-years sim) 100))]
-    (-> sim
-        (update :sim/physical-stress
+(defn amp-stress [citizen]
+  (let [age-factor (+ 0.5 (/ (citizen/age-in-years citizen) 100))]
+    (-> citizen
+        (update :citizen/physical-stress
                 (fn [stress]
                   (clamp01 (+ stress (* constants/stress-amp-base age-factor (+ 0.5 stress))))))
-        (update :sim/mental-stress
+        (update :citizen/mental-stress
                 (fn [stress]
                   (clamp01 (+ stress (* constants/stress-amp-base age-factor (+ 0.5 stress)))))))))
 
-(defn decline-skills [sim]
+(defn decline-skills [citizen]
   (let [decline-factor (* constants/skill-decline-base
-                          (+ 0.5 (/ (citizen/age-in-years sim) 100))
-                          (+ 0.5 (mean-stress sim)))]
-    (reduce (fn [sim* skill]
-              (update sim* skill (fn [level] (clamp01 (* level (- 1 decline-factor))))))
-            sim
+                          (+ 0.5 (/ (citizen/age-in-years citizen) 100))
+                          (+ 0.5 (mean-stress citizen)))]
+    (reduce (fn [citizen* skill]
+              (update citizen* skill (fn [level] (clamp01 (* level (- 1 decline-factor))))))
+            citizen
             (keys skill->talent))))
 
-(defn run-sim-maintenance
+(defn run-citizen-maintenance
   [world]
-  (update world :world/sims
-          (fn [sims]
-            (->> sims
-                 (map (fn [[sim-id sim]]
-                        [sim-id (-> sim
-                                    (update :sim/age-ticks inc)
+  (update world :world/citizens
+          (fn [citizens]
+            (->> citizens
+                 (map (fn [[citizen-id citizen]]
+                        [citizen-id (-> citizen
+                                    (update :citizen/age-ticks inc)
                                     amp-stress
                                     decline-skills)]))
                  (into {})))))
 
-(defn death-chance [sim]
+(defn death-chance [citizen]
   (* constants/base-death-chance
-     (+ 1 (* constants/death-stress-factor (mean-stress sim)))
-     (Math/pow (/ (+ (citizen/age-in-years sim) 1) 40) 2)))
+     (+ 1 (* constants/death-stress-factor (mean-stress citizen)))
+     (Math/pow (/ (+ (citizen/age-in-years citizen) 1) 40) 2)))
 
-(defn pick-dead-sim-ids [world]
-  (->> (:world/sims world)
+(defn pick-dead-citizen-ids [world]
+  (->> (:world/citizens world)
        vals
-       (filter (fn [sim]
-                 (< (rand) (death-chance sim))))
-       (map :sim/id)))
+       (filter (fn [citizen]
+                 (< (rand) (death-chance citizen))))
+       (map :citizen/id)))
 
 (defn randomize [n odds]
   (->> (repeatedly (fn [] (< (rand) odds)))
@@ -615,13 +615,13 @@
                   (cond-> night?
                     (run-goods-market :resource/shelter))
                   run-allocation
-                  run-sim-maintenance)
-        dead-sim-ids (set (pick-dead-sim-ids world))
-        world (update world :world/sims
-                      (fn [sims]
-                        (apply dissoc sims dead-sim-ids)))
-        sims (vals (:world/sims world))
-        population (count sims)
+                  run-citizen-maintenance)
+        dead-citizen-ids (set (pick-dead-citizen-ids world))
+        world (update world :world/citizens
+                      (fn [citizens]
+                        (apply dissoc citizens dead-citizen-ids)))
+        citizens (vals (:world/citizens world))
+        population (count citizens)
 
         ;; loans & taxes
         {:keys [loan-txs resident-debt-payments]} (loans island-id)
@@ -641,8 +641,8 @@
         new-government-balance 0
 
         ;; helicopter money, to keep the money supply proportional to population
-        total-sim-savings (->> sims
-                               (map :sim/savings)
+        total-citizen-savings (->> citizens
+                               (map :citizen/savings)
                                (reduce + 0.0))
         resident-balance (->> (:world/residents world)
                               vals
@@ -650,27 +650,27 @@
                               (reduce + 0))
         net-money-balance (+ new-government-balance
                              citizens-dividend
-                             total-sim-savings
+                             total-citizen-savings
                              resident-balance)
         helicopter-money (max 0
-                              (- (* constants/money-supply-target-per-sim population)
+                              (- (* constants/money-supply-target-per-citizen population)
                                  net-money-balance))
-        per-sim-dividend (if (pos? population)
+        per-citizen-dividend (if (pos? population)
                            (/ (+ citizens-dividend helicopter-money)
                               population)
                            0)
-        world (reduce (fn [memo sim-id]
-                        (update-sim-savings memo sim-id per-sim-dividend))
+        world (reduce (fn [memo citizen-id]
+                        (update-citizen-savings memo citizen-id per-citizen-dividend))
                       world
-                      (keys (:world/sims world)))
+                      (keys (:world/citizens world)))
 
         ;; DEMURRAGE / INTEREST
-        total-sim-savings (->> (:world/sims world)
+        total-citizen-savings (->> (:world/citizens world)
                                vals
-                               (map :sim/savings)
+                               (map :citizen/savings)
                                (reduce + 0.0))
         net-money-balance (+ new-government-balance
-                             total-sim-savings
+                             total-citizen-savings
                              resident-balance)
         cash-ratio-before (if (zero? net-money-balance)
                             0
@@ -691,12 +691,12 @@
                         (update-resident-money memo resident-id delta))
                       world
                       resident-interest-deltas)
-        ;; residents' interest is paid by (or paid to) the sims, per capita
+        ;; residents' interest is paid by (or paid to) the citizens, per capita
         world (if (pos? population)
-                (reduce (fn [memo sim-id]
-                          (update-sim-savings memo sim-id (/ (- interest-delta-total) population)))
+                (reduce (fn [memo citizen-id]
+                          (update-citizen-savings memo citizen-id (/ (- interest-delta-total) population)))
                         world
-                        (keys (:world/sims world)))
+                        (keys (:world/citizens world)))
                 world)
 
         ;; final balances
@@ -707,22 +707,22 @@
         final-resident-balance (->> final-resident-balances
                                     vals
                                     (reduce + 0))
-        final-sim-savings (->> (:world/sims world)
+        final-citizen-savings (->> (:world/citizens world)
                                vals
-                               (map :sim/savings)
+                               (map :citizen/savings)
                                (reduce + 0.0))
         final-net-money-balance (+ new-government-balance
-                                   final-sim-savings
+                                   final-citizen-savings
                                    final-resident-balance)
         cash-ratio-after (if (zero? final-net-money-balance)
                            0
                            (/ final-resident-balance final-net-money-balance))
 
         ;; JOY
-        joy (->> (:world/sims world)
+        joy (->> (:world/citizens world)
                  vals
-                 (map (fn [sim]
-                        (- 1 (mean-stress sim))))
+                 (map (fn [citizen]
+                        (- 1 (mean-stress citizen))))
                  (reduce + 0.0))
 
         public-stats
@@ -733,19 +733,19 @@
           double
           {:sim.out/shift (:world/shift world)
            :sim.out/population population
-           :sim.out/deaths (count dead-sim-ids)
-           :sim.out/total-sim-savings final-sim-savings
+           :sim.out/deaths (count dead-citizen-ids)
+           :sim.out/total-citizen-savings final-citizen-savings
            :sim.out/mean-physical-stress (if (pos? population)
-                                           (/ (->> (:world/sims world)
+                                           (/ (->> (:world/citizens world)
                                                    vals
-                                                   (map :sim/physical-stress)
+                                                   (map :citizen/physical-stress)
                                                    (reduce + 0.0))
                                               population)
                                            0)
            :sim.out/mean-mental-stress (if (pos? population)
-                                         (/ (->> (:world/sims world)
+                                         (/ (->> (:world/citizens world)
                                                  vals
-                                                 (map :sim/mental-stress)
+                                                 (map :citizen/mental-stress)
                                                  (reduce + 0.0))
                                             population)
                                          0)
@@ -769,11 +769,11 @@
                      :island/epoch (inc (:world/epoch world))
                      :island/government-money-balance (long new-government-balance)}]
           [:db/add [:island/id island-id] k v])
-        ;; sims
-        (for [sim (vals (:world/sims world))]
-          (update sim :sim/savings double))
-        (for [sim-id dead-sim-ids]
-          [:db/retractEntity [:sim/id sim-id]])
+        ;; citizens
+        (for [citizen (vals (:world/citizens world))]
+          (update citizen :citizen/savings double))
+        (for [citizen-id dead-citizen-ids]
+          [:db/retractEntity [:citizen/id citizen-id]])
         ;; residents
         (mapcat (fn [[resident-id resident]]
                   (concat
@@ -799,7 +799,7 @@
         loan-txs
         (resident-bankruptcy-txs final-resident-balances)))
     ;; births & immigration
-    (dotimes [_ (randomize population constants/birth-chance-per-sim-per-tick)]
-      (db/add-sim! island-id (citizen/random ::schema/generator-baby)))
-    (when (< (rand) constants/sim-immigration-chance)
-      (db/add-sim! island-id (citizen/random ::schema/generator-immigrant)))))
+    (dotimes [_ (randomize population constants/birth-chance-per-citizen-per-tick)]
+      (db/add-citizen! island-id (citizen/random ::schema/generator-baby)))
+    (when (< (rand) constants/citizen-immigration-chance)
+      (db/add-citizen! island-id (citizen/random ::schema/generator-immigrant)))))

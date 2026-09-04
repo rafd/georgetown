@@ -41,19 +41,19 @@ It is not about amassing the most cash (try it - it will lead to an economics co
 
 - The Simulation
   - the game ticks 1/sec, 1 sec real world ~= 1 day in game
-  - Sims
-    - an island has a population of citizens ("sims")
-    - sims require
+  - Citizens
+    - an island has a population of citizens
+    - citizens require
        - 1 shelter per tick
        - 21 food per tick
-    - government redistributes its tax revenues to sims (as a citizen's dividend)
-    - sims have savings
-    - sims seek food and shelter from markets
-    - sim will work to meet their needs for food and shelter (with savings to cover future needs)
+    - government redistributes its tax revenues to citizens (as a citizen's dividend)
+    - citizens have savings
+    - citizens seek food and shelter from markets
+    - citizens will work to meet their needs for food and shelter (with savings to cover future needs)
   - Population
-    - sims have a fixed chance of dying
-    - new sims arrive if there is capacity (and faster if there is more time spent on leisure)
-    - sims will leave if there is insufficient capacity
+    - citizens have a fixed chance of dying
+    - new citizens arrive if there is capacity (and faster if there is more time spent on leisure)
+    - citizens will leave if there is insufficient capacity
     (food or shelter)
   - Markets
     - there are markets for food, shelter, and labour

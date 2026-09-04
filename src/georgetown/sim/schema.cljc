@@ -24,7 +24,7 @@
                  :dat/spec types/PosInt}
     :island/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
                        :dat/component? true}
-    :island/sims {:dat/rel [:dat.rel/many :entity/sim :sim/id]
+    :island/citizens {:dat/rel [:dat.rel/many :entity/citizen :citizen/id]
                   :dat/component? true}
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
                   :dat/component? true}
@@ -53,47 +53,47 @@
     :resident/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
                      :dat/component? true}}
 
-   :entity/sim
-   (-> {:sim/id {:dat/type :db.type/uuid
+   :entity/citizen
+   (-> {:citizen/id {:dat/type :db.type/uuid
                  :dat/unique :dat.unique/identity}
-        :sim/savings {:dat/type :db.type/float
+        :citizen/savings {:dat/type :db.type/float
                       :dat/spec [:double {:min 0}]
                       ::generator-immigrant (fn []
                                               (* 1200.0 (math/beta 5 5)))
                       ::generator-baby (fn [] 0.0)}
-        :sim/age-ticks {:dat/type :db.type/long
+        :citizen/age-ticks {:dat/type :db.type/long
                         :dat/spec [:int {:min 0}]
                         ::generator-immigrant (fn []
                                                 (int (* 100 time/ticks-per-year (math/beta 20 50))))
                         ::generator-baby (fn [] 0)}}
-       (into (for [k [;; sims have different 'preferences' with regards to how they can spend their time
+       (into (for [k [;; citizens have different 'preferences' with regards to how they can spend their time
                       ;; preferences range from 0.0 to 1.0, and start around 0.5
                       ;; preferences are set at birth/immigration
-                      :sim/preference.security
-                      :sim/preference.self-improvement
-                      :sim/preference.physical-stress
-                      :sim/preference.mental-stress
-                      :sim/preference.spiritual-activity
-                      :sim/preference.social-activity
-                      :sim/preference.physical-activity
-                      :sim/preference.intellectual-activity
-                      ;; sims have 'talents', which affect the rate which skills improve
+                      :citizen/preference.security
+                      :citizen/preference.self-improvement
+                      :citizen/preference.physical-stress
+                      :citizen/preference.mental-stress
+                      :citizen/preference.spiritual-activity
+                      :citizen/preference.social-activity
+                      :citizen/preference.physical-activity
+                      :citizen/preference.intellectual-activity
+                      ;; citizens have 'talents', which affect the rate which skills improve
                       ;; talents range from 0.0 to 1.0, and start around 0.5
                       ;; talents are set at birth/immigration
-                      :sim/talent.intellect
-                      :sim/talent.fitness
-                      :sim/talent.social]]
+                      :citizen/talent.intellect
+                      :citizen/talent.fitness
+                      :citizen/talent.social]]
                [k {:dat/type :db.type/float
                    :dat/spec [:double {:min 0 :max 1}]
                    ::generator-immigrant (fn [] (math/beta 5 5))
                    ::generator-baby (fn [] (math/beta 5 5))}]))
-       (into (for [k [;; sims have 'skills', which affect productivity, and improve when practised
-                      :sim/skill.intellect
-                      :sim/skill.fitness
-                      :sim/skill.social
-                      ;; sims have stress, which is affected by work, leisure, lack of food and shelter
-                      :sim/physical-stress
-                      :sim/mental-stress]]
+       (into (for [k [;; citizens have 'skills', which affect productivity, and improve when practised
+                      :citizen/skill.intellect
+                      :citizen/skill.fitness
+                      :citizen/skill.social
+                      ;; citizens have stress, which is affected by work, leisure, lack of food and shelter
+                      :citizen/physical-stress
+                      :citizen/mental-stress]]
                [k {:dat/type :db.type/float
                    :dat/spec [:double {:min 0 :max 1}]
                    ::generator-immigrant (fn [] (math/beta 5 5))
