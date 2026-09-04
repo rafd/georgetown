@@ -15,12 +15,6 @@
    (into [:div {:tw "p-1"}]
          content)])
 
-(def shift-icons
-  {:time-shift/morning "🌅"
-   :time-shift/afternoon "☀️"
-   :time-shift/evening "🌆"
-   :time-shift/night "🌙"})
-
 (def direction-labels
   {:effect.direction/from-citizen "citizen−"
    :effect.direction/to-citizen "citizen+"
@@ -244,7 +238,7 @@
                                      :time-shift/evening
                                      :time-shift/night]
                                     (filter (:offerable/time-shifts offerable))
-                                    (map shift-icons)
+                                    (map ui/shift-icons)
                                     (apply str))]
                         (when-let [capacity (:offerable/capacity offerable)]
                           [:span "capacity " capacity])]

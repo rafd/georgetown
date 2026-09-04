@@ -25,9 +25,6 @@
       (update :citizen/physical-stress (fn [stress] (clamp01 (+ stress amount))))
       (update :citizen/mental-stress (fn [stress] (clamp01 (+ stress amount))))))
 
-(defn epoch->shift [epoch]
-  (nth constants/shift-order (mod epoch (count constants/shift-order))))
-
 ;; ---- world extraction ----
 
 (defn stocks-by-resource [stocks]
@@ -97,7 +94,7 @@
                                             :offer/owner-id (:improvement/owner-id improvement)
                                             :offer/category (blueprints/offer-category offer))))))))]
     {:world/epoch (:island/epoch island)
-     :world/shift (epoch->shift (:island/epoch island))
+     :world/shift (constants/epoch->shift (:island/epoch island))
      :world/government-money-balance (:island/government-money-balance island)
      :world/citizens (->> (:island/citizens island)
                       (map (fn [citizen]

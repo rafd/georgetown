@@ -28,6 +28,8 @@
                   :dat/component? true}
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
                   :dat/component? true}
+    ;; number of ticks since start
+    ;; 4 ticks per day
     :island/epoch {:dat/type :db.type/long
                    :dat/spec types/PosInt}}
 

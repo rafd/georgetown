@@ -45,6 +45,12 @@
    label
    [fa/fa-info-circle-solid {:tw "w-0.75em w-0.75em text-gray-400"}]])
 
+(def shift-icons
+  {:time-shift/morning "🌅"
+   :time-shift/afternoon "☀️"
+   :time-shift/evening "🌆"
+   :time-shift/night "🌙"})
+
 (defn resource-icon
   [resource-id]
   (when resource-id

@@ -5,7 +5,8 @@
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.client.state :as state]
     [georgetown.client.ui.common :as ui]
-    [georgetown.sim.biome :as biome]))
+    [georgetown.sim.biome :as biome]
+    [georgetown.sim.constants :as constants]))
 
 (def tile-size 4)
 
@@ -18,9 +19,10 @@
      "v." (or (:version @v) "???")]))
 
 (defn date [epoch]
-  ;; September 2, 1839 (Henry George's birthday) + epoch days
+  ;; September 2, 1839 (Henry George's birthday) + elapsed days
+  ;; an epoch is one shift, several shifts per day
   (let [date (js/Date. 1839 8 2)]
-    (.setDate date (+ 1 epoch))
+    (.setDate date (+ 1 (quot epoch (count constants/shift-order))))
     (.toLocaleDateString date "en-CA" #js {:year "numeric" :month "numeric" :day "numeric"})))
 
 (defn map-view []
@@ -50,7 +52,9 @@
                :title "citizens"}
            "👤"]]
          [:div.epoch {:tw "bg-white px-1"}
-          [ui/value-with-icon (date (:island/epoch island)) "🗓️"]]
+          [ui/value-with-icon
+           (date (:island/epoch island))
+           (ui/shift-icons (constants/epoch->shift (:island/epoch island)))]]
          [:div.joy {:tw "bg-white px-1"}
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
          (if @state/player

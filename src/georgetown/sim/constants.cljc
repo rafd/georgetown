@@ -9,6 +9,9 @@
    :time-shift/evening
    :time-shift/night])
 
+(defn epoch->shift [epoch]
+  (nth shift-order (mod epoch (count shift-order))))
+
 ;; cljs has no ratios, use division
 
 (def hungry-stress-increase 0.03)
