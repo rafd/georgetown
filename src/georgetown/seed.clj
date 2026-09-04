@@ -6,6 +6,7 @@
 
 (defn seed! []
   (db/retract-all!)
+  (db/connect!)
   (s/initialize!)
   (s/create-island!)
   nil)
@@ -39,8 +40,7 @@
                                [;; house
                                 [:improvement.type/house {:offer/house.rental 2}]
                                 ;; farm
-                                [:improvement.type/farm {:offer/farm.food 12
-                                                         :offer/farm.job 10}]
+                                [:improvement.type/farm {:offer/farm.job 10}]
                                 ;; big farm
                                 #_[:improvement.type/big-farm {:offer/big-farm.food 30
                                                                :offer/big-farm.job 20}]

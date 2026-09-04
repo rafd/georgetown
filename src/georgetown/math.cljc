@@ -26,8 +26,8 @@
                 candidate
                 (recur)))
             (recur)))))))
-
 (defn beta [shape-alpha shape-beta]
+  ;; https://www.desmos.com/calculator/mnvwjlvnyj
   (let [alpha-gamma (random-gamma shape-alpha)
         beta-gamma (random-gamma shape-beta)]
     (/ alpha-gamma (+ alpha-gamma beta-gamma))))

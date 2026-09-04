@@ -1,126 +1,524 @@
 (ns georgetown.loop
   (:require
-    [com.rpl.specter :as x]
+    [bloom.commons.uuid :as uuid]
     [chime.core :as chime]
-    [georgetown.debt :as debt]
-    [georgetown.schema :as schema]
+    [com.rpl.specter :as x]
     [georgetown.db :as db]
+    [georgetown.debt :as debt]
     [georgetown.market :as m]
+    [georgetown.schema :as schema]
     [georgetown.sim :as sim])
   (:import
     [java.time Instant Duration]))
 
-(defn extract-data-for-simulation
+;; a tick is one shift; 4 ticks per simulated day
+(def shift-order
+  [:time-shift/morning
+   :time-shift/afternoon
+   :time-shift/evening
+   :time-shift/night])
+
+(def hungry-stress-increase 0.03)
+(def unhoused-stress-increase 0.10)
+(def learn-rate 0.01)
+(def stress-amp-base 0.0001)
+(def skill-decline-base 0.00005)
+(def base-death-chance (/ 1.0 (* 80 schema/ticks-per-year)))
+(def death-stress-factor 3.0)
+(def birth-chance-per-sim-per-tick (/ 1.0 (* 25 schema/ticks-per-year)))
+(def sim-immigration-chance 1/50)
+(def money-supply-target-per-sim 600)
+
+(defn clamp01 [value]
+  (-> value
+      (max 0.0)
+      (min 1.0)))
+
+(defn mean-stress [sim]
+  (/ (+ (:sim/physical-stress sim)
+        (:sim/mental-stress sim))
+     2))
+
+(defn stress-sim [sim amount]
+  (-> sim
+      (update :sim/physical-stress (fn [stress] (clamp01 (+ stress amount))))
+      (update :sim/mental-stress (fn [stress] (clamp01 (+ stress amount))))))
+
+(defn epoch->shift [epoch]
+  (nth shift-order (mod epoch (count shift-order))))
+
+;; ---- world extraction ----
+
+(defn stocks-by-resource [stocks]
+  (->> stocks
+       (map (fn [stock]
+              [(:stock/resource stock) stock]))
+       (into {})))
+
+(defn extract-world
   [island-id]
-  (let [island (db/q '[:find (pull ?island [:island/population
-                                            :island/epoch
-                                            :island/citizen-food-balance
-                                            :island/citizen-money-balance]) .
+  (let [island (db/q '[:find (pull ?island [:island/epoch
+                                            :island/government-money-balance
+                                            {:island/sims [*]}]) .
                        :in $ ?island-id
                        :where
                        [?island :island/id ?island-id]]
                      island-id)
-        resident-money-balances (->> (db/q '[:find ?resident-id ?money-balance
-                                             :in $ ?island-id
-                                             :where
-                                             [?island :island/id ?island-id]
-                                             [?island :island/residents ?resident]
-                                             [?resident :resident/money-balance ?money-balance]
-                                             [?resident :resident/id ?resident-id]]
-                                           island-id)
-                                     (into {}))]
-    {:sim.in/population (:island/population island)
-     :sim.in/epoch (:island/epoch island)
-     :sim.in/citizen-money-balance (:island/citizen-money-balance island)
-     :sim.in/citizen-food-balance (:island/citizen-food-balance island)
-     :sim.in/tenders
-     (->> (db/q '[:find (pull ?improvement [*]) ?resident-id
-                  :in $ ?island-id
-                  :where
-                  [?island :island/id ?island-id]
-                  [?island :island/lots ?lot]
-                  [?lot :lot/improvement ?improvement]
-                  [?lot :lot/deed ?deed]
-                  [?resident :resident/deeds ?deed]
-                  [?resident :resident/id ?resident-id]]
-                island-id)
-          (mapcat (fn [[improvement resident-id]]
-                    ;; scale non-prerequisite offer amounts
-                    ;; based on prerequisite offer utilization
-                    (let [offers-by-offerable-id (zipmap
-                                                   (map :offer/type (:improvement/offers improvement))
-                                                   (:improvement/offers improvement))
-                          prerequisites (->> (:improvement/type improvement)
-                                             schema/blueprints
-                                             :blueprint/offerables
-                                             (filter :offerable/prerequisite?))
-                          net-prerequisite-utilization (if (seq prerequisites)
-                                                         (->> prerequisites
-                                                              (map :offerable/id)
-                                                              (map offers-by-offerable-id)
-                                                              (map :offer/utilization)
-                                                              ;; new improvements don't have offers set, so can get nils
-                                                              (map (fn [u]
-                                                                     (if (nil? u) 0 u)))
-                                                              (apply min))
-                                                             1)]
-                      (->> (:improvement/offers improvement)
-                           (map (fn [offer]
-                                  (let [offerable (schema/offerables (:offer/type offer))
-                                        adjusted-utilization (if (:offerable/prerequisite? offerable)
-                                                               1
-                                                               net-prerequisite-utilization)]
-                                    {:tender/resident-id resident-id
-                                     :tender/offer-id (:offer/id offer)
-                                     :tender/improvement-id (:improvement/id improvement)
-                                     :tender/prerequisite-utilization adjusted-utilization
-                                     :tender/supply [(:offerable/supply-unit offerable)
-                                                     (* adjusted-utilization
-                                                        (or (:offerable/supply-amount offerable)
-                                                            (:offer/amount offer)))]
-                                     :tender/demand [(:offerable/demand-unit offerable)
-                                                     (* adjusted-utilization
-                                                        (or (:offerable/demand-amount offerable)
-                                                            (:offer/amount offer)))]})))))))
-          ;; if resident doesn't have enough money to pay for all their labour tenders
-          ;; scale them down by the ratio of their money to the total labour cost (potentially 0)
-          (group-by :tender/resident-id)
-          (mapcat (fn [[resident-id tenders]]
-                    (let [total-labour-cost (->> tenders
-                                                 (keep (fn [tender]
-                                                         (when (= :resource/money (get-in tender [:tender/supply 0]))
-                                                           (get-in tender [:tender/supply 1]))))
-                                                 (reduce +))]
-                      (if (zero? total-labour-cost)
-                        tenders
-                        (if (<= total-labour-cost (get resident-money-balances resident-id))
-                            tenders
-                            (let [labour-improvements (->> tenders
-                                                           (keep (fn [tender]
-                                                                   (when (= :resource/money (get-in tender [:tender/supply 0]))
-                                                                     (:tender/improvement-id tender))))
-                                                           set)
-                                  ratio (/ (max 0 ;; shouldn't be possible for the balance to be < 0, but it happens
-                                                (get resident-money-balances resident-id))
-                                           total-labour-cost)]
-                              (->> tenders
-                                   (map (fn [tender]
-                                          (if (contains? labour-improvements (:tender/improvement-id tender))
-                                            (-> tender
-                                                (update :tender/prerequisite-utilization * ratio)
-                                                (update-in [:tender/supply 1] * ratio)
-                                                (update-in [:tender/demand 1] * ratio))
-                                            tender)))))))))))}))
+        residents (->> (db/q '[:find [(pull ?resident
+                                            [:resident/id
+                                             :resident/money-balance
+                                             {:resident/stocks [:stock/id
+                                                                :stock/resource
+                                                                :stock/amount]}]) ...]
+                               :in $ ?island-id
+                               :where
+                               [?island :island/id ?island-id]
+                               [?island :island/residents ?resident]]
+                             island-id)
+                       (map (fn [resident]
+                              [(:resident/id resident)
+                               {:resident/money-balance (:resident/money-balance resident)
+                                :resident/stocks (stocks-by-resource (:resident/stocks resident))}]))
+                       (into {}))
+        improvements (->> (db/q '[:find (pull ?improvement
+                                              [:improvement/id
+                                               :improvement/type
+                                               {:improvement/offers [:offer/id
+                                                                     :offer/type
+                                                                     :offer/amount]}
+                                               {:improvement/stocks [:stock/id
+                                                                     :stock/resource
+                                                                     :stock/amount]}])
+                                  ?resident-id
+                                  :in $ ?island-id
+                                  :where
+                                  [?island :island/id ?island-id]
+                                  [?island :island/lots ?lot]
+                                  [?lot :lot/improvement ?improvement]
+                                  [?lot :lot/deed ?deed]
+                                  [?resident :resident/deeds ?deed]
+                                  [?resident :resident/id ?resident-id]]
+                                island-id)
+                          (map (fn [[improvement resident-id]]
+                                 [(:improvement/id improvement)
+                                  {:improvement/type (:improvement/type improvement)
+                                   :improvement/owner-id resident-id
+                                   :improvement/offers (:improvement/offers improvement)
+                                   :improvement/stocks (stocks-by-resource (:improvement/stocks improvement))}]))
+                          (into {}))
+        offers (->> improvements
+                    (mapcat (fn [[improvement-id improvement]]
+                              (->> (:improvement/offers improvement)
+                                   (filter :offer/amount)
+                                   (map (fn [offer]
+                                          (assoc offer
+                                            :offer/improvement-id improvement-id
+                                            :offer/owner-id (:improvement/owner-id improvement)
+                                            :offer/category (schema/offer-category offer))))))))]
+    {:world/epoch (:island/epoch island)
+     :world/shift (epoch->shift (:island/epoch island))
+     :world/government-money-balance (:island/government-money-balance island)
+     :world/sims (->> (:island/sims island)
+                      (map (fn [sim]
+                             [(:sim/id sim) sim]))
+                      (into {}))
+     :world/residents residents
+     :world/initial-resident-balances (->> residents
+                                           (map (fn [[resident-id resident]]
+                                                  [resident-id (:resident/money-balance resident)]))
+                                           (into {}))
+     :world/improvements improvements
+     :world/offers offers
+     :world/utilizations (->> improvements
+                              vals
+                              (mapcat :improvement/offers)
+                              (map (fn [offer]
+                                     [(:offer/id offer) 0.0]))
+                              (into {}))
+     :world/stats {}}))
 
-#_(tick-all!)
+;; ---- world accessors/mutators ----
 
-;; 1 tick ~= 1 day
-(def ticks-of-money-savings 30)
-(def ticks-of-food-savings 7)
-(def food-demand-per-person-per-tick 1) ;; 1 food ~= meals
-(def shelter-demand-per-person-per-tick 1) ;; 1 shelter ~= 1 week of rent
-(def max-labour-supply-per-person-per-tick 15) ;; 1 labour ~= 1 hour
-(def sim-immigration-chance 1/50)
+(defn resident-stock-amount [world resident-id resource]
+  (or (get-in world [:world/residents resident-id :resident/stocks resource :stock/amount])
+      0.0))
+
+(defn improvement-stock-amount [world improvement-id resource]
+  (or (get-in world [:world/improvements improvement-id :improvement/stocks resource :stock/amount])
+      0.0))
+
+(defn update-resident-stock [world resident-id resource f amount]
+  (update-in world [:world/residents resident-id :resident/stocks resource]
+             (fn [stock]
+               (-> (or stock {:stock/resource resource
+                              :stock/amount 0.0})
+                   (update :stock/amount (fn [existing]
+                                           (max 0.0 (f existing amount))))))))
+
+(defn update-improvement-stock [world improvement-id resource f amount]
+  (update-in world [:world/improvements improvement-id :improvement/stocks resource]
+             (fn [stock]
+               (-> (or stock {:stock/resource resource
+                              :stock/amount 0.0})
+                   (update :stock/amount (fn [existing]
+                                           (max 0.0 (f existing amount))))))))
+
+(defn update-resident-money [world resident-id amount]
+  (update-in world [:world/residents resident-id :resident/money-balance] + amount))
+
+(defn update-sim-savings [world sim-id amount]
+  (update-in world [:world/sims sim-id :sim/savings]
+             (fn [savings]
+               (max 0.0 (+ savings amount)))))
+
+;; ---- food & housing markets ----
+
+(defn food-sale-tenders
+  "Sequential per resident, so combined offers cannot sell more food than the resident holds."
+  [world]
+  (->> (:world/offers world)
+       (filter (fn [offer]
+                 (= :offer.category/food-sale (:offer/category offer))))
+       (group-by :offer/owner-id)
+       (mapcat (fn [[owner-id owner-offers]]
+                 (:tenders
+                   (reduce
+                     (fn [{:keys [remaining-food tenders]} offer]
+                       (let [labour-needed (schema/effect-sum offer :effect.direction/from-self :resource/labour)
+                             labour-stock (improvement-stock-amount world
+                                                                    (:offer/improvement-id offer)
+                                                                    :resource/labour)
+                             quantity (Math/floor
+                                        (min remaining-food
+                                             (if (pos? labour-needed)
+                                               (/ labour-stock labour-needed)
+                                               ##Inf)))]
+                         {:remaining-food (- remaining-food quantity)
+                          :tenders (conj tenders
+                                         {:tender/offer-id (:offer/id offer)
+                                          :tender/resident-id owner-id
+                                          :tender/improvement-id (:offer/improvement-id offer)
+                                          :tender/unit-price (:offer/amount offer)
+                                          :tender/supply [:resource/food quantity]
+                                          :tender/demand [:resource/money (* quantity (:offer/amount offer))]})}))
+                     {:remaining-food (resident-stock-amount world owner-id :resource/food)
+                      :tenders []}
+                     owner-offers))))))
+
+(defn housing-tenders
+  [world]
+  (->> (:world/offers world)
+       (filter (fn [offer]
+                 (= :offer.category/housing (:offer/category offer))))
+       (map (fn [offer]
+              (let [capacity (or (:offerable/capacity (schema/offerables (:offer/type offer)))
+                                 0)]
+                {:tender/offer-id (:offer/id offer)
+                 :tender/resident-id (:offer/owner-id offer)
+                 :tender/improvement-id (:offer/improvement-id offer)
+                 :tender/unit-price (:offer/amount offer)
+                 :tender/supply [:resource/shelter capacity]
+                 :tender/demand [:resource/money (* capacity (:offer/amount offer))]})))))
+
+(defn run-goods-market
+  "Aggregate market for food (every tick) or shelter (night tick).
+  Two passes: pass 1 sets the clearing price; sims that cannot afford it
+  go without (and gain stress); pass 2, at the reduced demand, determines
+  which suppliers actually sell."
+  [world resource]
+  (let [tenders (case resource
+                  :resource/food (food-sale-tenders world)
+                  :resource/shelter (housing-tenders world))
+        sims (vals (:world/sims world))
+        population (count sims)
+        total-savings (->> sims
+                           (map :sim/savings)
+                           (reduce + 0.0))
+        {clearing-price :market/clearing-unit-price}
+        (m/market resource population
+                  :resource/money total-savings
+                  tenders)
+        buyers (if clearing-price
+                 (->> sims
+                      (filter (fn [sim]
+                                (> (:sim/savings sim) clearing-price))))
+                 [])
+        {demand-filled :market/demand-filled
+         supply-consumed :market/supply-consumed
+         final-tenders :market/tenders}
+        (m/market resource (count buyers)
+                  :resource/money (->> buyers
+                                       (map :sim/savings)
+                                       (reduce + 0.0))
+                  tenders)
+        served-count (long demand-filled)
+        average-price (if (pos? served-count)
+                        (/ supply-consumed demand-filled)
+                        0.0)
+        served-sims (take served-count (shuffle buyers))
+        unserved-sims (remove (set (map :sim/id served-sims))
+                              (map :sim/id sims))
+        stress-increase (case resource
+                          :resource/food hungry-stress-increase
+                          :resource/shelter unhoused-stress-increase)
+        available-supply (->> tenders
+                              (map (fn [tender]
+                                     (second (:tender/supply tender))))
+                              (reduce + 0))]
+    (-> world
+        ;; buyers pay the average unit price, so money exactly matches supplier receipts
+        (as-> world*
+          (reduce (fn [memo sim]
+                    (update-sim-savings memo (:sim/id sim) (- average-price)))
+                  world*
+                  served-sims))
+        (as-> world*
+          (reduce (fn [memo sim-id]
+                    (update-in memo [:world/sims sim-id] stress-sim stress-increase))
+                  world*
+                  unserved-sims))
+        (as-> world*
+          (reduce (fn [memo tender]
+                    (let [fill-amount (or (:tender/fill-amount tender) 0)
+                          revenue (* fill-amount (:tender/unit-price tender))]
+                      (-> memo
+                          (update-resident-money (:tender/resident-id tender) revenue)
+                          (cond->
+                            (= :resource/food resource)
+                            (-> (update-resident-stock (:tender/resident-id tender) :resource/food - fill-amount)
+                                (update-improvement-stock (:tender/improvement-id tender) :resource/labour - fill-amount)))
+                          (assoc-in [:world/utilizations (:tender/offer-id tender)]
+                                    (double (or (:tender/fill-ratio tender) 0))))))
+                  world*
+                  final-tenders))
+        (assoc-in [:world/stats resource]
+                  {:demand population
+                   :affordable-demand (count buyers)
+                   :available-supply available-supply
+                   :supply demand-filled
+                   :clearing-price clearing-price
+                   :average-price average-price
+                   :cost supply-consumed
+                   :unserved-count (count unserved-sims)}))))
+
+;; ---- work & leisure allocation ----
+
+(defn allocate-shift
+  "Assigns each sim's current shift to at most one time-offer.
+  Draft implementation: random choice among affordable offers with
+  remaining capacity (and solvent owners); nil means idle.
+  Later: replaced by an optimizer over sim preferences (same interface),
+  which will also use :allocate.in/food-price and :allocate.in/shelter-price."
+  [{:allocate.in/keys [sims offers resident-budgets]}]
+  (:allocations
+    (reduce
+      (fn [{:keys [allocations capacities budgets] :as memo} sim]
+        (let [candidates (->> offers
+                              (filter (fn [offer]
+                                        (let [capacity (get capacities (:offer/id offer))]
+                                          (and
+                                            (or (nil? capacity)
+                                                (pos? capacity))
+                                            (<= (:allocate/sim-money-cost offer)
+                                                (:sim/savings sim))
+                                            (<= (:allocate/wage offer)
+                                                (get budgets (:offer/owner-id offer) 0)))))))
+              choice (rand-nth (conj (vec candidates) nil))]
+          (if (nil? choice)
+            (update memo :allocations assoc (:sim/id sim) nil)
+            {:allocations (assoc allocations (:sim/id sim) (:offer/id choice))
+             :capacities (if (get capacities (:offer/id choice))
+                           (update capacities (:offer/id choice) dec)
+                           capacities)
+             :budgets (update budgets (:offer/owner-id choice) - (:allocate/wage choice))})))
+      {:allocations {}
+       :capacities (->> offers
+                        (keep (fn [offer]
+                                (when-let [capacity (:offerable/capacity (schema/offerables (:offer/type offer)))]
+                                  [(:offer/id offer) capacity])))
+                        (into {}))
+       :budgets resident-budgets}
+      (shuffle sims))))
+
+(def skill->talent
+  {:sim/skill.intellect :sim/talent.intellect
+   :sim/skill.fitness :sim/talent.fitness
+   :sim/skill.social :sim/talent.social})
+
+(defn productivity [sim weights]
+  (if (seq weights)
+    (->> weights
+         (map (fn [[skill weight]]
+                (* (get sim skill 0.0) weight)))
+         (reduce +))
+    1.0))
+
+(defn grow-skills [sim weights]
+  (reduce (fn [sim* [skill weight]]
+            (update sim* skill
+                    (fn [level]
+                      (clamp01 (+ level
+                                  (* learn-rate
+                                     (get sim* (skill->talent skill))
+                                     weight
+                                     (- 1 level)))))))
+          sim
+          weights))
+
+(defn apply-assignment-effects
+  [world sim-id offer]
+  (let [offerable (schema/offerables (:offer/type offer))
+        sim (get-in world [:world/sims sim-id])
+        productivity-factor (productivity sim (:offerable/skill-productivity-weights offerable))
+        world (update-in world [:world/sims sim-id]
+                         grow-skills (:offerable/skill-productivity-weights offerable))]
+    (reduce
+      (fn [world* [direction target _ :as effect]]
+        (let [amount (schema/resolve-effect-amount offer effect)]
+          (case direction
+            :effect.direction/from-sim
+            (case target
+              :resource/time world*
+              :resource/money (update-sim-savings world* sim-id (- amount))
+              world*)
+            :effect.direction/to-sim
+            (cond
+              (= :resource/money target)
+              (update-sim-savings world* sim-id amount)
+              (contains? #{:sim/physical-stress :sim/mental-stress
+                           :sim/skill.intellect :sim/skill.fitness :sim/skill.social} target)
+              (update-in world* [:world/sims sim-id target]
+                         (fn [value] (clamp01 (+ value amount))))
+              :else
+              world*)
+            :effect.direction/from-player
+            (if (= :resource/money target)
+              (update-resident-money world* (:offer/owner-id offer) (- amount))
+              (update-resident-stock world* (:offer/owner-id offer) target - amount))
+            :effect.direction/to-player
+            (if (= :resource/money target)
+              (update-resident-money world* (:offer/owner-id offer) amount)
+              (update-resident-stock world* (:offer/owner-id offer) target +
+                                     (* amount productivity-factor)))
+            :effect.direction/from-self
+            (update-improvement-stock world* (:offer/improvement-id offer) target - amount)
+            :effect.direction/to-self
+            (update-improvement-stock world* (:offer/improvement-id offer) target +
+                                      (* amount productivity-factor)))))
+      world
+      (:offerable/effects offerable))))
+
+(defn run-allocation
+  [world]
+  (let [shift (:world/shift world)
+        time-offers (->> (:world/offers world)
+                         (filter (fn [offer]
+                                   (and (= :offer.category/time (:offer/category offer))
+                                        (contains? (:offerable/time-shifts (schema/offerables (:offer/type offer)))
+                                                   shift))))
+                         (map (fn [offer]
+                                (assoc offer
+                                  :allocate/sim-money-cost (schema/effect-sum offer :effect.direction/from-sim :resource/money)
+                                  :allocate/wage (schema/effect-sum offer :effect.direction/from-player :resource/money)))))
+        allocations (allocate-shift
+                      {:allocate.in/sims (vals (:world/sims world))
+                       :allocate.in/offers time-offers
+                       :allocate.in/resident-budgets (->> (:world/residents world)
+                                                          (map (fn [[resident-id resident]]
+                                                                 [resident-id
+                                                                  (max 0 (:resident/money-balance resident))]))
+                                                          (into {}))
+                       :allocate.in/food-price (get-in world [:world/stats :resource/food :clearing-price])
+                       :allocate.in/shelter-price (get-in world [:world/stats :resource/shelter :clearing-price])})
+        offers-by-id (->> time-offers
+                          (map (fn [offer]
+                                 [(:offer/id offer) offer]))
+                          (into {}))
+        assigned-counts (->> allocations
+                             vals
+                             (remove nil?)
+                             frequencies)]
+    (-> (reduce (fn [world* [sim-id offer-id]]
+                  (if offer-id
+                    (apply-assignment-effects world* sim-id (offers-by-id offer-id))
+                    world*))
+                world
+                allocations)
+        (as-> world*
+          (reduce (fn [memo [offer-id offer]]
+                    (let [capacity (:offerable/capacity (schema/offerables (:offer/type offer)))
+                          assigned (get assigned-counts offer-id 0)]
+                      (assoc-in memo [:world/utilizations offer-id]
+                                (double
+                                  (if capacity
+                                    (/ assigned capacity)
+                                    (if (pos? assigned) 1 0))))))
+                  world*
+                  offers-by-id))
+        (update :world/stats assoc
+                :employed-count (->> allocations
+                                     vals
+                                     (keep offers-by-id)
+                                     (filter (fn [offer]
+                                               (pos? (:allocate/wage offer))))
+                                     count)
+                :idle-count (->> allocations
+                                 vals
+                                 (filter nil?)
+                                 count)))))
+
+;; ---- per-sim maintenance ----
+
+(defn amp-stress [sim]
+  (let [age-factor (+ 0.5 (/ (schema/age-in-years sim) 100))]
+    (-> sim
+        (update :sim/physical-stress
+                (fn [stress]
+                  (clamp01 (+ stress (* stress-amp-base age-factor (+ 0.5 stress))))))
+        (update :sim/mental-stress
+                (fn [stress]
+                  (clamp01 (+ stress (* stress-amp-base age-factor (+ 0.5 stress)))))))))
+
+(defn decline-skills [sim]
+  (let [decline-factor (* skill-decline-base
+                          (+ 0.5 (/ (schema/age-in-years sim) 100))
+                          (+ 0.5 (mean-stress sim)))]
+    (reduce (fn [sim* skill]
+              (update sim* skill (fn [level] (clamp01 (* level (- 1 decline-factor))))))
+            sim
+            (keys skill->talent))))
+
+(defn run-sim-maintenance
+  [world]
+  (update world :world/sims
+          (fn [sims]
+            (->> sims
+                 (map (fn [[sim-id sim]]
+                        [sim-id (-> sim
+                                    (update :sim/age-ticks inc)
+                                    amp-stress
+                                    decline-skills)]))
+                 (into {})))))
+
+(defn death-chance [sim]
+  (* base-death-chance
+     (+ 1 (* death-stress-factor (mean-stress sim)))
+     (Math/pow (/ (+ (schema/age-in-years sim) 1) 40) 2)))
+
+(defn pick-dead-sim-ids [world]
+  (->> (:world/sims world)
+       vals
+       (filter (fn [sim]
+                 (< (rand) (death-chance sim))))
+       (map :sim/id)))
+
+(defn randomize [n odds]
+  (->> (repeatedly (fn [] (< (rand) odds)))
+       (take n)
+       (filter true?)
+       count))
+
+;; ---- money regulation (moved over from the old loop) ----
 
 (defn interest-demurrage-rate [ratio]
   ;; to prevent hoarding / incentive cash spending, money loses value over time
@@ -137,207 +535,12 @@
     (- 1 (* 0.005 (Math/log (/ ratio
                                (- 1 ratio)))))))
 
-#_(interest-demurrage-rate -1)
-#_(interest-demurrage-rate 0)
-#_(interest-demurrage-rate 0.00001)
-#_(interest-demurrage-rate 0.5)
-#_(interest-demurrage-rate 0.6)
-#_(interest-demurrage-rate 0.99999)
-#_(interest-demurrage-rate 1)
-#_(interest-demurrage-rate 2)
-
-(defn simulate
-  [{:sim.in/keys [population tenders citizen-money-balance citizen-food-balance]}]
-  (let [;population 1
-        potential-money-supply (->> tenders
-                                   (keep
-                                      (fn [tender]
-                                        (let [[resource amount] (:tender/supply tender)]
-                                          (when (= resource :resource/money)
-                                            amount))))
-                                    (apply +))
-
-        ;; FOOD
-        base-food-demand (* food-demand-per-person-per-tick population)
-        food-savings-goal (* ticks-of-food-savings base-food-demand)
-        food-demand (max (- (+ food-savings-goal base-food-demand) citizen-food-balance)
-                         ;; HACK: force a minimum, so there's always a food market
-                         (/ base-food-demand 4))
-        {food-market-clearing-price :market/clearing-unit-price
-         food-supplied :market/demand-filled
-         food-cost :market/supply-consumed
-         food-tenders :market/tenders}
-        (m/market :resource/food food-demand
-                  :resource/money (+ citizen-money-balance potential-money-supply)
-                  tenders)
-
-        ;; SHELTER
-        base-shelter-demand (* shelter-demand-per-person-per-tick population)
-        ;; can't "store" shelter, so demand = base-demand
-        shelter-demand base-shelter-demand
-        {shelter-market-clearing-price :market/clearing-unit-price
-         shelter-supplied :market/demand-filled
-         shelter-cost :market/supply-consumed
-         shelter-tenders :market/tenders}
-        (m/market :resource/shelter shelter-demand
-                  :resource/money (+ citizen-money-balance
-                                     (- food-cost)
-                                     potential-money-supply)
-                  tenders)
-
-        ;; MONEY
-        ;; citizens will work to save up shelter and food
-        base-money-demand (+ shelter-cost food-cost)
-        government-stimulus 0 #_(if (< (+ citizen-money-balance potential-money-supply)
-                                   base-money-demand)
-                              (do (println "citizens broke; government stimulus")
-                                  1000)
-                              0)
-        money-savings-goal (Math/ceil (* ticks-of-money-savings base-money-demand))
-        money-demand (max (- money-savings-goal citizen-money-balance)
-                          ;; HACK: force a minimum
-                          ;; b/c sims "don't realize that food supply requires labor"
-                          (if (and shelter-market-clearing-price food-market-clearing-price)
-                            (+ (* shelter-market-clearing-price base-shelter-demand)
-                               (* food-market-clearing-price base-food-demand))
-                            1000))
-        potential-labour-supply (* max-labour-supply-per-person-per-tick population)
-        {money-market-clearing-price :market/clearing-unit-price
-         money-supplied :market/demand-filled
-         money-cost :market/supply-consumed
-         money-tenders :market/tenders}
-        (m/market :resource/money money-demand
-                  :resource/labour potential-labour-supply
-                  tenders)
-        money-cost (Math/ceil money-cost) ;; in terms of labour hours
-
-        ;; LABOUR
-        potential-labour-demand (->> tenders
-                                     (keep
-                                       (fn [tender]
-                                         (let [[resource amount] (:tender/demand tender)]
-                                           (when (= resource :resource/labour)
-                                             amount))))
-                                     (apply +))
-        labour-supplied (min potential-labour-supply
-                             money-cost)
-
-        ;; LEISURE
-        leisure-hours (- potential-labour-supply
-                         labour-supplied)
-        leisure-percent (if (zero? potential-labour-supply)
-                          0
-                          (/ leisure-hours
-                             potential-labour-supply))
-
-        ;; CITIZEN BALANCES
-        new-citizen-money-balance (+ citizen-money-balance
-                                     (- food-cost)
-                                     (- shelter-cost)
-                                     ;; citizens dividend added elsewhere
-                                     (+ money-supplied)
-                                     (+ government-stimulus))
-        food-consumed (* food-demand-per-person-per-tick population)
-        new-citizen-food-balance (max 0
-                                      (+ citizen-food-balance
-                                         (+ food-supplied)
-                                         (- food-consumed)))
-
-        ;; POPULATION
-        ;; TODO this has already been scaled by utilization
-        ;; but should probably be using "max theoretically possible" amount
-        potential-food-supply (->> tenders
-                                   (keep
-                                     (fn [tender]
-                                       (let [[resource amount] (:tender/supply tender)]
-                                         (when (= resource :resource/food)
-                                           amount))))
-                                   (apply +))
-        potential-shelter-supply (->> tenders
-                                      (keep
-                                        (fn [tender]
-                                          (let [[resource amount] (:tender/supply tender)]
-                                            (when (= resource :resource/shelter)
-                                              amount))))
-                                      (apply +))
-        potential-supported-population (max 1 ;; for now, b/c it gets into a weird loop otherwise
-                                            (Math/floor
-                                              (min (/ potential-food-supply
-                                                      food-demand-per-person-per-tick)
-                                                   (/ potential-shelter-supply
-                                                      shelter-demand-per-person-per-tick))))
-        supported-population (max 0
-                                  (Math/floor
-                                    (min (/ new-citizen-food-balance
-                                            food-demand-per-person-per-tick)
-                                         (/ shelter-supplied
-                                            shelter-demand-per-person-per-tick))))
-        ;; emigrating citizens take a fraction of the money with them
-        #_#_citizen-money-balance (* (- 1 (/ population-emigration population))
-                                     citizen-money-balance)
-
-        randomize (fn [population odds]
-                    (->> (repeatedly (fn []
-                                       (< (rand) odds)))
-                         (take population)
-                         (filter true?)
-                         count))
-        emigration-count (randomize (- population supported-population)
-                                    0.5)
-        death-count (randomize supported-population
-                               (/ 1 5000))
-        newcomer-count (if (zero? population)
-                         (if (< (rand) 0.2) 1 0)
-                         (randomize (max (- potential-supported-population population) 0)
-                                    (/ (+ 1 ;; 1, so it's never 0 chance
-                                          leisure-percent) 200)))
-        new-population (max 1
-                            (+ population
-                               (- emigration-count)
-                               (- death-count)
-                               newcomer-count))]
-    ;; transit is struggling with bignums(?)
-    ;; for now, just cast all to double
-    (x/transform
-      (x/walker number?)
-      double
-      {:sim.out/max-supported-population potential-supported-population
-       :sim.out/citizen-money-balance new-citizen-money-balance
-       :sim.out/money-savings-goal money-savings-goal
-       :sim.out/citizen-food-balance new-citizen-food-balance
-       :sim.out/food-savings-goal food-savings-goal
-       :sim.out/resources
-       {:resource/shelter {:demand shelter-demand
-                           :available-supply potential-shelter-supply
-                           :supply shelter-supplied
-                           :clearing-price shelter-market-clearing-price
-                           :cost shelter-cost
-                           :tenders shelter-tenders}
-        :resource/food {:demand food-demand
-                        :available-supply potential-food-supply
-                        :supply food-supplied
-                        :clearing-price food-market-clearing-price
-                        :cost food-cost
-                        :tenders food-tenders}
-        :resource/money {:demand money-demand
-                         :available-supply potential-money-supply
-                         :supply money-supplied
-                         :clearing-price money-market-clearing-price
-                         :cost money-cost
-                         :tenders money-tenders}
-        :resource/labour {:demand potential-labour-demand
-                          :available-supply potential-labour-supply
-                          :supply labour-supplied
-                          :clearing-price nil}}
-       :sim.out/leisure-percent leisure-percent
-       :sim.out/population new-population})))
-
 (defn resident-bankruptcy-txs
-  [resident-resource-balances]
+  [resident-money-balances]
   ;; docs.bankruptcy - if a resident's money balance every falls below 0, they are bankrupt, and removed from the island
-  (->> resident-resource-balances
-       (keep (fn [[resident-id resources]]
-               (when (< (:resource/money resources) 0)
+  (->> resident-money-balances
+       (keep (fn [[resident-id balance]]
+               (when (< balance 0)
                  resident-id)))
        (mapcat (fn [resident-id]
                  (conj
@@ -350,37 +553,10 @@
                                 [?lot :lot/deed ?deed]
                                 [?lot :lot/improvement ?improvement]]
                               resident-id)
-                        (map (fn [e]
-                               [:db/retractEntity e])))
+                        (map (fn [improvement-entity]
+                               [:db/retractEntity improvement-entity])))
                    ;; and the resident (and nested entities)
                    [:db/retractEntity [:resident/id resident-id]])))))
-
-(defn resident-market-net-amounts
-  "For each resident, +/- for each resource, from buying/selling on markets"
-  [sim-out]
-  (->> sim-out
-       (x/select
-         [:sim.out/resources
-          x/MAP-VALS
-          :tenders
-          x/ALL])
-       (mapcat (fn [tender]
-                 ;; tender might only have been partially filled
-                 ;; these are output tenders, so they have already been adjusted by utilization
-                 [[(:tender/resident-id tender)
-                   (first (:tender/demand tender))
-                   (* (second (:tender/demand tender))
-                      (:tender/fill-ratio tender))]
-                  [(:tender/resident-id tender)
-                   (first (:tender/supply tender))
-                   (* (- (second (:tender/supply tender)))
-                      (:tender/fill-ratio tender))]]))
-       ;; for now, only care about money
-       (filter (fn [[_ resource _]]
-                 (= resource :resource/money)))
-       (reduce (fn [memo [resident-id resource amount]]
-                 (update-in memo [resident-id resource] (fnil + 0) amount))
-               {})))
 
 (defn loans
   [island-id]
@@ -402,7 +578,7 @@
                           (:loan/daily-payment-amount loan))])))]
     {:loan-txs
      (->> payments
-          (map (fn [[loan resident-id payment-amount]]
+          (map (fn [[loan _resident-id payment-amount]]
                  (if (<= (- (:loan/amount loan)
                             payment-amount)
                          0)
@@ -411,49 +587,9 @@
                     :loan/amount (debt/new-amount loan)]))))
      :resident-debt-payments
      (->> payments
-          (reduce (fn [memo [loan resident-id payment-amount]]
-                    (update-in memo [resident-id :resource/money]
-                               (fnil + 0)
-                               (- payment-amount)))
+          (reduce (fn [memo [_loan resident-id payment-amount]]
+                    (update memo resident-id (fnil + 0) (- payment-amount)))
                   {}))}))
-
-#_(loans
-    (:island/id (first (georgetown.state/all-of-type :island/id '[*]))))
-
-#_(defn resident-operations-net-amounts
-  "For each resident, +/- for each resource, from running their improvements"
-  [island-id]
-  (->> (db/q
-         ;; need improvement-id so that it doesn't dedupe
-         '[:find ?resident-id ?improvement-type ?improvement-id
-           :in $ ?island-id
-           :where
-           [?island :island/id ?island-id]
-           [?island :island/residents ?resident]
-           [?resident :resident/id ?resident-id]
-           [?resident :resident/deeds ?deed]
-           [?lot :lot/deed ?deed]
-           [?lot :lot/improvement ?improvement]
-           [?improvement :improvement/type ?improvement-type]
-           [?improvement :improvement/id ?improvement-id]]
-         island-id)
-       (mapcat (fn [[owner-id improvement-type _]]
-                 (->> (schema/blueprints improvement-type)
-                      :blueprint/io
-                      (map (fn [io]
-                             [owner-id io])))))
-       (reduce (fn [memo [owner-id {:io/keys [direction resource amount]}]]
-                 (update-in memo [owner-id resource]
-                            (fnil
-                              (case direction
-                                :io.direction/input -
-                                :io.direction/output +)
-                              0)
-                            (* improvement-utilization amount)))
-               {})))
-
-#_(resident-operations-net-amounts
-    #uuid "0191a53b-28d2-7445-9b82-019b57ef9800")
 
 (defn taxes
   "For each resident, money spent on deed taxes."
@@ -471,158 +607,219 @@
            [?deed :deed/rate ?rate]]
          island-id)
        (reduce (fn [memo [owner-id rate _]]
-                 (update-in memo [owner-id :resource/money] (fnil + 0) (- rate)))
+                 (update memo owner-id (fnil + 0) (- rate)))
                {})))
 
-(defn resident-resource-balances
-  [island-id]
-  (->> (db/q '[:find ?resident-id ?money-balance
-               :in $ ?island-id
-               :where
-               [?island :island/id ?island-id]
-               [?island :island/residents ?resident]
-               [?resident :resident/money-balance ?money-balance]
-               [?resident :resident/id ?resident-id]]
-             island-id)
-       (map (fn [[resident-id money-amount]]
-              [resident-id
-               {:resource/money money-amount}]))
-       (into {})))
+;; ---- persistence ----
 
-(defn merge-resource-maps
-  [& maps]
-  (apply merge-with (partial merge-with (fnil + 0)) maps))
-
-(defn sum-money
-  [resource-map]
-  (apply + (map :resource/money (vals resource-map))))
+(defn stock-txs
+  [holder-id-attr holder-id stocks-rel stocks]
+  (->> stocks
+       (keep (fn [[_resource stock]]
+               (if (:stock/id stock)
+                 [:db/add [:stock/id (:stock/id stock)]
+                  :stock/amount (double (:stock/amount stock))]
+                 (when (pos? (:stock/amount stock))
+                   {holder-id-attr holder-id
+                    stocks-rel [(-> stock
+                                    (assoc :stock/id (uuid/random))
+                                    (update :stock/amount double))]}))))))
 
 (defn tick!
   [island-id]
-  (let [sim-in (extract-data-for-simulation island-id)
-        sim-out (simulate sim-in)
-        ;; balances
-        government-money-balance (db/q '[:find ?balance .
-                                         :in $ ?island-id
-                                         :where
-                                         [?island :island/id ?island-id]
-                                         [?island :island/government-money-balance ?balance]]
-                                       island-id)
-        citizen-balance (:sim.out/citizen-money-balance sim-out)
-        resident-balances (resident-resource-balances island-id)
-        resident-balance (sum-money resident-balances)
-        net-money-balance (+ government-money-balance
-                             citizen-balance
-                             resident-balance)
-        ;; joy
-        joy (* (:sim.out/leisure-percent sim-out)
-               (:sim.out/population sim-out))
-        ;; loans
+  (let [world (extract-world island-id)
+        night? (= :time-shift/night (:world/shift world))
+        world (-> world
+                  (run-goods-market :resource/food)
+                  (cond-> night?
+                    (run-goods-market :resource/shelter))
+                  run-allocation
+                  run-sim-maintenance)
+        dead-sim-ids (set (pick-dead-sim-ids world))
+        world (update world :world/sims
+                      (fn [sims]
+                        (apply dissoc sims dead-sim-ids)))
+        sims (vals (:world/sims world))
+        population (count sims)
+
+        ;; loans & taxes
         {:keys [loan-txs resident-debt-payments]} (loans island-id)
-        ;; resident money
-        resident-market-amounts (resident-market-net-amounts sim-out)
-        resident-operations-amounts {} #_(resident-operations-net-amounts island-id)
         resident-taxes (taxes island-id)
-        resident-net-cashflow (merge-resource-maps
-                                resident-market-amounts
-                                resident-operations-amounts
-                                resident-debt-payments
-                                resident-taxes)
-        new-resident-balances (merge-resource-maps
-                                resident-balances
-                                resident-net-cashflow)
-        ;; GOVERNMENT
-        government-revenues (- (sum-money resident-taxes))
-        citizens-dividend  (+ government-money-balance
-                              government-revenues)
-        government-expenses (- citizens-dividend)
-        money-supply-target (* 1000
-                               (:sim.out/population sim-out))
-        ;; NOTE: printing money here
+        world (reduce (fn [memo [resident-id amount]]
+                        (update-resident-money memo resident-id amount))
+                      world
+                      (merge-with + resident-debt-payments resident-taxes))
+
+        ;; government: taxes come in, everything goes back out as a citizens dividend
+        government-money-balance (:world/government-money-balance world)
+        government-revenues (->> resident-taxes
+                                 vals
+                                 (reduce + 0)
+                                 -)
+        citizens-dividend (+ government-money-balance government-revenues)
+        new-government-balance 0
+
+        ;; helicopter money, to keep the money supply proportional to population
+        total-sim-savings (->> sims
+                               (map :sim/savings)
+                               (reduce + 0.0))
+        resident-balance (->> (:world/residents world)
+                              vals
+                              (map :resident/money-balance)
+                              (reduce + 0))
+        net-money-balance (+ new-government-balance
+                             citizens-dividend
+                             total-sim-savings
+                             resident-balance)
         helicopter-money (max 0
-                              (- money-supply-target
+                              (- (* money-supply-target-per-sim population)
                                  net-money-balance))
-        ;; currently, this will always be 0
-        ;; but doing the calculation anyway in case the above changes
-        new-government-balance (+ government-money-balance
-                                  government-revenues
-                                  government-expenses)
-        new-citizen-balance (+ citizen-balance
-                               citizens-dividend
-                               helicopter-money)
-        ;; get improvement offer utilization (based on the tenders)
-        offer-id->utilization (->> [:resource/shelter :resource/food :resource/money]
-                                   (mapcat (fn [resource]
-                                             (->> sim-out
-                                                  :sim.out/resources
-                                                  resource
-                                                  :tenders
-                                                  (map (fn [tender]
-                                                         [(:tender/offer-id tender)
-                                                          (* (:tender/prerequisite-utilization tender)
-                                                             (:tender/fill-ratio tender))])))))
-                                   (into {}))
-        ;; net money
-        new-resident-balance (sum-money new-resident-balances)
-        new-net-money-balance (+ new-government-balance
-                                 new-resident-balance
-                                 new-citizen-balance)
+        per-sim-dividend (if (pos? population)
+                           (/ (+ citizens-dividend helicopter-money)
+                              population)
+                           0)
+        world (reduce (fn [memo sim-id]
+                        (update-sim-savings memo sim-id per-sim-dividend))
+                      world
+                      (keys (:world/sims world)))
 
         ;; DEMURRAGE / INTEREST
-        initial-resident-citizen-cash-ratio (/ new-resident-balance
-                                               new-net-money-balance)
-        interest-rate (interest-demurrage-rate initial-resident-citizen-cash-ratio)
-        resident-interest-deltas (->> new-resident-balances
-                                      (x/transform
-                                        [x/MAP-VALS :resource/money]
-                                        (fn [x]
-                                          (if (pos? x)
-                                            (- (* x interest-rate) x)
-                                            0))))
-        resident-delta (sum-money resident-interest-deltas)
-        new-citizen-balance (- new-citizen-balance
-                               resident-delta)
-        new-resident-balances (merge-resource-maps
-                                new-resident-balances
-                                resident-interest-deltas)
-        resident-net-cashflow (merge-resource-maps
-                                resident-net-cashflow
-                                resident-interest-deltas)
-        new-resident-balance (sum-money new-resident-balances)
-        new-net-money-balance (+ new-government-balance
-                                 new-resident-balance
-                                 new-citizen-balance)
-        resident-citizen-cash-ratio (/ new-resident-balance
-                                       new-net-money-balance)]
+        total-sim-savings (->> (:world/sims world)
+                               vals
+                               (map :sim/savings)
+                               (reduce + 0.0))
+        net-money-balance (+ new-government-balance
+                             total-sim-savings
+                             resident-balance)
+        cash-ratio-before (if (zero? net-money-balance)
+                            0
+                            (/ resident-balance net-money-balance))
+        interest-rate (interest-demurrage-rate cash-ratio-before)
+        resident-interest-deltas (->> (:world/residents world)
+                                      (map (fn [[resident-id resident]]
+                                             [resident-id
+                                              (let [balance (:resident/money-balance resident)]
+                                                (if (pos? balance)
+                                                  (- (* balance interest-rate) balance)
+                                                  0))]))
+                                      (into {}))
+        interest-delta-total (->> resident-interest-deltas
+                                  vals
+                                  (reduce + 0))
+        world (reduce (fn [memo [resident-id delta]]
+                        (update-resident-money memo resident-id delta))
+                      world
+                      resident-interest-deltas)
+        ;; residents' interest is paid by (or paid to) the sims, per capita
+        world (if (pos? population)
+                (reduce (fn [memo sim-id]
+                          (update-sim-savings memo sim-id (/ (- interest-delta-total) population)))
+                        world
+                        (keys (:world/sims world)))
+                world)
+
+        ;; final balances
+        final-resident-balances (->> (:world/residents world)
+                                     (map (fn [[resident-id resident]]
+                                            [resident-id (:resident/money-balance resident)]))
+                                     (into {}))
+        final-resident-balance (->> final-resident-balances
+                                    vals
+                                    (reduce + 0))
+        final-sim-savings (->> (:world/sims world)
+                               vals
+                               (map :sim/savings)
+                               (reduce + 0.0))
+        final-net-money-balance (+ new-government-balance
+                                   final-sim-savings
+                                   final-resident-balance)
+        cash-ratio-after (if (zero? final-net-money-balance)
+                           0
+                           (/ final-resident-balance final-net-money-balance))
+
+        ;; JOY
+        joy (->> (:world/sims world)
+                 vals
+                 (map (fn [sim]
+                        (- 1 (mean-stress sim))))
+                 (reduce + 0.0))
+
+        public-stats
+        ;; transit is struggling with bignums(?)
+        ;; for now, just cast all to double
+        (x/transform
+          (x/walker number?)
+          double
+          {:sim.out/shift (:world/shift world)
+           :sim.out/population population
+           :sim.out/deaths (count dead-sim-ids)
+           :sim.out/total-sim-savings final-sim-savings
+           :sim.out/mean-physical-stress (if (pos? population)
+                                           (/ (->> (:world/sims world)
+                                                   vals
+                                                   (map :sim/physical-stress)
+                                                   (reduce + 0.0))
+                                              population)
+                                           0)
+           :sim.out/mean-mental-stress (if (pos? population)
+                                         (/ (->> (:world/sims world)
+                                                 vals
+                                                 (map :sim/mental-stress)
+                                                 (reduce + 0.0))
+                                            population)
+                                         0)
+           :sim.out/employed-count (get-in world [:world/stats :employed-count])
+           :sim.out/idle-count (get-in world [:world/stats :idle-count])
+           :sim.out/hungry-count (get-in world [:world/stats :resource/food :unserved-count])
+           :sim.out/unhoused-count (get-in world [:world/stats :resource/shelter :unserved-count])
+           :sim.out/resources (-> (:world/stats world)
+                                  (select-keys [:resource/food :resource/shelter]))
+           :sim.out/joy joy
+           :sim.out/net-money-balance final-net-money-balance
+           :sim.out/government-money-balance new-government-balance
+           :sim.out/helicopter-money helicopter-money
+           :sim.out/cash-ratio-before cash-ratio-before
+           :sim.out/cash-ratio-after cash-ratio-after
+           :sim.out/stabilization-rate interest-rate})]
     (db/transact!
       (concat
-        (for [[k v] {:island/public-stats
-                     (assoc sim-out
-                       ;; include these also, so front-end reports them
-                       :sim.out/net-money-balance new-net-money-balance
-                       :sim.out/government-money-balance new-government-balance
-                       :sim.out/cash-ratio-before initial-resident-citizen-cash-ratio
-                       :sim.out/cash-ratio-after resident-citizen-cash-ratio
-                       :sim.out/stabilization-rate interest-rate)
-                     :island/population (:sim.out/population sim-out)
-                     :island/joy joy
-                     :island/epoch (inc (:sim.in/epoch sim-in))
-                     :island/government-money-balance new-government-balance
-                     :island/citizen-money-balance new-citizen-balance
-                     :island/citizen-food-balance (:sim.out/citizen-food-balance sim-out)}]
+        (for [[k v] {:island/public-stats public-stats
+                     :island/joy (long joy)
+                     :island/epoch (inc (:world/epoch world))
+                     :island/government-money-balance (long new-government-balance)}]
           [:db/add [:island/id island-id] k v])
-        (for [[resident-id net-cashflow] resident-net-cashflow]
-          [:db/add [:resident/id resident-id]
-           :resident/private-stats
-           {:stats.private/net-cashflow (:resource/money net-cashflow)
-            :stats.private/stabilization-payment (:resource/money (resident-interest-deltas resident-id))}])
-        (for [[resident-id balance] new-resident-balances]
-          [:db/add [:resident/id resident-id]
-           :resident/money-balance (:resource/money balance)])
-        (for [[offer-id utilization] offer-id->utilization]
+        ;; sims
+        (for [sim (vals (:world/sims world))]
+          (update sim :sim/savings double))
+        (for [sim-id dead-sim-ids]
+          [:db/retractEntity [:sim/id sim-id]])
+        ;; residents
+        (mapcat (fn [[resident-id resident]]
+                  (concat
+                    [[:db/add [:resident/id resident-id]
+                      :resident/money-balance (long (:resident/money-balance resident))]
+                     [:db/add [:resident/id resident-id]
+                      :resident/private-stats
+                      {:stats.private/net-cashflow (double
+                                                     (- (:resident/money-balance resident)
+                                                        (get-in world [:world/initial-resident-balances resident-id] 0)))
+                       :stats.private/stabilization-payment (double (get resident-interest-deltas resident-id 0))}]]
+                    (stock-txs :resident/id resident-id
+                               :resident/stocks (:resident/stocks resident))))
+                (:world/residents world))
+        ;; improvement stocks
+        (mapcat (fn [[improvement-id improvement]]
+                  (stock-txs :improvement/id improvement-id
+                             :improvement/stocks (:improvement/stocks improvement)))
+                (:world/improvements world))
+        ;; offer utilization
+        (for [[offer-id utilization] (:world/utilizations world)]
           [:db/add [:offer/id offer-id] :offer/utilization utilization])
         loan-txs
-        (resident-bankruptcy-txs resident-balances)))
+        (resident-bankruptcy-txs final-resident-balances)))
+    ;; births & immigration
+    (dotimes [_ (randomize population birth-chance-per-sim-per-tick)]
+      (db/add-sim! island-id (sim/random ::schema/generator-baby)))
     (when (< (rand) sim-immigration-chance)
       (db/add-sim! island-id (sim/random ::schema/generator-immigrant)))))
 
@@ -634,8 +831,6 @@
 
 #_(tick-all!)
 
-#_(balances (:island/id (first (s/all-of-type :island/id '[:island/id]))))
-
 (defonce scheduler (atom nil))
 
 (defn initialize!
@@ -646,7 +841,7 @@
             (chime/chime-at
               (chime/periodic-seq (Instant/now)
                                   (Duration/ofSeconds 2))
-              (fn [time]
+              (fn [_time]
                 (tick-all!))
               {:on-finished (fn []
                               (tap> "Schedule finished."))}))

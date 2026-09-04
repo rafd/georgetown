@@ -8,6 +8,15 @@
 (defn key-by [f coll]
   (into {} (map (juxt f identity) coll)))
 
+(def ticks-per-day 4)
+(def ticks-per-year (* 365 ticks-per-day))
+
+(defn ticks->years [ticks]
+  (/ ticks ticks-per-year))
+
+(defn age-in-years [sim]
+  (ticks->years (:sim/age-ticks sim)))
+
 (def resources
   (->> [{:resource/id :resource/citizen
          :resource/icon "👤"
@@ -22,14 +31,14 @@
         {:resource/id :resource/time
          :resource/icon "⏱️"
          :resource/label "time"
-         :resource/unit-label "day"
-         :resource/description "A day; 1 second in the real world is 1 day in game"}
+         :resource/unit-label "shift"
+         :resource/description "A shift; 4 shifts in a day (morning, afternoon, evening, night)"}
 
         {:resource/id :resource/food
          :resource/icon "🥕"
          :resource/label "food"
-         :resource/unit-label "day"
-         :resource/description "1 days worth of food for 1 person"}
+         :resource/unit-label "meal"
+         :resource/description "1 meal for 1 person"}
         {:resource/id :resource/shelter
          :resource/icon "🛌"
          :resource/label "shelter"
@@ -61,13 +70,15 @@
 
 (def VarId [:qualified-keyword {:namespace :var}])
 
+(def PosInt pos-int?)
+
 (def Blueprint
   [:map {:closed true}
    [:blueprint/id [:qualified-keyword {:namespace :improvement.type}]]
    [:blueprint/label :string]
    [:blueprint/icon :string]
    [:blueprint/description :string]
-   [:blueprint/price :pos-int]
+   [:blueprint/price PosInt]
    [:blueprint/stocks {:optional true}
     [:vector
      [:map {:closed true}
@@ -78,12 +89,19 @@
       [:map {:closed true}
        [:offerable/id [:qualified-keyword {:namespace :offer}]]
        [:offerable/label :string]
-       [:offerable/capacity {:optional true} :pos-int]
+       [:offerable/capacity {:optional true} PosInt]
        [:offerable/time-shifts [:set [:enum
                                       :time-shift/morning
                                       :time-shift/afternoon
                                       :time-shift/evening
                                       :time-shift/night]]]
+       ;; jobs have weights per skill
+       ;; when combined with the skills of a specific sim, they determine the productivity
+       ;; also affect the rate at which sim skills are improved (along with sim talent for that skill)
+       [:offerable/skill-productivity-weights {:optional true}
+        [:map-of
+         [:enum :sim/skill.intellect :sim/skill.social :sim/skill.fitness]
+         [:double {:min 0 :max 1}]]]
        [:offerable/var
         [:vector
          [:map {:closed true}
@@ -128,6 +146,8 @@
            [[:effect.direction/from-sim :resource/time 1]
             [:effect.direction/from-sim :resource/money :var/rent-rate]
             [:effect.direction/to-sim :resource/shelter 1]
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]
             [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
 
         {:blueprint/id :improvement.type/apartment
@@ -147,7 +167,9 @@
            [[:effect.direction/from-sim :resource/time 1]
             [:effect.direction/from-sim :resource/money :var/rent-rate]
             [:effect.direction/to-sim :resource/shelter 1]
-            [:effect.direction/to-sim :sim/mental-stress 0.05]
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress 0.02]
             [:effect.direction/to-player :resource/money :var/rent-rate]]}]}
 
 
@@ -165,8 +187,8 @@
            :offerable/var []
            :offerable/effects
            [[:effect.direction/from-sim :resource/time 1]
-            [:effect.direction/to-sim :sim/physical-stress -0.1]
-            [:effect.direction/to-sim :sim/mental-stress -0.1]]}]}
+            [:effect.direction/to-sim :sim/physical-stress -0.05]
+            [:effect.direction/to-sim :sim/mental-stress -0.05]]}]}
 
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
@@ -176,8 +198,12 @@
          :blueprint/offerables
          [{:offerable/id :offer/farm.job
            :offerable/label "Job"
+           :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.1
+                                                  :sim/skill.fitness 0.8
+                                                  :sim/skill.social 0.1}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
@@ -185,7 +211,7 @@
            [[:effect.direction/from-sim :resource/time 1]
             [:effect.direction/to-sim :resource/money :var/job-rate]
             [:effect.direction/from-player :resource/money :var/job-rate]
-            [:effect.direction/to-player :resource/food 1]]}]}
+            [:effect.direction/to-player :resource/food 12]]}]}
 
         {:blueprint/id :improvement.type/food-market
          :blueprint/label "Food Market"
@@ -199,14 +225,17 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
+                                                  :sim/skill.fitness 0.1
+                                                  :sim/skill.social 0.5}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
            [[:effect.direction/from-sim :resource/time 1]
             [:effect.direction/to-sim :resource/money :var/job-rate]
-            [:effect.direction/to-sim :sim/physical-stress 0.1]
-            [:effect.direction/to-self :resource/labour 1]
+            [:effect.direction/to-sim :sim/physical-stress 0.02]
+            [:effect.direction/to-self :resource/labour 10]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
 
           {:offerable/id :offer/food-market.offer
@@ -220,7 +249,7 @@
            :offerable/effects
            [[:effect.direction/from-sim :resource/money :var/food-price]
             [:effect.direction/to-sim :resource/food 1]
-            [:effect.direction/from-self :resource/labour 1]
+            [:effect.direction/from-self :resource/labour 0.5]
             [:effect.direction/from-player :resource/food 1]
             [:effect.direction/to-player :resource/money :var/food-price]]}]}
 
@@ -236,15 +265,18 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
+           :offerable/skill-productivity-weights {:sim/skill.intellect 0.4
+                                                  :sim/skill.fitness 0.5
+                                                  :sim/skill.social 0.1}
            :offerable/var [{:var/id :var/job-rate
                             :var/label "Job Rate"
                             :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
            [[:effect.direction/from-sim :resource/time 1]
             [:effect.direction/to-sim :resource/money :var/job-rate]
-            [:effect.direction/to-sim :sim/physical-stress 0.1]
+            [:effect.direction/to-sim :sim/physical-stress 0.02]
             [:effect.direction/from-player :resource/money :var/job-rate]
-            [:effect.direction/to-player :resource/food 3]]}]}
+            [:effect.direction/to-player :resource/food 20]]}]}
 
         {:blueprint/id :improvement.type/monument
          :blueprint/label "Monument"
@@ -256,12 +288,72 @@
        (key-by :blueprint/id)))
 
 (m/assert [:map-of :keyword Blueprint] blueprints)
+#_(malli.error/humanize (m/explain [:map-of :keyword Blueprint] blueprints))
 
 (def offerables
   (->> blueprints
        vals
        (mapcat :blueprint/offerables)
        (key-by :offerable/id)))
+
+(def sim-attributes
+  {:sim/physical-stress {:sim-attribute/icon "😰"
+                         :sim-attribute/label "physical stress"}
+   :sim/mental-stress {:sim-attribute/icon "🤯"
+                       :sim-attribute/label "mental stress"}
+   :sim/skill.intellect {:sim-attribute/icon "🧠"
+                         :sim-attribute/label "intellect"}
+   :sim/skill.fitness {:sim-attribute/icon "💪"
+                       :sim-attribute/label "fitness"}
+   :sim/skill.social {:sim-attribute/icon "🗣️"
+                      :sim-attribute/label "social"}})
+
+(defn resolve-effect-amount
+  [offer [_direction _target amount]]
+  (if (keyword? amount)
+    ;; offerables currently have at most one var, so the offer's amount is its value
+    (:offer/amount offer)
+    amount))
+
+(defn effect-sum
+  [offer direction target]
+  (->> (:offerable/effects (offerables (:offer/type offer)))
+       (filter (fn [[effect-direction effect-target _]]
+                 (and (= direction effect-direction)
+                      (= target effect-target))))
+       (map (fn [effect]
+              (resolve-effect-amount offer effect)))
+       (reduce + 0)))
+
+(defn offer-category
+  [offer]
+  (let [offerable (offerables (:offer/type offer))
+        direction-targets (->> (:offerable/effects offerable)
+                               (map (fn [[direction target _amount]]
+                                      [direction target]))
+                               set)]
+    (cond
+      (contains? direction-targets [:effect.direction/to-sim :resource/food])
+      :offer.category/food-sale
+      (contains? direction-targets [:effect.direction/to-sim :resource/shelter])
+      :offer.category/housing
+      (contains? direction-targets [:effect.direction/from-sim :resource/time])
+      :offer.category/time
+      :else
+      :offer.category/other)))
+
+(defn offer-exchange-resource
+  "The non-money resource an offer trades (food for a farm job, shelter for a rental, ...)"
+  [offerable]
+  (->> (:offerable/effects offerable)
+       (keep (fn [[direction target _amount]]
+               (when (and (contains? #{:effect.direction/from-player
+                                       :effect.direction/to-player
+                                       :effect.direction/to-sim} direction)
+                          (contains? resources target)
+                          (not= :resource/money target))
+                 target)))
+       first))
 
 (def Email
   [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"])
@@ -272,18 +364,12 @@
    {:island/id {:dat/type :db.type/uuid
                 :dat/unique :dat.unique/identity}
     :island/seed {:dat/type :db.type/long
-                  :dat/spec :pos-int}
+                  :dat/spec PosInt}
     :island/public-stats {}
-    :island/population {:dat/type :db.type/long
-                        :dat/spec :pos-int}
     :island/government-money-balance {:dat/type :db.type/long
-                                      :dat/spec :pos-int}
-    :island/citizen-money-balance {:dat/type :db.type/long
-                                   :dat/spec :pos-int}
-    :island/citizen-food-balance {:dat/type :db.type/long
-                                  :dat/spec :pos-int}
+                                      :dat/spec PosInt}
     :island/joy {:dat/type :db.type/long
-                 :dat/spec :pos-int}
+                 :dat/spec PosInt}
     :island/residents {:dat/rel [:dat.rel/many :entity/resident :resident/id]
                        :dat/component? true}
     :island/sims {:dat/rel [:dat.rel/many :entity/sim :sim/id]
@@ -291,7 +377,7 @@
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
                   :dat/component? true}
     :island/epoch {:dat/type :db.type/long
-                   :dat/spec :pos-int}}
+                   :dat/spec PosInt}}
 
    :entity/user
    {:user/id {:dat/type :db.type/uuid
@@ -307,7 +393,9 @@
                   :dat/unique :dat.unique/identity}
     :resident/private-stats {}
     :resident/money-balance {:dat/type :db.type/long
-                             :dat/spec :pos-int}
+                             :dat/spec PosInt}
+    :resident/stocks {:dat/rel [:dat.rel/many :entity/stock :stock/id]
+                      :dat/component? true}
     :resident/deeds {:dat/rel [:dat.rel/many :entity/deed :deed/id]
                      :dat/component? true}
     :resident/loans {:dat/rel [:dat.rel/many :entity/loan :loan/id]
@@ -316,17 +404,20 @@
    :entity/sim
    (-> {:sim/id {:dat/type :db.type/uuid
                  :dat/unique :dat.unique/identity}
-        :sim/savings {:dat/type :db.type/long
-                      :dat/spec [:int {:min 0}]
+        :sim/savings {:dat/type :db.type/float
+                      :dat/spec [:double {:min 0}]
                       ::generator-immigrant (fn []
-                                              (int (* 10000 (math/beta 4 4))))
-                      ::generator-baby (fn [] 0)}
-        :sim/age {:dat/type :db.type/long
-                  :dat/spec [:int {:min 0}]
-                  ::generator-immigrant (fn []
-                                          (int (* 100 (math/beta 20 50))))
-                  ::generator-baby (fn [] 0)}}
-       (into (for [k [:sim/preference.security
+                                              (* 1200.0 (math/beta 5 5)))
+                      ::generator-baby (fn [] 0.0)}
+        :sim/age-ticks {:dat/type :db.type/long
+                        :dat/spec [:int {:min 0}]
+                        ::generator-immigrant (fn []
+                                                (int (* 100 ticks-per-year (math/beta 20 50))))
+                        ::generator-baby (fn [] 0)}}
+       (into (for [k [;; sims have different 'preferences' with regards to how they can spend their time
+                      ;; preferences range from 0.0 to 1.0, and start around 0.5
+                      ;; preferences are set at birth/immigration
+                      :sim/preference.security
                       :sim/preference.self-improvement
                       :sim/preference.physical-stress
                       :sim/preference.mental-stress
@@ -334,47 +425,52 @@
                       :sim/preference.social-activity
                       :sim/preference.physical-activity
                       :sim/preference.intellectual-activity
+                      ;; sims have 'talents', which affect the rate which skills improve
+                      ;; talents range from 0.0 to 1.0, and start around 0.5
+                      ;; talents are set at birth/immigration
                       :sim/talent.intellect
                       :sim/talent.fitness
                       :sim/talent.social]]
                [k {:dat/type :db.type/float
-                   :dat/spec [:float {:min 0 :max 1}]
-                   ::generator-immigrant (fn [] (math/beta 4 4))
-                   ::generator-baby (fn [] (math/beta 4 4))}]))
-       (into (for [k [:sim/skill.intellect
+                   :dat/spec [:double {:min 0 :max 1}]
+                   ::generator-immigrant (fn [] (math/beta 5 5))
+                   ::generator-baby (fn [] (math/beta 5 5))}]))
+       (into (for [k [;; sims have 'skills', which affect productivity, and improve when practised
+                      :sim/skill.intellect
                       :sim/skill.fitness
                       :sim/skill.social
+                      ;; sims have stress, which is affected by work, leisure, lack of food and shelter
                       :sim/physical-stress
                       :sim/mental-stress]]
                [k {:dat/type :db.type/float
-                   :dat/spec [:float {:min 0 :max 1}]
-                   ::generator-immigrant (fn [] (math/beta 4 4))
+                   :dat/spec [:double {:min 0 :max 1}]
+                   ::generator-immigrant (fn [] (math/beta 5 5))
                    ::generator-baby (fn [] 0.1)}])))
 
    :entity/loan
    {:loan/id {:dat/type :db.type/uuid
               :dat/unique :dat.unique/identity}
     :loan/amount {:dat/type :db.type/long
-                  :dat/spec :pos-int}
+                  :dat/spec PosInt}
     :loan/annual-interest-rate {:dat/type :db.type/float} ;; positive, typically between 0 and 0.3
     :loan/minimum-daily-payment-amount {:dat/type :db.type/long
-                                        :dat/spec :pos-int}
+                                        :dat/spec PosInt}
     :loan/daily-payment-amount {:dat/type :db.type/long
-                                :dat/spec :pos-int}}
+                                :dat/spec PosInt}}
 
    :entity/lot
    {:lot/id {:dat/type :db.type/uuid
              :dat/unique :dat.unique/identity}
     :lot/x {:dat/type :db.type/long
-            :dat/spec :pos-int}
+            :dat/spec PosInt}
     :lot/y {:dat/type :db.type/long
-            :dat/spec :pos-int}
+            :dat/spec PosInt}
     :lot/deed {:dat/rel [:dat.rel/one :entity/deed :deed/id]}
     :lot/improvement {:dat/rel [:dat.rel/one :entity/improvement :improvement/id]}
     :lot/elevation {:dat/type :db.type/float
-                    :dat/spec [:float {:min 0 :max 1}]}
+                    :dat/spec [:double {:min 0 :max 1}]}
     :lot/moisture {:dat/type :db.type/float
-                   :dat/spec [:float {:min 0 :max 1}]}}
+                   :dat/spec [:double {:min 0 :max 1}]}}
 
    :entity/deed
    {:deed/id {:dat/type :db.type/uuid
@@ -382,7 +478,7 @@
     :deed/rate {:dat/type :db.type/long
                 :dat/spec :whole-int}
     :deed/rate-changed-at {:dat/type :db.type/long
-                           :dat/spec :pos-int}}
+                           :dat/spec PosInt}}
 
    :entity/improvement
    {:improvement/id {:dat/type :db.type/uuid
@@ -390,7 +486,17 @@
     :improvement/type {:dat/type :db.type/keyword
                        :dat/spec (into [:enum] (keys blueprints))}
     :improvement/offers {:dat/rel [:dat.rel/many :entity/offer :offer/id]
+                         :dat/component? true}
+    :improvement/stocks {:dat/rel [:dat.rel/many :entity/stock :stock/id]
                          :dat/component? true}}
+
+   :entity/stock
+   {:stock/id {:dat/type :db.type/uuid
+               :dat/unique :dat.unique/identity}
+    :stock/resource {:dat/type :db.type/keyword
+                     :dat/spec Resource}
+    :stock/amount {:dat/type :db.type/float
+                   :dat/spec [:double {:min 0}]}}
 
    :entity/offer
    {:offer/id {:dat/type :db.type/uuid
@@ -398,9 +504,9 @@
     :offer/type {:dat/type :db.type/keyword
                  :dat/spec (into [:enum] (keys offerables))}
     :offer/amount {:dat/type :db.type/long
-                   :dat/spec :pos-int}
+                   :dat/spec PosInt}
     :offer/utilization {:dat/type :db.type/float
-                        :dat/spec [:float {:min 0 :max 1}]}
+                        :dat/spec [:double {:min 0 :max 1}]}
     }})
 
 (mr/set-default-registry!

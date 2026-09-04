@@ -1,6 +1,7 @@
 (ns georgetown.ui.pages.sims
   (:require
     [bloom.commons.pages :as pages]
+    [georgetown.schema :as schema]
     [georgetown.ui.common :as ui]
     [georgetown.client.state :as state]
     [georgetown.ui.map :as map]))
@@ -21,7 +22,8 @@
 
 ;; evolve over the course of the simulation
 (def variable-stats
-  [[:sim/age "Age" 0 100 0]
+  ;; [stat-key label minimum maximum sig-figs value-fn?]
+  [[:sim/age-ticks "Age" 0 100 0 schema/ticks->years]
    [:sim/savings "Savings" 0 10000 0]
    [:sim/skill.intellect "Skill: Intellect" 0 1 2]
    [:sim/skill.fitness "Skill: Fitness" 0 1 2]
@@ -46,9 +48,14 @@
                    :border-spacing "0.5em"}}
    [:tbody
     (doall
-      (for [[stat-key label minimum maximum sig-figs] stats]
+      (for [[stat-key label minimum maximum sig-figs value-fn] stats
+            :let [value (get sim stat-key)]]
         ^{:key stat-key}
-        [stat-row label (get sim stat-key) minimum maximum sig-figs]))]])
+        [stat-row label
+         (if value-fn
+           (value-fn value)
+           value)
+         minimum maximum sig-figs]))]])
 
 (defn sim-view
   [sim]

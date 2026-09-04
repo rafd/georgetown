@@ -41,7 +41,7 @@
        :where [?e _ _]])
 
 ;; drop all
-#_(dat/clear! db-atom)
+#_(dat/clear! @db-atom)
 
 ;; TODO close when app closes
 ;; or else lock gets stuck

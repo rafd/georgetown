@@ -126,15 +126,13 @@
                            (for [offer (->> improvement
                                             :improvement/id
                                             improvement-id->offers
-                                            (sort-by (juxt :offer/invert? :offer/type)))
+                                            (sort-by :offer/type))
                                  :let [offerable (schema/offerables (:offer/type offer))]]
                              ^{:key (:offer/id offer)}
                              [:div.offer
                               {:tw "bg-black px-0.75 py-0.5 gap-0.5 flex items-center"
                                :style {:font-size "0.5em"}}
-                              [ui/resource-icon (if (:offerable/invert? offerable)
-                                                  (:offerable/demand-unit offerable)
-                                                  (:offerable/supply-unit offerable))]
+                              [ui/resource-icon (schema/offer-exchange-resource offerable)]
                               [:div {:title (Math/round (* 100 (:offer/utilization offer)))}
                                [ui/pie {:tw "w-0.6rem h-0.6rem"
                                         :bg-color "#333"

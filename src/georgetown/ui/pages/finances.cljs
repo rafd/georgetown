@@ -13,6 +13,16 @@
    [dataviz/plus-minus-sparkline
     (x/select [x/ALL :stats.private/net-cashflow] @state/private-stats-history)]])
 
+(defn offer-with-net-amount
+  [offer direction]
+  (let [offerable (schema/offerables (:offer/type offer))
+        per-unit (schema/effect-sum offer direction :resource/money)]
+    (when (pos? per-unit)
+      (assoc offer :offer/net-amount
+        (* (or (:offer/utilization offer) 0)
+           (or (:offerable/capacity offerable) 1)
+           per-unit)))))
+
 (defn cashflow-table []
   (let [resident-id (:resident/id @state/resident)
         improvement-id->offers (->> @state/offers
@@ -26,22 +36,11 @@
                         :let [improvement (:lot/improvement lot)
                               revenue-offer (->> (improvement-id->offers (:improvement/id improvement))
                                                  (keep (fn [offer]
-                                                         (let [offerable (schema/offerables (:offer/type offer))]
-                                                           (when (= :resource/money (:offerable/demand-unit offerable))
-                                                             (assoc offer :offer/net-amount
-                                                               (* (:offer/utilization offer)
-                                                                  (or (:offerable/demand-amount offerable)
-                                                                      (:offer/amount offer))))))))
+                                                         (offer-with-net-amount offer :effect.direction/to-player)))
                                                  first)
                               expense-offer (->> (improvement-id->offers (:improvement/id improvement))
                                                  (keep (fn [offer]
-                                                         (let [offerable (schema/offerables (:offer/type offer))]
-                                                           (when (= :resource/money (:offerable/supply-unit offerable))
-                                                             (assoc offer
-                                                               :offer/net-amount
-                                                               (* (:offer/utilization offer)
-                                                                  (or (:offerable/supply-amount offerable)
-                                                                      (:offer/amount offer))))))))
+                                                         (offer-with-net-amount offer :effect.direction/from-player)))
                                                  first)]]
                     {:type ::lot
                      :id (:lot/id lot)
@@ -100,7 +99,7 @@
            [:td {:tw "text-right tabular-nums px-4"}
             (when expense-offer
               [:div {:tw "flex items-center gap-1 justify-end"}
-               [ui/resource-icon (:offerable/demand-unit (schema/offerables (:offer/type expense-offer)))]
+               [ui/resource-icon (schema/offer-exchange-resource (schema/offerables (:offer/type expense-offer)))]
                [ui/pie {:tw "w-1em h-1em"
                         :bg-color "#ddd"
                         :fg-color "green"}
@@ -110,7 +109,7 @@
            [:td {:tw "text-right tabular-nums px-4"}
             (when revenue-offer
               [:div {:tw "flex items-center gap-1 justify-end"}
-               [ui/resource-icon (:offerable/supply-unit (schema/offerables (:offer/type revenue-offer)))]
+               [ui/resource-icon (schema/offer-exchange-resource (schema/offerables (:offer/type revenue-offer)))]
                [ui/pie {:tw "w-1em h-1em"
                         :bg-color "#ddd"
                         :fg-color "green"}

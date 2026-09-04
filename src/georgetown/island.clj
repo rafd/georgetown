@@ -1,7 +1,9 @@
 (ns georgetown.island
   (:require
     [bloom.commons.uuid :as uuid]
-    [georgetown.noise :as noise]))
+    [georgetown.noise :as noise]
+    [georgetown.schema :as schema]
+    [georgetown.sim :as sim]))
 
 (defn normalize-kernel [kernel]
   (let [sum (reduce + (mapcat identity kernel))]
@@ -152,13 +154,11 @@
 (defn generate
   ([seed]
    {:island/id (uuid/random)
-    :island/population 10
     :island/government-money-balance 10000
-    :island/citizen-money-balance 0
-    :island/citizen-food-balance 0
     :island/epoch 0
     :island/joy 0
     :island/seed seed
+    :island/sims (repeatedly 10 (fn [] (sim/random ::schema/generator-immigrant)))
     :island/lots
     (let [properties (lot-properties seed)]
       (for [x (range 20)

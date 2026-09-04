@@ -14,10 +14,7 @@
                 ;; don't use [*] here, to avoid leaking private information
                 [:island/id
                  :island/epoch
-                 :island/population
                  :island/government-money-balance
-                 :island/citizen-money-balance
-                 :island/citizen-food-balance
                  :island/public-stats
                  :island/joy
                  {:island/residents
@@ -38,8 +35,7 @@
                         [:user/id]}]}]}
                    {:lot/improvement
                     [:improvement/id
-                     :improvement/type
-                     :improvement/active?]}]}]) .
+                     :improvement/type]}]}]) .
           :in $ ?island-id
           :where
           [?island :island/id ?island-id]]
@@ -61,6 +57,10 @@
                         [:resident/id
                          :resident/money-balance
                          :resident/private-stats
+                         {:resident/stocks
+                          [:stock/id
+                           :stock/resource
+                           :stock/amount]}
                          {:resident/loans
                           [:loan/id
                            :loan/amount

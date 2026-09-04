@@ -14,6 +14,38 @@
    (into [:div {:tw "p-1"}]
          content)])
 
+(def shift-icons
+  {:time-shift/morning "🌅"
+   :time-shift/afternoon "☀️"
+   :time-shift/evening "🌆"
+   :time-shift/night "🌙"})
+
+(def direction-labels
+  {:effect.direction/from-sim "sim−"
+   :effect.direction/to-sim "sim+"
+   :effect.direction/from-player "you−"
+   :effect.direction/to-player "you+"
+   :effect.direction/from-self "stock−"
+   :effect.direction/to-self "stock+"})
+
+(defn effect-view
+  [offer [direction target _ :as effect]]
+  (let [amount (schema/resolve-effect-amount offer effect)]
+    [:div {:tw "flex items-center gap-0.5 bg-gray-100 rounded px-1 text-xs whitespace-nowrap"}
+     [:span {:tw "text-gray-500"} (direction-labels direction)]
+     [:span (or amount "?")]
+     (if (contains? schema/resources target)
+       [ui/resource-icon target]
+       [:span {:title (:sim-attribute/label (schema/sim-attributes target))}
+        (:sim-attribute/icon (schema/sim-attributes target))])]))
+
+(defn offerable-effects-view
+  [offer offerable]
+  [:div {:tw "flex gap-1 flex-wrap"}
+   (for [effect (:offerable/effects offerable)]
+     ^{:key (hash effect)}
+     [effect-view offer effect])])
+
 (defn offer-amount-view
   [{:keys [offer-amount improvement-id offerable-id]}]
   [:div.offer-amount
@@ -166,25 +198,12 @@
                    [:div {:tw "grow"}
                     [:div (:blueprint/label blueprint)]
                     [:div {:tw "text-xs"} (:blueprint/description blueprint)]
-                    (let [grouped-ios (->> (:blueprint/io blueprint)
-                                           (group-by :io/direction))]
-                      [:div {:tw "flex gap-1"}
-                       (for [io (:io.direction/input grouped-ios)]
-                         ^{:key (hash io)}
-                         [:div
-                          [ui/resource-amount
-                           (:io/amount io)
-                           0
-                           (:io/resource io)]])
-                       (when (seq (:io.direction/input grouped-ios))
-                         [:span "⇒"])
-                       (for [io (:io.direction/output grouped-ios)]
-                         ^{:key (hash io)}
-                         [:div
-                          [ui/resource-amount
-                           (:io/amount io)
-                           0
-                           (:io/resource io)]])])]
+                    [:div {:tw "space-y-1"}
+                     (for [offerable (:blueprint/offerables blueprint)]
+                       ^{:key (:offerable/id offerable)}
+                       [:div {:tw "flex gap-1 items-center flex-wrap"}
+                        [:span {:tw "text-xs"} (:offerable/label offerable)]
+                        [offerable-effects-view nil offerable]])]]
                    [ui/button {:disabled (< @state/money-balance (:blueprint/price blueprint))
                                :on-click (fn []
                                            (state/exec!
@@ -201,9 +220,7 @@
                   (:blueprint/icon (schema/blueprints (:improvement/type improvement)))]
                  [:div.action
                   (doall
-                    (for [offerable (->> (:blueprint/offerables blueprint)
-                                         (sort-by :offerable/prerequisite?)
-                                         reverse)
+                    (for [offerable (:blueprint/offerables blueprint)
                           :let [offer (->> @state/offers
                                            (filter
                                              (fn [offer]
@@ -214,43 +231,44 @@
                                                     (:offerable/id offerable)))))
                                            first)]]
                       ^{:key (:offerable/id offerable)}
-                      [:div {:tw "border-1 p-1"}
+                      [:div {:tw "border-1 p-1 space-y-1"}
                        [:div.header {:tw "flex"}
                         [:div.offer-type {:tw "grow"}
                          (:offerable/label offerable)]
                         [:div.utilization
-                         (Math/round (* (:offer/utilization offer) 100)) "%"]]
-                       [:div {:tw "flex gap-2 items-center"}
-                        (->> (for [[amount-key unit-key] [[:offerable/supply-amount :offerable/supply-unit]
-                                                          [:offerable/demand-amount :offerable/demand-unit]]
-                                   :let [amount (offerable amount-key)
-                                         unit (offerable unit-key)]]
-                               ^{:key unit-key}
-                               [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
-                                (or amount
-                                    [offer-amount-view
-                                     {:offer-amount (:offer/amount offer)
-                                      :offerable-id (:offerable/id offerable)
-                                      :improvement-id (:improvement/id improvement)}])
-                                [ui/resource-icon unit]])
-                             (interpose
-                               ^{:key "<>"}
-                               [:div "<>"]))
-                        (let [[[a-unit-key a-amount-key]
-                               [b-unit-key b-amount-key]] ((if (:offerable/invert? offerable)
-                                                             reverse
-                                                             identity)
-                                                           [[:offerable/demand-unit :offerable/demand-amount]
-                                                            [:offerable/supply-unit :offerable/supply-amount]])]
-                          [ui/resource-amount
-                           (/ (or (a-amount-key offerable)
-                                  (:offer/amount offer))
-                              (or (b-amount-key offerable)
-                                  (:offer/amount offer)))
-                           2
-                           (list
-                             (a-unit-key offerable)
-                             (b-unit-key offerable))])]]))
+                         (Math/round (* (or (:offer/utilization offer) 0) 100)) "%"]]
+                       [:div {:tw "text-xs text-gray-500 flex gap-2"}
+                        [:span (->> [:time-shift/morning
+                                     :time-shift/afternoon
+                                     :time-shift/evening
+                                     :time-shift/night]
+                                    (filter (:offerable/time-shifts offerable))
+                                    (map shift-icons)
+                                    (apply str))]
+                        (when-let [capacity (:offerable/capacity offerable)]
+                          [:span "capacity " capacity])]
+                       (doall
+                         (for [offerable-var (:offerable/var offerable)]
+                           ^{:key (:var/id offerable-var)}
+                           [:div {:tw "flex items-center gap-1 bg-gray-200 rounded p-2"}
+                            [:span (:var/label offerable-var)]
+                            [offer-amount-view
+                             {:offer-amount (:offer/amount offer)
+                              :offerable-id (:offerable/id offerable)
+                              :improvement-id (:improvement/id improvement)}]
+                            (let [[_ money-resource per-resource] (:var/unit offerable-var)]
+                              [ui/resource-icons [money-resource per-resource]])]))
+                       (when (and (empty? (:offerable/var offerable))
+                                  (nil? offer))
+                         [ui/button {:on-click
+                                     (fn []
+                                       (state/exec!
+                                         :command/set-offer!
+                                         {:improvement-id (:improvement/id improvement)
+                                          :offer-type (:offerable/id offerable)
+                                          :offer-amount 1}))}
+                          "Activate"])
+                       [offerable-effects-view offer offerable]]))
                   [ui/button {:on-click
                               (fn []
                                 (state/exec!
