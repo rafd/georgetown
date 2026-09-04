@@ -40,6 +40,13 @@
 (defonce money-balance
   (r/reaction (:player/money-balance @player)))
 
+(defonce stocks
+  (r/reaction
+    (->> (:player/stocks @player)
+         (filter (fn [stock]
+                   (pos? (:stock/amount stock))))
+         (sort-by :stock/resource))))
+
 (defonce offers (r/reaction
                   (->> @player
                        (x/select

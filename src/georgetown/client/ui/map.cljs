@@ -59,6 +59,11 @@
           [ui/resource-amount (:island/joy island) 0 :resource/joy]]
          (if @state/player
            [:div {:tw "flex gap-1"}
+            (doall
+              (for [stock @state/stocks]
+                ^{:key (:stock/id stock)}
+                [:div {:tw "bg-white px-1"}
+                 [ui/resource-amount (:stock/amount stock) 1 (:stock/resource stock)]]))
             [:div {:tw "bg-white px-1"}
              [ui/resource-amount @state/money-balance 0 :resource/money]]
             [:a {:href (pages/path-for [:page/finances {:island-id (:island/id island)}])
