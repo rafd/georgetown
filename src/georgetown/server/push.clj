@@ -74,6 +74,10 @@
                             [:lot/id
                              {:lot/improvement
                               [:improvement/id
+                               {:improvement/stocks
+                                [:stock/id
+                                 :stock/resource
+                                 :stock/amount]}
                                {:improvement/offers
                                 [:offer/id
                                  :offer/type

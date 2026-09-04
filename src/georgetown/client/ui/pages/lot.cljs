@@ -214,7 +214,26 @@
               (let [blueprint (blueprints/blueprints (:improvement/type improvement))]
                 [:div
                  [:div
-                  (:blueprint/icon (blueprints/blueprints (:improvement/type improvement)))]
+                  (:blueprint/icon blueprint)]
+                 (when (seq (:blueprint/stocks blueprint))
+                   (let [stocks (->> @state/improvements
+                                     (filter (fn [other-improvement]
+                                               (= (:improvement/id other-improvement)
+                                                  (:improvement/id improvement))))
+                                     first
+                                     :improvement/stocks)]
+                     [:div.stocks {:tw "flex gap-1 items-center"}
+                      [:span {:tw "text-xs text-gray-500"} "Stock:"]
+                      (for [blueprint-stock (:blueprint/stocks blueprint)
+                            :let [resource (:stock/resource blueprint-stock)
+                                  amount (->> stocks
+                                              (filter (fn [stock]
+                                                        (= resource (:stock/resource stock))))
+                                              first
+                                              :stock/amount)]]
+                        ^{:key resource}
+                        [:div {:tw "bg-gray-100 rounded px-1"}
+                         [ui/resource-amount (or amount 0) 1 resource]])]))
                  [:div.action
                   (doall
                     (for [offerable (:blueprint/offerables blueprint)

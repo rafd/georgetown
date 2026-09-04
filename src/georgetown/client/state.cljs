@@ -47,14 +47,20 @@
                    (pos? (:stock/amount stock))))
          (sort-by :stock/resource))))
 
+(defonce improvements
+  (r/reaction
+    (->> @player
+         (x/select
+           [:player/deeds
+            x/ALL
+            :lot/_deed
+            x/ALL
+            :lot/improvement]))))
+
 (defonce offers (r/reaction
-                  (->> @player
+                  (->> @improvements
                        (x/select
-                         [:player/deeds
-                          x/ALL
-                          :lot/_deed
-                          x/ALL
-                          :lot/improvement
+                         [x/ALL
                           :improvement/offers
                           x/ALL]))))
 
