@@ -23,11 +23,23 @@
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
-        [:td "money supply"]
+        [:td "total cash"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
+       [:tr
+        [:td "player cash"]
+        [:td {:tw "text-right"}
+         [ui/resource-amount (:sim.out/player-money-balance stats) 0 :resource/money]]
+        [:td
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/player-money-balance])]]]
+       [:tr
+        [:td "government cash"]
+        [:td {:tw "text-right"}
+         [ui/resource-amount (:sim.out/government-money-balance stats) 0 :resource/money]]
+        [:td
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]]]
        [:tr
         [:td "citizen savings"]
         [:td {:tw "text-right"}

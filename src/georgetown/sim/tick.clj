@@ -771,6 +771,7 @@
                                   (select-keys [:resource/food :resource/shelter]))
            :sim.out/joy joy
            :sim.out/net-money-balance final-net-money-balance
+           :sim.out/player-money-balance final-player-balance
            :sim.out/government-money-balance new-government-balance
            :sim.out/helicopter-money helicopter-money
            :sim.out/cash-ratio-before cash-ratio-before

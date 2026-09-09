@@ -23,7 +23,7 @@
 (def death-stress-factor 3.0)
 (def birth-chance-per-citizen-per-tick (/ 1.0 (* 25 time/ticks-per-year)))
 (def citizen-immigration-chance (/ 1 50))
-(def max-emigration-chance (/ 1 4))
+(def max-emigration-chance (/ 1 8))
 (def money-supply-target-per-citizen 600)
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
