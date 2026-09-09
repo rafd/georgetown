@@ -2,6 +2,7 @@
   (:require
     [bloom.commons.uuid :as uuid]
     [georgetown.server.db :as db]
+    [georgetown.server.events :as events]
     [georgetown.server.state :as s]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.debt :as debt]))
@@ -38,14 +39,20 @@
        [#(nil? (s/->player-id user-id [:island/id island-id]))]])
     :effect
     (fn [{:keys [user-id island-id]}]
-      (db/transact!
-        [{:db/id -1
-          :player/id (uuid/random)
-          :player/money-balance 0}
-         [:db/add [:island/id island-id]
-          :island/players -1]
-         [:db/add [:user/id user-id]
-          :user/players -1]]))}
+      (let [player-id (uuid/random)]
+        (db/transact!
+          (concat
+            [{:db/id -1
+              :player/id player-id
+              :player/money-balance 0}
+             [:db/add [:island/id island-id]
+              :island/players -1]
+             [:db/add [:user/id user-id]
+              :user/players -1]]
+            (events/event-txs island-id
+                              {:event/type :event.type/player-joined
+                               :event/data {:user-id user-id
+                                            :player-id player-id}})))))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
@@ -62,38 +69,60 @@
     (fn [{:keys [user-id lot-id]}]
       (let [player-id (s/->player-id user-id [:lot/id lot-id])
             lot (s/by-id [:lot/id lot-id]
-                         [{:lot/improvement [:improvement/type]}
+                         [:lot/x
+                          :lot/y
+                          {:lot/improvement [:improvement/type]}
                           {:lot/deed
                            [:deed/id
                             :deed/rate
                             {:player/_deeds [:player/id]}]}])
             current-epoch (s/qget [:lot/id lot-id]
-                                  [:island/_lots :island/epoch])]
-        (if-let [deed (:lot/deed lot)]
+                                  [:island/_lots :island/epoch])
+            island-id (s/qget [:lot/id lot-id]
+                              [:island/_lots :island/id])
+            deed (:lot/deed lot)
+            purchase-event-txs
+            (events/event-txs island-id
+                              {:event/type :event.type/lot-purchased
+                               :event/data (merge {:user-id user-id
+                                                   :player-id player-id
+                                                   :lot-id lot-id
+                                                   :lot-x (:lot/x lot)
+                                                   :lot-y (:lot/y lot)
+                                                   :rate (if deed
+                                                           (inc (:deed/rate deed))
+                                                           0)}
+                                                  (when deed
+                                                    {:previous-owner-player-id (:player/id (:player/_deeds deed))}))})]
+        (if deed
           (let [refund-amount (or (:blueprint/price (blueprints/blueprints (:improvement/type (:lot/improvement lot))))
                                   0)]
             (db/transact!
-              [;; refund previous owner
-               [:fn/deposit (:player/id (:player/_deeds deed)) refund-amount]
-               ;; remove previous deed
-               [:db/retractEntity [:deed/id (:deed/id deed)]]
-               ;; charge new owner
-               [:fn/withdraw player-id refund-amount]
-               ;; create new deed
+              (concat
+                [;; refund previous owner
+                 [:fn/deposit (:player/id (:player/_deeds deed)) refund-amount]
+                 ;; remove previous deed
+                 [:db/retractEntity [:deed/id (:deed/id deed)]]
+                 ;; charge new owner
+                 [:fn/withdraw player-id refund-amount]
+                 ;; create new deed
+                 {:db/id -1
+                  :deed/id (uuid/random)
+                  :deed/rate (inc (:deed/rate deed))
+                  :deed/rate-change-at current-epoch}
+                 [:db/add [:lot/id lot-id] :lot/deed -1]
+                 [:db/add [:player/id player-id] :player/deeds -1]]
+                purchase-event-txs)))
+          (db/transact!
+            (concat
+              [;; create new deed
                {:db/id -1
                 :deed/id (uuid/random)
-                :deed/rate (inc (:deed/rate deed))
-                :deed/rate-change-at current-epoch}
+                :deed/rate 0
+                :deed/rate-changed-at current-epoch}
                [:db/add [:lot/id lot-id] :lot/deed -1]
-               [:db/add [:player/id player-id] :player/deeds -1]]))
-          (db/transact!
-            [;; create new deed
-             {:db/id -1
-              :deed/id (uuid/random)
-              :deed/rate 0
-              :deed/rate-changed-at current-epoch}
-             [:db/add [:lot/id lot-id] :lot/deed -1]
-             [:db/add [:player/id player-id] :player/deeds -1]]))))}
+               [:db/add [:player/id player-id] :player/deeds -1]]
+              purchase-event-txs)))))}
 
    {:id :command/change-rate!
     :params {:user-id :user/id
@@ -141,9 +170,19 @@
                current-epoch (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])]
            (< expiry current-epoch))]])
     :effect
-    (fn [{:keys [deed-id]}]
-      (db/transact!
-        [[:db/retractEntity [:deed/id deed-id]]]))}
+    (fn [{:keys [user-id deed-id]}]
+      (let [island-id (s/qget [:deed/id deed-id]
+                              [:lot/_deed :island/_lots :island/id])
+            lot-x (s/qget [:deed/id deed-id] [:lot/_deed :lot/x])
+            lot-y (s/qget [:deed/id deed-id] [:lot/_deed :lot/y])]
+        (db/transact!
+          (concat
+            [[:db/retractEntity [:deed/id deed-id]]]
+            (events/event-txs island-id
+                              {:event/type :event.type/lot-abandoned
+                               :event/data {:user-id user-id
+                                            :lot-x lot-x
+                                            :lot-y lot-y}})))))}
 
    {:id :command/build!
     :params {:user-id :user/id
@@ -161,24 +200,32 @@
     :effect
     (fn [{:keys [user-id lot-id improvement-type]}]
       (let [blueprint (blueprints/blueprints improvement-type)
-            amount (:blueprint/price blueprint)]
+            amount (:blueprint/price blueprint)
+            island-id (s/qget [:lot/id lot-id] [:island/_lots :island/id])
+            player-id (s/->player-id user-id [:lot/id lot-id])
+            lot (s/by-id [:lot/id lot-id] [:lot/x :lot/y])]
         (db/transact!
-          [{:lot/id lot-id
-            :lot/improvement
-            {:improvement/id (uuid/random)
-             :improvement/type improvement-type
-             ;; offers with vars start without an amount, ie. inactive
-             :improvement/offers
-             (->> (:blueprint/offerables blueprint)
-                  (mapv (fn [offerable]
-                          {:offer/id (uuid/random)
-                           :offer/type (:offerable/id offerable)})))}}
-           [:fn/transfer-to-government
-            (s/qget [:lot/id lot-id] [:island/_lots :island/id])
-            amount]
-           [:fn/withdraw
-            (s/->player-id user-id [:lot/id lot-id])
-            amount]])))}
+          (concat
+            [{:lot/id lot-id
+              :lot/improvement
+              {:improvement/id (uuid/random)
+               :improvement/type improvement-type
+               ;; offers with vars start without an amount, ie. inactive
+               :improvement/offers
+               (->> (:blueprint/offerables blueprint)
+                    (mapv (fn [offerable]
+                            {:offer/id (uuid/random)
+                             :offer/type (:offerable/id offerable)})))}}
+             [:fn/transfer-to-government island-id amount]
+             [:fn/withdraw player-id amount]]
+            (events/event-txs island-id
+                              {:event/type :event.type/built
+                               :event/data {:user-id user-id
+                                            :player-id player-id
+                                            :improvement-type improvement-type
+                                            :lot-id lot-id
+                                            :lot-x (:lot/x lot)
+                                            :lot-y (:lot/y lot)}})))))}
 
    {:id :command/demolish!
     :params {:user-id :user/id
@@ -190,17 +237,26 @@
          [#(s/owns? user-id [:improvement/id improvement-id])]])
     :effect
     (fn [{:keys [user-id improvement-id]}]
-      (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])]
-        (let [;; get back only half
-              amount (/ (:blueprint/price (blueprints/blueprints (:improvement/type improvement)))
-                        2)]
+      (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])
+            island-id (s/qget [:improvement/id improvement-id]
+                              [:lot/_improvement :island/_lots :island/id])
+            lot-x (s/qget [:improvement/id improvement-id] [:lot/_improvement :lot/x])
+            lot-y (s/qget [:improvement/id improvement-id] [:lot/_improvement :lot/y])
+            ;; get back only half
+            amount (/ (:blueprint/price (blueprints/blueprints (:improvement/type improvement)))
+                      2)]
         (db/transact!
-          [[:db/retractEntity [:improvement/id improvement-id]]
-           [:fn/transfer-to-government
-            (s/qget [:improvement/id improvement-id] [:lot/_improvement :island/_lots :island/id])
-            (- amount)]
-           [:fn/deposit (s/->player-id user-id [:improvement/id improvement-id])
-            amount]]))))}
+          (concat
+            [[:db/retractEntity [:improvement/id improvement-id]]
+             [:fn/transfer-to-government island-id (- amount)]
+             [:fn/deposit (s/->player-id user-id [:improvement/id improvement-id])
+              amount]]
+            (events/event-txs island-id
+                              {:event/type :event.type/demolished
+                               :event/data {:user-id user-id
+                                            :improvement-type (:improvement/type improvement)
+                                            :lot-x lot-x
+                                            :lot-y lot-y}})))))}
 
    {:id :command/set-offer!
     :params {:user-id :user/id
@@ -245,18 +301,27 @@
        [#(s/exists? :player/id player-id)]
        [#(s/owns? user-id [:player/id player-id])]])
     :effect
-    (fn [{:keys [user-id player-id]}]
+    (fn [{:keys [player-id]}]
       (let [loan-count (->> (s/by-id [:player/id player-id]
                                      [:player/loans])
                             :player/loans
                             count)
-            loan (debt/next-potential-loan loan-count)]
+            loan (debt/next-potential-loan loan-count)
+            island-id (s/qget [:player/id player-id]
+                              [:island/_players :island/id])]
         (db/transact!
-          [[:fn/deposit player-id (:loan/amount loan)]
-           {:player/id player-id
-            :player/loans
-            [(assoc loan
-               :loan/id (uuid/random))]}])))}
+          (concat
+            [[:fn/deposit player-id (:loan/amount loan)]
+             {:player/id player-id
+              :player/loans
+              [(assoc loan
+                 :loan/id (uuid/random))]}]
+            (events/event-txs island-id
+                              {:event/type :event.type/loan-borrowed
+                               :event/visibility :visibility/limited
+                               :event/visibility-player-ids #{player-id}
+                               :event/data {:amount (:loan/amount loan)
+                                            :annual-interest-rate (:loan/annual-interest-rate loan)}})))))}
 
    {:id :command/set-loan-daily-payment-amount!
     :params {:user-id :user/id
@@ -294,9 +359,17 @@
                                               {:player/_loans [:player/id]}])
             player-id (:player/id (:player/_loans loan))]
         (if (<= (:loan/amount loan) amount)
-          (db/transact!
-            [[:db/retractEntity [:loan/id loan-id]]
-             [:fn/withdraw player-id (:loan/amount loan)]])
+          (let [island-id (s/qget [:loan/id loan-id]
+                                  [:player/_loans :island/_players :island/id])]
+            (db/transact!
+              (concat
+                [[:db/retractEntity [:loan/id loan-id]]
+                 [:fn/withdraw player-id (:loan/amount loan)]]
+                (events/event-txs island-id
+                                  {:event/type :event.type/loan-paid-off
+                                   :event/visibility :visibility/limited
+                                   :event/visibility-player-ids #{player-id}
+                                   :event/data {:amount (:loan/amount loan)}}))))
           (db/transact!
             [[:db/add [:loan/id loan-id]
               :loan/amount (- (:loan/amount loan) amount)]

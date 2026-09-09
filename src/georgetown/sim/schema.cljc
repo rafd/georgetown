@@ -28,6 +28,8 @@
                   :dat/component? true}
     :island/lots {:dat/rel [:dat.rel/many :entity/lot :lot/id]
                   :dat/component? true}
+    :island/events {:dat/rel [:dat.rel/many :entity/event :event/id]
+                    :dat/component? true}
     ;; number of ticks since start
     ;; 4 ticks per day
     :island/epoch {:dat/type :db.type/long
@@ -100,6 +102,22 @@
                    :dat/spec [:double {:min 0 :max 1}]
                    ::generator-immigrant (fn [] (math/beta 5 5))
                    ::generator-baby (fn [] 0.1)}])))
+
+   :entity/event
+   {:event/id {:dat/type :db.type/uuid
+               :dat/unique :dat.unique/identity}
+    :event/epoch {:dat/type :db.type/long
+                  :dat/spec types/PosInt}
+    ;; canonical list of types lives in georgetown.client.ui.events
+    :event/type {:dat/type :db.type/keyword}
+    :event/source {:dat/type :db.type/keyword
+                   :dat/spec [:enum :source/player :source/simulation]}
+    :event/visibility {:dat/type :db.type/keyword
+                       :dat/spec [:enum :visibility/public :visibility/limited :visibility/system]}
+    ;; only for :visibility/limited; not a component (retracting an event must not retract players)
+    :event/visibility-players {:dat/rel [:dat.rel/many :entity/player :player/id]}
+    ;; plain ids + denormalized display data; no db refs (referenced entities may be retracted)
+    :event/data {}}
 
    :entity/loan
    {:loan/id {:dat/type :db.type/uuid

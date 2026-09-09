@@ -48,6 +48,9 @@
           [:a {:href (pages/path-for [:page/gazette {:island-id (:island/id island)}])
                :title "gazette"}
            "📈"]
+          [:a {:href (pages/path-for [:page/feed {:island-id (:island/id island)}])
+               :title "feed"}
+           "📰"]
           [:a {:href (pages/path-for [:page/citizens {:island-id (:island/id island)}])
                :title "citizens"}
            "👤"]]

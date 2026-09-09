@@ -25,6 +25,7 @@
 (def citizen-immigration-chance (/ 1 50))
 (def max-emigration-chance (/ 1 4))
 (def money-supply-target-per-citizen 600)
+(def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights
 (def joy-weight-security 1.0)

@@ -5,11 +5,14 @@
     [org.httpkit.server :as http]
     [muuntaja.core :as m]
     [georgetown.server.state :as s]
-    [georgetown.server.db :as db]))
+    [georgetown.server.db :as db]
+    [georgetown.server.events :as events]))
 
 (defn island-state
   [island-id]
-  (db/q '[:find
+  ;; events are queried separately, to keep limited/system events out of the public pull
+  (some->
+    (db/q '[:find
           (pull ?island
                 ;; don't use [*] here, to avoid leaking private information
                 [:island/id
@@ -39,7 +42,8 @@
           :in $ ?island-id
           :where
           [?island :island/id ?island-id]]
-        island-id))
+          island-id)
+    (assoc :island/events (events/recent-public-events island-id))))
 
 (defn user-state
   [user-id]
@@ -53,7 +57,8 @@
 (defn player-state
   [user-id island-id]
   (when user-id
-    (db/q '[:find (pull ?player
+    (some->
+      (db/q '[:find (pull ?player
                         [:player/id
                          :player/money-balance
                          :player/private-stats
@@ -90,8 +95,11 @@
             [?island :island/id ?island-id]
             [?island :island/players ?player]
             [?user :user/players ?player]]
-          user-id
-          island-id)))
+            user-id
+            island-id)
+      (as-> player
+        (assoc player :player/events
+               (events/recent-limited-events island-id (:player/id player)))))))
 
 ;; map of session-id -> {:sub/channel ... :sub/user-id ... :sub/island-id ...}
 (defonce subscriptions (atom {}))

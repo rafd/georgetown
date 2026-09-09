@@ -3,6 +3,7 @@
     [bloom.commons.uuid :as uuid]
     [com.rpl.specter :as x]
     [georgetown.server.db :as db]
+    [georgetown.server.events :as events]
     [georgetown.sim.allocate :as allocate]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.citizen :as citizen]
@@ -537,6 +538,14 @@
                    [:db/retractEntity [:loan/id (:loan/id loan)]]
                    [:db/add [:loan/id (:loan/id loan)]
                     :loan/amount (debt/new-amount loan)]))))
+     :paid-off-loans
+     (->> payments
+          (keep (fn [[loan player-id payment-amount]]
+                  (when (<= (- (:loan/amount loan)
+                               payment-amount)
+                            0)
+                    {:player-id player-id
+                     :amount (:loan/amount loan)}))))
      :player-debt-payments
      (->> payments
           (reduce (fn [memo [_loan player-id payment-amount]]
@@ -586,11 +595,14 @@
                   (run-goods-market :resource/shelter)
                   run-allocation
                   run-citizen-maintenance)
+        new-epoch (inc (:world/epoch world))
         dead-citizen-ids (set (pick-dead-citizen-ids world))
+        dead-citizens (map (:world/citizens world) dead-citizen-ids)
         world (update world :world/citizens
                       (fn [citizens]
                         (apply dissoc citizens dead-citizen-ids)))
         emigrant-citizen-ids (set (pick-emigrant-citizen-ids world))
+        emigrant-citizens (map (:world/citizens world) emigrant-citizen-ids)
         world (update world :world/citizens
                       (fn [citizens]
                         (apply dissoc citizens emigrant-citizen-ids)))
@@ -599,10 +611,11 @@
 
         ;; loans & taxes
         ;; loan payments are daily, so only charge on the night tick
-        {:keys [loan-txs player-debt-payments]} (if night?
-                                                  (loans island-id)
-                                                  {:loan-txs []
-                                                   :player-debt-payments {}})
+        {:keys [loan-txs paid-off-loans player-debt-payments]} (if night?
+                                                                 (loans island-id)
+                                                                 {:loan-txs []
+                                                                  :paid-off-loans []
+                                                                  :player-debt-payments {}})
         player-taxes (taxes island-id)
         world (reduce (fn [memo [player-id amount]]
                         (update-player-money memo player-id amount))
@@ -745,7 +758,7 @@
       (concat
         (for [[k v] {:island/public-stats public-stats
                      :island/joy (long joy)
-                     :island/epoch (inc (:world/epoch world))
+                     :island/epoch new-epoch
                      :island/government-money-balance (long new-government-balance)}]
           [:db/add [:island/id island-id] k v])
         ;; citizens
@@ -775,10 +788,66 @@
         ;; offer utilization
         (for [[offer-id utilization] (:world/utilizations world)]
           [:db/add [:offer/id offer-id] :offer/utilization utilization])
+        ;; events
+        ;; (before bankruptcy txs, so [:player/id ...] lookup refs still resolve)
+        (->> dead-citizens
+             (mapcat (fn [citizen]
+                       (events/event-txs island-id
+                                         {:event/type :event.type/citizen-died
+                                          :event/source :source/simulation
+                                          :event/epoch new-epoch
+                                          :event/data {:citizen-id (:citizen/id citizen)
+                                                       :age-years (int (citizen/age-in-years citizen))}}))))
+        (->> emigrant-citizens
+             (mapcat (fn [citizen]
+                       (events/event-txs island-id
+                                         {:event/type :event.type/citizen-emigrated
+                                          :event/source :source/simulation
+                                          :event/epoch new-epoch
+                                          :event/data {:citizen-id (:citizen/id citizen)
+                                                       :age-years (int (citizen/age-in-years citizen))}}))))
+        (->> paid-off-loans
+             (mapcat (fn [{:keys [player-id amount]}]
+                       (events/event-txs island-id
+                                         {:event/type :event.type/loan-paid-off
+                                          :event/source :source/simulation
+                                          :event/epoch new-epoch
+                                          :event/visibility :visibility/limited
+                                          :event/visibility-player-ids #{player-id}
+                                          :event/data {:amount amount}}))))
+        (->> final-player-balances
+             (keep (fn [[player-id balance]]
+                     (when (neg? balance)
+                       player-id)))
+             (mapcat (fn [player-id]
+                       (events/event-txs island-id
+                                         {:event/type :event.type/player-bankrupt
+                                          :event/source :source/simulation
+                                          :event/epoch new-epoch
+                                          :event/data {:player-id player-id}}))))
+        (events/prune-event-txs island-id (- new-epoch constants/event-retention-ticks))
         loan-txs
         (player-bankruptcy-txs final-player-balances)))
     ;; births & immigration
     (dotimes [_ (randomize population constants/birth-chance-per-citizen-per-tick)]
-      (db/add-citizen! island-id (citizen/random ::schema/generator-baby)))
+      (let [citizen (citizen/random ::schema/generator-baby)]
+        (db/transact!
+          (concat
+            [{:island/id island-id
+              :island/citizens [citizen]}]
+            (events/event-txs island-id
+                              {:event/type :event.type/citizen-born
+                               :event/source :source/simulation
+                               :event/epoch new-epoch
+                               :event/data {:citizen-id (:citizen/id citizen)}})))))
     (when (< (rand) constants/citizen-immigration-chance)
-      (db/add-citizen! island-id (citizen/random ::schema/generator-immigrant)))))
+      (let [citizen (citizen/random ::schema/generator-immigrant)]
+        (db/transact!
+          (concat
+            [{:island/id island-id
+              :island/citizens [citizen]}]
+            (events/event-txs island-id
+                              {:event/type :event.type/citizen-immigrated
+                               :event/source :source/simulation
+                               :event/epoch new-epoch
+                               :event/data {:citizen-id (:citizen/id citizen)}})))))))

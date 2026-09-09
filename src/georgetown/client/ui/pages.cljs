@@ -6,6 +6,7 @@
    [georgetown.client.ui.pages.lot]
    [georgetown.client.ui.pages.finances]
    [georgetown.client.ui.pages.gazette]
+   [georgetown.client.ui.pages.feed]
    [georgetown.client.ui.pages.citizens]
    #_[georgetown.client.ui.pages.debug]))
 
