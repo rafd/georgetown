@@ -401,8 +401,7 @@
                                         :citizen/preference.physical-activity 0.2
                                         :citizen/preference.intellectual-activity 0.1}
            :offerable/capacity 2
-           :offerable/time-shifts #{:time-shift/evening
-                                    :time-shift/night}
+           :offerable/time-shifts #{:time-shift/evening}
            :offerable/skill-productivity-weights {:citizen/skill.intellect 0.1
                                                   :citizen/skill.fitness 0.2
                                                   :citizen/skill.social 0.7}
@@ -423,8 +422,7 @@
                                         :citizen/preference.physical-activity 0.1
                                         :citizen/preference.intellectual-activity 0.1}
            :offerable/capacity 20
-           :offerable/time-shifts #{:time-shift/evening
-                                    :time-shift/night}
+           :offerable/time-shifts #{:time-shift/evening}
            :offerable/var [{:var/id :var/drink-price
                             :var/label "Drink Price"
                             :var/unit [:/ :resource/money :resource/time]}]
