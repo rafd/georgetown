@@ -9,8 +9,8 @@
 (defn citizen-offer-joy
   "Joy a citizen expects from spending the current shift on an offer (nil = idle)."
   [citizen offer {:keys [food-price shelter-price]}]
-  (let [weights (:offerable/skill-productivity-weights
-                  (blueprints/offerables (:offer/type offer)))
+  (let [offerable (blueprints/offerables (:offer/type offer))
+        weights (:offerable/skill-productivity-weights offerable)
         income (blueprints/effect-sum offer :effect.direction/to-citizen :resource/money)
         money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
         savings-after (max 0.0 (+ (:citizen/savings citizen) (- income money-cost)))
@@ -21,12 +21,10 @@
         security-term (* (:citizen/preference.security citizen)
                          (/ days-of-savings
                             (+ days-of-savings constants/security-halfway-days)))
-        activity-term (->> {:citizen/skill.fitness :citizen/preference.physical-activity
-                            :citizen/skill.intellect :citizen/preference.intellectual-activity
-                            :citizen/skill.social :citizen/preference.social-activity}
-                           (map (fn [[skill preference]]
-                                  (* (get citizen preference)
-                                     (get weights skill 0.0))))
+        activity-term (->> (:offerable/activity-weights offerable)
+                           (map (fn [[preference weight]]
+                                  (* (get citizen preference 0.0)
+                                     weight)))
                            (reduce + 0.0))
         self-improvement-term (* (:citizen/preference.self-improvement citizen)
                                  (->> weights

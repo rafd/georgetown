@@ -90,6 +90,15 @@
         [:map-of
          [:enum :citizen/skill.intellect :citizen/skill.social :citizen/skill.fitness]
          [:double {:min 0 :max 1}]]]
+       ;; how much this offer satisfies each citizen activity preference (contributes to joy)
+       [:offerable/activity-weights
+        [:map-of
+         [:enum
+          :citizen/preference.spiritual-activity
+          :citizen/preference.social-activity
+          :citizen/preference.physical-activity
+          :citizen/preference.intellectual-activity]
+         [:double {:min 0 :max 1}]]]
        [:offerable/var
         [:vector
          [:map {:closed true}
