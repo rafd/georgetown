@@ -281,7 +281,11 @@
                    :clearing-price clearing-price
                    :average-price average-price
                    :cost supply-consumed
-                   :unserved-count (count unserved-citizens)}))))
+                   :unserved-count (count unserved-citizens)})
+        (assoc-in [:world/stats (case resource
+                                  :resource/food :hungry-citizen-ids
+                                  :resource/shelter :unhoused-citizen-ids)]
+                  (set unserved-citizens)))))
 
 ;; ---- work & leisure allocation ----
 
@@ -396,6 +400,13 @@
                   world*
                   offers-by-id))
         (update :world/stats assoc
+                :citizen-activities (->> allocations
+                                         (map (fn [[citizen-id offer-id]]
+                                                [citizen-id
+                                                 (if offer-id
+                                                   (:offer/type (offers-by-id offer-id))
+                                                   :activity/idle)]))
+                                         (into {}))
                 :employed-count (->> allocations
                                      vals
                                      (keep offers-by-id)
@@ -745,6 +756,16 @@
            :sim.out/idle-count (get-in world [:world/stats :idle-count])
            :sim.out/hungry-count (get-in world [:world/stats :resource/food :unserved-count])
            :sim.out/unhoused-count (get-in world [:world/stats :resource/shelter :unserved-count])
+           :sim.out/citizen-states
+           (let [{:keys [hungry-citizen-ids unhoused-citizen-ids citizen-activities]} (:world/stats world)]
+             (->> (:world/citizens world)
+                  (map (fn [[citizen-id citizen]]
+                         [citizen-id
+                          {:citizen-state/hungry? (contains? hungry-citizen-ids citizen-id)
+                           :citizen-state/unhoused? (contains? unhoused-citizen-ids citizen-id)
+                           :citizen-state/last-activity (get citizen-activities citizen-id)
+                           :citizen-state/savings (:citizen/savings citizen)}]))
+                  (into {})))
            :sim.out/resources (-> (:world/stats world)
                                   (select-keys [:resource/food :resource/shelter]))
            :sim.out/joy joy

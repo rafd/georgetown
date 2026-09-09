@@ -2,6 +2,7 @@
   (:require
     [clojure.string :as string]
     [bloom.commons.fontawesome :as fa]
+    [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.types :as types]
     [georgetown.client.state :as state]))
 
@@ -70,6 +71,18 @@
                :fill (if (contains? shifts shift)
                        "black"
                        "#ddd")}])])
+
+(defn last-activity-view
+  [activity]
+  (if-let [offerable (blueprints/offerables activity)]
+    (let [blueprint (blueprints/offerable-id->blueprint activity)]
+      [:span {:title (str (:blueprint/label blueprint) ": " (:offerable/label offerable))}
+       (:blueprint/icon blueprint) (:offerable/icon offerable)])
+    [:span {:tw "text-gray-400"
+            :title "most recent activity"}
+     (if (= :activity/idle activity)
+       "idle"
+       "—")]))
 
 (defn resource-icon
   [resource-id]

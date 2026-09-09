@@ -509,6 +509,15 @@
        (mapcat :blueprint/offerables)
        (types/key-by :offerable/id)))
 
+(def offerable-id->blueprint
+  (->> blueprints
+       vals
+       (mapcat (fn [blueprint]
+                 (->> (:blueprint/offerables blueprint)
+                      (map (fn [offerable]
+                             [(:offerable/id offerable) blueprint])))))
+       (into {})))
+
 (defn offer-active?
   "Var-less offers are always active; offers with vars are active once an amount is set."
   [offer]
