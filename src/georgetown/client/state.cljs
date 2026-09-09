@@ -97,12 +97,17 @@
                                  (reset! user (:client-state/user client-state))
                                  (reset! player (:client-state/player client-state))
                                  (reset! island (:client-state/island client-state))
-                                 (swap! public-stats-history
-                                        (fn [prev]
-                                          (take 60 (conj prev (:island/public-stats (:client-state/island client-state))))))
-                                 (swap! private-stats-history
-                                        (fn [prev]
-                                          (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))
+                                 ;; non-tick db changes also push state; only record newly ticked stats
+                                 (let [public-stats (:island/public-stats (:client-state/island client-state))]
+                                   (when (and (:sim.out/epoch public-stats)
+                                              (not= (:sim.out/epoch public-stats)
+                                                    (:sim.out/epoch (first @public-stats-history))))
+                                     (swap! public-stats-history
+                                            (fn [prev]
+                                              (take 60 (conj prev public-stats))))
+                                     (swap! private-stats-history
+                                            (fn [prev]
+                                              (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))))
                                  (js/setTimeout get-island-state 0))})))
 
 (defonce _watcher

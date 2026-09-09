@@ -733,7 +733,8 @@
         (x/transform
           (x/walker number?)
           double
-          {:sim.out/shift (:world/shift world)
+          {:sim.out/epoch (:world/epoch world)
+           :sim.out/shift (:world/shift world)
            :sim.out/population population
            :sim.out/deaths (count dead-citizen-ids)
            :sim.out/emigrations (count emigrant-citizen-ids)

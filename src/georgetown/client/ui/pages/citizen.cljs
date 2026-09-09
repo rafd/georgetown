@@ -90,14 +90,10 @@
   (let [tick-states (->> @state/public-stats-history
                          ;; newest first in the cache; oldest first for display math
                          reverse
-                         (map (fn [stats]
-                                (get-in stats [:sim.out/citizen-states citizen-id])))
-                         (drop-while nil?))
-        ;; the newest entry was recorded on the tick before the current epoch
-        start-epoch (- (:island/epoch @state/island) (count tick-states))
+                         (keep (fn [stats]
+                                 (when-let [tick-state (get-in stats [:sim.out/citizen-states citizen-id])]
+                                   [(:sim.out/epoch stats) tick-state]))))
         by-day (->> tick-states
-                    (map-indexed (fn [index tick-state]
-                                   [(+ start-epoch index) tick-state]))
                     (group-by (fn [[epoch _]]
                                 (quot epoch time/ticks-per-day))))]
     [:div
