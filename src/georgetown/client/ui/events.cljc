@@ -1,7 +1,8 @@
 (ns georgetown.client.ui.events)
 
-(defn citizen-label [citizen-id]
-  (subs (str citizen-id) 24 36))
+(defn citizen-label [data]
+  (or (:citizen-name data)
+      (subs (str (:citizen-id data)) 24 36)))
 
 (defn player-label [player-id]
   (subs (str player-id) 0 8))
@@ -51,20 +52,20 @@
 
 (defmethod render :event.type/citizen-born
   [{:event/keys [data]}]
-  [:span "Citizen " (citizen-label (:citizen-id data)) " was born"])
+  [:span "Citizen " (citizen-label data) " was born"])
 
 (defmethod render :event.type/citizen-immigrated
   [{:event/keys [data]}]
-  [:span "Citizen " (citizen-label (:citizen-id data)) " immigrated"])
+  [:span "Citizen " (citizen-label data) " immigrated"])
 
 (defmethod render :event.type/citizen-emigrated
   [{:event/keys [data]}]
-  [:span "Citizen " (citizen-label (:citizen-id data))
+  [:span "Citizen " (citizen-label data)
    " emigrated at age " (:age-years data)])
 
 (defmethod render :event.type/citizen-died
   [{:event/keys [data]}]
-  [:span "Citizen " (citizen-label (:citizen-id data))
+  [:span "Citizen " (citizen-label data)
    " died at age " (:age-years data)])
 
 ;; events with retired types survive in the db until pruned

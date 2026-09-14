@@ -3,6 +3,7 @@
     [dat.malli :as dat-malli]
     [malli.registry :as malli-registry]
     [georgetown.sim.blueprints :as blueprints]
+    [georgetown.sim.names :as names]
     [georgetown.sim.time :as time]
     [georgetown.sim.types :as types]
     [georgetown.sim.util.math :as math]))
@@ -60,6 +61,10 @@
    :entity/citizen
    (-> {:citizen/id {:dat/type :db.type/uuid
                      :dat/unique :dat.unique/identity}
+        :citizen/name {:dat/type :db.type/string
+                       :dat/spec :string
+                       ::generator-immigrant names/random-full-name
+                       ::generator-baby names/random-full-name}
         :citizen/savings {:dat/type :db.type/float
                           :dat/spec [:double {:min 0}]
                           ::generator-immigrant (fn []

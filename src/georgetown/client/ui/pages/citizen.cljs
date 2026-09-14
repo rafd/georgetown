@@ -151,7 +151,7 @@
        [:p "This citizen is no longer on the island."]
        [:div {:tw "space-y-2"}
         [:h1 {:tw "text-sm font-bold"}
-         [ui/resource-icon :resource/citizen] " " (subs (str (:citizen/id citizen)) 0 8)]
+         [ui/resource-icon :resource/citizen] " " (ui/citizen-display-name citizen)]
         [activity-history-view citizen-id]
         [:div {:tw "flex gap-2"}
          [:div

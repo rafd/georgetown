@@ -863,7 +863,8 @@
                               {:event/type :event.type/citizen-born
                                :event/source :source/simulation
                                :event/epoch new-epoch
-                               :event/data {:citizen-id (:citizen/id citizen)}})))))
+                               :event/data {:citizen-id (:citizen/id citizen)
+                                            :citizen-name (:citizen/name citizen)}})))))
     (when (< (rand) constants/citizen-immigration-chance)
       (let [citizen (citizen/random ::schema/generator-immigrant)]
         (db/transact!
@@ -874,4 +875,5 @@
                               {:event/type :event.type/citizen-immigrated
                                :event/source :source/simulation
                                :event/epoch new-epoch
-                               :event/data {:citizen-id (:citizen/id citizen)}})))))))
+                               :event/data {:citizen-id (:citizen/id citizen)
+                                            :citizen-name (:citizen/name citizen)}})))))))

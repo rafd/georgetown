@@ -6,6 +6,16 @@
 
 (def feed-limit 100)
 
+;; events referencing a citizen not yet in the db (eg. born, immigrated)
+;; must pass :citizen-name explicitly
+(defn with-citizen-name
+  [{:event/keys [data] :as event}]
+  (if-let [citizen-name (when (and (:citizen-id data)
+                                   (nil? (:citizen-name data)))
+                          (s/qget [:citizen/id (:citizen-id data)] [:citizen/name]))]
+    (assoc-in event [:event/data :citizen-name] citizen-name)
+    event))
+
 (defn event-txs
   [island-id {:event/keys [epoch visibility-player-ids] :as event}]
   [{:island/id island-id
@@ -15,7 +25,9 @@
                            (s/qget [:island/id island-id] [:island/epoch]))
           :event/source :source/player
           :event/visibility :visibility/public}
-         (merge (dissoc event :event/visibility-player-ids))
+         (merge (-> event
+                    (dissoc :event/visibility-player-ids)
+                    with-citizen-name))
          (merge (when (seq visibility-player-ids)
                   {:event/visibility-players
                    (mapv (fn [player-id]

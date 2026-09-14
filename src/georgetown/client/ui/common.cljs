@@ -31,6 +31,11 @@
       #js {:minimumFractionDigits fraction-digits
            :maximumFractionDigits fraction-digits})))
 
+(defn citizen-display-name
+  [citizen]
+  (or (:citizen/name citizen)
+      (subs (str (:citizen/id citizen)) 0 8)))
+
 (defn raw-icons
   [icons]
   (into [:<>]
