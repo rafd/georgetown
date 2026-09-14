@@ -3,7 +3,8 @@
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.client.ui.common :as ui]
-    [georgetown.client.ui.map :as map]))
+    [georgetown.client.ui.map :as map]
+    [georgetown.sim.time :as time]))
 
 (defn citizen-row
   [citizen citizen-state]
@@ -12,9 +13,11 @@
                     (pages/navigate-to! [:page/citizen {:island-id @state/island-id
                                                         :citizen-id (:citizen/id citizen)}]))}
    [:td {:tw "text-sm font-bold pr-2"}
-    [ui/resource-icon :resource/citizen] " " (subs (str (:citizen/id citizen)) 0 8)]
+    [ui/resource-icon :resource/citizen] " " (ui/citizen-display-name citizen)]
    [:td {:tw "text-right tabular-nums pr-2"}
     (ui/format (:citizen/savings citizen) 0)]
+   [:td {:tw "text-right tabular-nums pr-2"}
+    (ui/format (time/ticks->years (:citizen/residency-ticks citizen)) 1)]
    [:td {:tw "text-right tabular-nums pr-2"}
     (ui/format (:citizen/physical-stress citizen) 2)]
    [:td {:tw "text-right tabular-nums pr-2"}
@@ -40,6 +43,8 @@
         [:th {:tw "text-left pr-2"} "Citizen"]
         [:th {:tw "text-right pr-2"
               :title "savings"} "💰"]
+        [:th {:tw "text-right pr-2"
+              :title "years on island"} "🏝️"]
         [:th {:tw "text-right pr-2"
               :title "physical stress"} "😰"]
         [:th {:tw "text-right pr-2"

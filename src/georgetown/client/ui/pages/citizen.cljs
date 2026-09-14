@@ -26,6 +26,7 @@
 (def variable-stats
   ;; [stat-key label minimum maximum sig-figs value-fn?]
   [[:citizen/age-ticks "Age" 0 100 0 time/ticks->years]
+   [:citizen/residency-ticks "Residency" 0 100 1 time/ticks->years]
    [:citizen/savings "Savings" 0 10000 0]
    [:citizen/skill.intellect "Skill: Intellect" 0 1 2]
    [:citizen/skill.fitness "Skill: Fitness" 0 1 2]

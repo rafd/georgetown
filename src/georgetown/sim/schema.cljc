@@ -69,7 +69,12 @@
                             :dat/spec [:int {:min 0}]
                             ::generator-immigrant (fn []
                                                     (int (* 100 time/ticks-per-year (math/beta 20 50))))
-                            ::generator-baby (fn [] 0)}}
+                            ::generator-baby (fn [] 0)}
+        ;; ticks since arriving on the island (birth or immigration)
+        :citizen/residency-ticks {:dat/type :db.type/long
+                                  :dat/spec [:int {:min 0}]
+                                  ::generator-immigrant (fn [] 0)
+                                  ::generator-baby (fn [] 0)}}
        (into (for [k [;; citizens have different 'preferences' with regards to how they can spend their time
                       ;; preferences range from 0.0 to 1.0, and start around 0.5
                       ;; preferences are set at birth/immigration

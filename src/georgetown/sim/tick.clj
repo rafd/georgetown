@@ -447,6 +447,7 @@
                  (map (fn [[citizen-id citizen]]
                         [citizen-id (-> citizen
                                     (update :citizen/age-ticks inc)
+                                    (update :citizen/residency-ticks inc)
                                     amp-stress
                                     decline-skills)]))
                  (into {})))))
