@@ -5,6 +5,7 @@
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.sim.blueprints :as blueprints]
+    [georgetown.sim.time :as time]
     [georgetown.sim.types :as types]
     [georgetown.client.ui.common :as ui]
     [georgetown.client.ui.map :as map]))
@@ -99,12 +100,12 @@
                                             (fn [{:deed/keys [id]}]
                                               (= id (:deed/id deed)))
                                             :deed/rate-changed-at])]
-    (let [expiry (+ @changed-at 365)
-          locked? (< @now expiry)]
+    (let [{:keys [locked? days-remaining]} (time/deed-rate-lock @changed-at @now)]
       [:div
        (when locked?
          [:div {:tw "text-xs"}
-          (str "Cannot abandon or set rate below " (:deed/rate deed) " for " (- expiry @now) " more days")])
+          (str "Cannot abandon or set rate below " (:deed/rate deed) " for "
+               days-remaining " more days")])
        [deed-rate-view {:deed deed
                         :locked? locked?}]
        (when (not has-improvement?)

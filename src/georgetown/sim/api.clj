@@ -5,7 +5,8 @@
     [georgetown.server.events :as events]
     [georgetown.server.state :as s]
     [georgetown.sim.blueprints :as blueprints]
-    [georgetown.sim.debt :as debt]))
+    [georgetown.sim.debt :as debt]
+    [georgetown.sim.time :as time]))
 
 (def commands
   [
@@ -109,7 +110,7 @@
                  {:db/id -1
                   :deed/id (uuid/random)
                   :deed/rate (inc (:deed/rate deed))
-                  :deed/rate-change-at current-epoch}
+                  :deed/rate-changed-at current-epoch}
                  [:db/add [:lot/id lot-id] :lot/deed -1]
                  [:db/add [:player/id player-id] :player/deeds -1]]
                 purchase-event-txs)))
@@ -140,12 +141,11 @@
                         [:deed/rate
                          :deed/rate-changed-at])]
            (or (< current-rate rate)
-               (let [expiry (+ 365 changed-at)
-                     current-epoch (s/qget [:deed/id deed-id]
+               (let [current-epoch (s/qget [:deed/id deed-id]
                                            [:lot/_deed
                                             :island/_lots
                                             :island/epoch])]
-                 (< expiry current-epoch))))]])
+                 (not (:locked? (time/deed-rate-lock changed-at current-epoch))))))]])
     :effect
     (fn [{:keys [deed-id rate]}]
       (db/transact!
@@ -166,9 +166,8 @@
         #(nil? (s/qget [:deed/id deed-id] [:lot/_deed :lot/improvement]))]
        [;; docs.lot.abandon - a lot cannot be abandoned if the rate has been changed within the last year
         #(let [changed-at (s/qget [:deed/id deed-id] [:deed/rate-changed-at])
-               expiry (+ 365 changed-at)
                current-epoch (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])]
-           (< expiry current-epoch))]])
+           (not (:locked? (time/deed-rate-lock changed-at current-epoch))))]])
     :effect
     (fn [{:keys [user-id deed-id]}]
       (let [island-id (s/qget [:deed/id deed-id]
