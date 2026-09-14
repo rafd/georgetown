@@ -6,22 +6,60 @@
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.client.state :as state]
     [georgetown.client.ui.dataviz :as dataviz]
-    [georgetown.client.ui.map :as map]))
+    [georgetown.client.ui.map :as map]
+    [georgetown.sim.time :as time]))
 
 (defn cashflow-graph []
   [:div {:tw "flex justify-end p-4"}
    [dataviz/plus-minus-sparkline
-    (x/select [x/ALL :stats.private/net-cashflow] @state/private-stats-history)]])
+    ;; per-tick cashflows, summed into per-day bars
+    (->> @state/private-stats-history
+         (x/select [x/ALL :stats.private/net-cashflow])
+         (partition time/ticks-per-day)
+         (map (fn [day-values]
+                (reduce + day-values))))]])
+
+(defn per-day-total
+  [per-tick-values]
+  ;; extrapolate to a full day when fewer ticks are cached
+  (if (seq per-tick-values)
+    (* time/ticks-per-day
+       (/ (reduce + per-tick-values)
+          (count per-tick-values)))
+    0))
 
 (defn offer-with-net-amount
   [offer direction]
   (let [offerable (blueprints/offerables (:offer/type offer))
         per-unit (blueprints/effect-sum offer direction :resource/money)]
     (when (pos? per-unit)
-      (assoc offer :offer/net-amount
-        (* (or (:offer/utilization offer) 0)
-           (or (:offerable/capacity offerable) 1)
-           per-unit)))))
+      (let [tick-utilizations (->> @state/offer-utilization-history
+                                   (map (fn [offer-id->utilization]
+                                          (or (offer-id->utilization (:offer/id offer))
+                                              0))))]
+        (assoc offer
+          :offer/tick-utilizations tick-utilizations
+          :offer/net-amount (* (per-day-total tick-utilizations)
+                               (or (:offerable/capacity offerable) 1)
+                               per-unit))))))
+
+(defn offer-cell
+  [offer]
+  (when offer
+    [:div {:tw "flex items-center gap-1 justify-end"}
+     (:offerable/icon (blueprints/offerables (:offer/type offer)))
+     ;; one pie per tick, oldest first
+     (doall
+       (for [[tick-index utilization] (->> (:offer/tick-utilizations offer)
+                                           reverse
+                                           (map-indexed vector))]
+         ^{:key tick-index}
+         [ui/pie {:tw "w-1em h-1em"
+                  :bg-color "#ddd"
+                  :fg-color "green"}
+          utilization]))
+     [:span {:tw "grow"}
+      (ui/format (:offer/net-amount offer) 2)]]))
 
 (defn cashflow-table []
   (let [player-id (:player/id @state/player)
@@ -42,28 +80,37 @@
                                                  (keep (fn [offer]
                                                          (offer-with-net-amount offer :effect.direction/from-player)))
                                                  first)]]
-                    {:type ::lot
-                     :id (:lot/id lot)
-                     :lot lot
-                     :improvement improvement
-                     :revenue-offer revenue-offer
-                     :expense-offer expense-offer
-                     :deed-rate (- (:deed/rate deed))
-                     :total (+ (:offer/net-amount revenue-offer)
-                               (- (:offer/net-amount expense-offer))
-                               (- (:deed/rate deed)))})
+                    ;; deed rate is charged each tick; show per-day
+                    (let [deed-rate-per-day (- (* time/ticks-per-day (:deed/rate deed)))]
+                      {:type ::lot
+                       :id (:lot/id lot)
+                       :lot lot
+                       :improvement improvement
+                       :revenue-offer revenue-offer
+                       :expense-offer expense-offer
+                       :deed-rate deed-rate-per-day
+                       :total (+ (:offer/net-amount revenue-offer)
+                                 (- (:offer/net-amount expense-offer))
+                                 deed-rate-per-day)}))
         debt-lines (->> @state/player
                         :player/loans
                         (map (fn [loan]
                                {:type ::loan
                                 :id (:loan/id loan)
+                                ;; already per-day (charged once, on the night tick)
                                 :total (- (:loan/daily-payment-amount loan))})))
         lines (concat lot-lines
                       debt-lines
                       [{:type ::demurrage
                         :id ::demurrage
-                        :total (-> @state/player :player/private-stats :stats.private/stabilization-payment)}])]
+                        ;; stabilization payment is per-tick; show per-day
+                        :total (per-day-total
+                                 (->> @state/private-stats-history
+                                      (take time/ticks-per-day)
+                                      (map :stats.private/stabilization-payment)))}])]
     [:table
+     [:caption {:tw "text-left text-sm text-gray-500"}
+      "amounts per day"]
      [:tbody
       [:tr
        [:td {:tw "font-bold"} "Lot"]
@@ -97,25 +144,9 @@
            [:td {:tw "text-right tabular-nums px-4"}
             deed-rate]
            [:td {:tw "text-right tabular-nums px-4"}
-            (when expense-offer
-              [:div {:tw "flex items-center gap-1 justify-end"}
-               [ui/resource-icon (blueprints/offer-exchange-resource (blueprints/offerables (:offer/type expense-offer)))]
-               [ui/pie {:tw "w-1em h-1em"
-                        :bg-color "#ddd"
-                        :fg-color "green"}
-                (:offer/utilization expense-offer)]
-               [:span {:tw "grow"}
-                (ui/format (:offer/net-amount expense-offer) 2)]])]
+            [offer-cell expense-offer]]
            [:td {:tw "text-right tabular-nums px-4"}
-            (when revenue-offer
-              [:div {:tw "flex items-center gap-1 justify-end"}
-               [ui/resource-icon (blueprints/offer-exchange-resource (blueprints/offerables (:offer/type revenue-offer)))]
-               [ui/pie {:tw "w-1em h-1em"
-                        :bg-color "#ddd"
-                        :fg-color "green"}
-                (:offer/utilization revenue-offer)]
-               [:span {:tw "grow"}
-                (ui/format (:offer/net-amount revenue-offer) 2)]])]
+            [offer-cell revenue-offer]]
            [:td {:tw ["text-right tabular-nums px-4"
                       (if (< total 0)
                         "text-red-600"
@@ -125,8 +156,8 @@
        [:td {:tw "font-bold"} "Totals"]
        [:td]
        [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :deed-rate lines)) 2)]
-       [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :revenue-offer lines))) 2)]
        [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :expense-offer lines))) 2)]
+       [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :revenue-offer lines))) 2)]
        (let [total (reduce + (map :total lines))]
          [:td {:tw ["text-right tabular-nums px-4 font-bold"
                     (if (< total 0)

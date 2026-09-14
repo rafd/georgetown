@@ -3,7 +3,8 @@
     [bloom.commons.uuid :as uuid]
     [com.rpl.specter :as x]
     [bloom.commons.ajax :as ajax]
-    [reagent.core :as r]))
+    [reagent.core :as r]
+    [georgetown.sim.time :as time]))
 
 (defn exec!
   [command params]
@@ -36,6 +37,7 @@
 
 (defonce private-stats-history (r/atom '()))
 (defonce public-stats-history (r/atom '()))
+(defonce offer-utilization-history (r/atom '()))
 
 (defonce money-balance
   (r/reaction (:player/money-balance @player)))
@@ -81,7 +83,8 @@
     (reset! island nil)
     (reset! player nil)
     (reset! public-stats-history '())
-    (reset! private-stats-history '())))
+    (reset! private-stats-history '())
+    (reset! offer-utilization-history '())))
 
 (defn get-island-state []
   (when @island-id
@@ -107,7 +110,15 @@
                                               (take 60 (conj prev public-stats))))
                                      (swap! private-stats-history
                                             (fn [prev]
-                                              (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))))
+                                              (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))
+                                     (swap! offer-utilization-history
+                                            (fn [prev]
+                                              (take time/ticks-per-day
+                                                    (conj prev
+                                                          (->> @offers
+                                                               (map (fn [offer]
+                                                                      [(:offer/id offer) (:offer/utilization offer)]))
+                                                               (into {}))))))))
                                  (js/setTimeout get-island-state 0))})))
 
 (defonce _watcher
