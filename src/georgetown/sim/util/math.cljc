@@ -1,5 +1,10 @@
 (ns georgetown.sim.util.math)
 
+(defn clamp01 [value]
+  (-> value
+      (max 0.0)
+      (min 1.0)))
+
 (defn random-normal []
   (let [first-uniform (Math/random)
         second-uniform (Math/random)]
