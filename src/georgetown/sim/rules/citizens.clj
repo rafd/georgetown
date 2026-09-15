@@ -96,7 +96,7 @@
                                 {:event/type :event.type/citizen-emigrated
                                  :event/source :source/simulation
                                  :event/data {:citizen-id (:citizen/id citizen)
-                                              :age-years (int (citizen/age-in-years citizen))}})))}))
+                                              :residency-years (int (citizen/residency-in-years citizen))}})))}))
 
 (defn randomize [n odds]
   (->> (repeatedly (fn [] (< (rand) odds)))

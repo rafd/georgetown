@@ -17,6 +17,9 @@
 (defn age-in-years [citizen]
   (time/ticks->years (:citizen/age-ticks citizen)))
 
+(defn residency-in-years [citizen]
+  (time/ticks->years (:citizen/residency-ticks citizen)))
+
 (defn mean-stress [citizen]
   (/ (+ (:citizen/physical-stress citizen)
         (:citizen/mental-stress citizen))

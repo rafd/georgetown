@@ -61,7 +61,7 @@
 (defmethod render :event.type/citizen-emigrated
   [{:event/keys [data]}]
   [:span "Citizen " (citizen-label data)
-   " emigrated at age " (:age-years data)])
+   " emigrated after " (:residency-years data) " years on the island"])
 
 (defmethod render :event.type/citizen-died
   [{:event/keys [data]}]
