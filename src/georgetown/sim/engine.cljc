@@ -8,12 +8,14 @@
 ;;   [inputs-map]
 ;;   outputs-map)
 ;; passed as #'demurrage (fn values lose defn metadata);
+;;
 ;; a map {:rule/id ... :rule/inputs ... :rule/outputs ... :rule/fn ...}
 ;; is also accepted
 ;;
 ;; execution order derives from data dependencies (topological sort);
-;; when two rules read-modify-write the same key, declaration order breaks
-;; the tie (such pairs are reported in the plan)
+;;
+;; when two rules read-modify-write the same key,
+;; declaration order breaks the tie (such pairs are reported in the plan)
 ;;
 ;; a key output by 2+ rules and input by none is an "accumulator":
 ;; contributions are merged with `into`, in any order (eg. :world/txs)
