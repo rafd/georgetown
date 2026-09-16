@@ -29,7 +29,7 @@
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights
-(def joy-weight-security 1.0)
+(def joy-weight-security 8.0)
 (def joy-weight-activity 1.0)
 (def joy-weight-self-improvement 1.0)
 (def joy-weight-stress 1.0)
