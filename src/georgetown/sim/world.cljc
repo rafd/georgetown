@@ -1,4 +1,6 @@
-(ns georgetown.sim.world)
+(ns georgetown.sim.world
+  (:require
+    [georgetown.sim.blueprints :as blueprints]))
 
 (defn player-stock-amount [world player-id resource]
   (or (get-in world [:world/players player-id :player/stocks resource :stock/amount])
@@ -7,6 +9,20 @@
 (defn improvement-stock-amount [world improvement-id resource]
   (or (get-in world [:world/improvements improvement-id :improvement/stocks resource :stock/amount])
       0.0))
+
+(defn offer-stock-limited-uses
+  "How many times an offer can be served from its improvement's stocks (##Inf when it consumes none)"
+  [world offer]
+  (->> (:offerable/effects (blueprints/offerables (:offer/type offer)))
+       (keep (fn [[direction resource _amount]]
+               (when (= :effect.direction/from-self direction)
+                 resource)))
+       distinct
+       (map (fn [resource]
+              (Math/floor
+                (/ (improvement-stock-amount world (:offer/improvement-id offer) resource)
+                   (blueprints/effect-sum offer :effect.direction/from-self resource)))))
+       (reduce min ##Inf)))
 
 (defn update-player-stock [world player-id resource f amount]
   (update-in world [:world/players player-id :player/stocks resource]

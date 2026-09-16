@@ -18,14 +18,9 @@
                    (reduce
                      (fn [{:keys [remaining-food tenders]} offer]
                        (let [labour-needed (blueprints/effect-sum offer :effect.direction/from-self :resource/labour)
-                             labour-stock (world/improvement-stock-amount world
-                                                                          (:offer/improvement-id offer)
-                                                                          :resource/labour)
                              quantity (Math/floor
                                         (min remaining-food
-                                             (if (pos? labour-needed)
-                                               (/ labour-stock labour-needed)
-                                               ##Inf)))]
+                                             (world/offer-stock-limited-uses world offer)))]
                          {:remaining-food (- remaining-food quantity)
                           :tenders (conj tenders
                                          {:tender/offer-id (:offer/id offer)

@@ -1,5 +1,6 @@
 (ns georgetown.sim.rules.allocation
   (:require
+    [hyperfiddle.rcf :as rcf]
     [georgetown.sim.allocate :as allocate]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.constants :as constants]
@@ -69,6 +70,34 @@
       world
       (:offerable/effects offerable))))
 
+(defn offer-effective-capacity
+  "Blueprint capacity, further limited by the improvement's stocks; nil when unlimited"
+  [world offer]
+  (let [capacity (:offerable/capacity (blueprints/offerables (:offer/type offer)))
+        stock-limit (world/offer-stock-limited-uses world offer)
+        effective (if capacity
+                    (min capacity stock-limit)
+                    stock-limit)]
+    (when (not= ##Inf effective)
+      effective)))
+
+(defn shift-time-offers
+  [world]
+  (let [shift (:world/shift world)]
+    (->> (:world/offers world)
+         (filter (fn [offer]
+                   (and (= :offer.category/time (:offer/category offer))
+                        (contains? (:offerable/time-shifts (blueprints/offerables (:offer/type offer)))
+                                   shift))))
+         (map (fn [offer]
+                (assoc offer
+                  :allocate/citizen-money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
+                  :allocate/wage (blueprints/effect-sum offer :effect.direction/from-player :resource/money)
+                  :allocate/capacity (offer-effective-capacity world offer))))
+         (remove (fn [offer]
+                   (and (some? (:allocate/capacity offer))
+                        (zero? (:allocate/capacity offer))))))))
+
 (defn allocation
   {:rule/description "Citizens are assigned to time offers (jobs & leisure) for the shift"
    :rule/inputs #{:world/shift :world/offers :world/citizens :world/players
@@ -77,16 +106,7 @@
    :rule/outputs #{:world/citizens :world/players :world/improvements :world/utilizations
                    :world/allocation-stats}}
   [world]
-  (let [shift (:world/shift world)
-        time-offers (->> (:world/offers world)
-                         (filter (fn [offer]
-                                   (and (= :offer.category/time (:offer/category offer))
-                                        (contains? (:offerable/time-shifts (blueprints/offerables (:offer/type offer)))
-                                                   shift))))
-                         (map (fn [offer]
-                                (assoc offer
-                                  :allocate/citizen-money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
-                                  :allocate/wage (blueprints/effect-sum offer :effect.direction/from-player :resource/money)))))
+  (let [time-offers (shift-time-offers world)
         allocations (allocate/allocate-shift
                       {:allocate.in/citizens (vals (:world/citizens world))
                        :allocate.in/offers time-offers
@@ -148,3 +168,56 @@
 
 (def rules
   [#'allocation])
+
+#_(rcf/enable!)
+
+(rcf/tests
+  "shift-time-offers"
+  (let [world-with-labour
+        (fn [labour]
+          {:world/shift :time-shift/morning
+           :world/improvements {:gym {:improvement/type :improvement.type/gym
+                                      :improvement/stocks {:resource/labour {:stock/resource :resource/labour
+                                                                             :stock/amount labour}}}
+                                :park {:improvement/type :improvement.type/park
+                                       :improvement/stocks {}}}
+           :world/offers [{:offer/id :workout
+                           :offer/type :offer/gym.workout
+                           :offer/amount 5
+                           :offer/owner-id :player-1
+                           :offer/improvement-id :gym
+                           :offer/category :offer.category/time}
+                          {:offer/id :gym-job
+                           :offer/type :offer/gym.job
+                           :offer/amount 10
+                           :offer/owner-id :player-1
+                           :offer/improvement-id :gym
+                           :offer/category :offer.category/time}
+                          {:offer/id :stroll
+                           :offer/type :offer/park.leisure
+                           :offer/owner-id :player-1
+                           :offer/improvement-id :park
+                           :offer/category :offer.category/time}]})
+        capacities-by-offer-id
+        (fn [world]
+          (->> (shift-time-offers world)
+               (map (fn [offer]
+                      [(:offer/id offer) (:allocate/capacity offer)]))
+               (into {})))]
+
+    "no labour stock: labour-consuming offer is dropped; others keep blueprint capacity"
+    (capacities-by-offer-id (world-with-labour 0.0))
+    := {:gym-job 1
+        :stroll 10}
+
+    "labour stock limits capacity (0.12 / 0.05 per workout = 2)"
+    (capacities-by-offer-id (world-with-labour 0.12))
+    := {:workout 2.0
+        :gym-job 1
+        :stroll 10}
+
+    "ample labour stock: blueprint capacity wins"
+    (capacities-by-offer-id (world-with-labour 100.0))
+    := {:workout 15
+        :gym-job 1
+        :stroll 10}))

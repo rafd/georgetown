@@ -97,9 +97,7 @@
                  (group-by (fn [pair]
                              (second (:pair/id pair))))
                  (keep (fn [[_offer-id offer-pairs]]
-                         (when-let [capacity (:offerable/capacity
-                                               (blueprints/offerables
-                                                 (:offer/type (:pair/offer (first offer-pairs)))))]
+                         (when-let [capacity (:allocate/capacity (:pair/offer (first offer-pairs)))]
                            [:<= (->> offer-pairs
                                      (map (fn [pair]
                                             [(:pair/id pair) 1]))
@@ -148,13 +146,14 @@
                       :citizen/skill.social 0.5
                       :citizen/physical-stress 0.5
                       :citizen/mental-stress 0.5}
-        ;; :offer/food-market.job has capacity 1 and social-heavy skill weights
+        ;; :offer/food-market.job has social-heavy skill weights
         job-offer {:offer/id :job
                    :offer/type :offer/food-market.job
                    :offer/amount 10
                    :offer/owner-id :player-1
                    :allocate/citizen-money-cost 0
-                   :allocate/wage 10}
+                   :allocate/wage 10
+                   :allocate/capacity 1}
         prices {:allocate.in/food-price 5.0
                 :allocate.in/shelter-price 5.0}]
 
