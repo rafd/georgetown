@@ -7,6 +7,7 @@
     [georgetown.client.state :as state]
     [georgetown.client.ui.dataviz :as dataviz]
     [georgetown.client.ui.map :as map]
+    [georgetown.client.ui.table :as table]
     [georgetown.sim.time :as time]))
 
 (defn cashflow-graph []
@@ -61,7 +62,20 @@
      [:span {:tw "grow"}
       (ui/format (:offer/net-amount offer) 2)]]))
 
-(defn cashflow-table []
+(defn amount
+  [value]
+  [:span {:tw (if (< value 0)
+                "text-red-600"
+                "text-blue-600")}
+   (ui/format value 2)])
+
+(defn lot-link
+  [lot content]
+  [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
+                                         :lot-id (:lot/id lot)}])}
+   content])
+
+(defn cashflow-lines []
   (let [player-id (:player/id @state/player)
         improvement-id->offers (->> @state/offers
                                     (group-by (fn [offer]
@@ -84,6 +98,7 @@
                     (let [deed-rate-per-day (- (* time/ticks-per-day (:deed/rate deed)))]
                       {:type ::lot
                        :id (:lot/id lot)
+                       :label (str (:lot/x lot) "," (:lot/y lot))
                        :lot lot
                        :improvement improvement
                        :revenue-offer revenue-offer
@@ -97,73 +112,95 @@
                         (map (fn [loan]
                                {:type ::loan
                                 :id (:loan/id loan)
+                                :label "loan"
                                 ;; already per-day (charged once, on the night tick)
-                                :total (- (:loan/daily-payment-amount loan))})))
-        lines (concat lot-lines
-                      debt-lines
-                      [{:type ::demurrage
-                        :id ::demurrage
-                        ;; stabilization payment is per-tick; show per-day
-                        :total (per-day-total
-                                 (->> @state/private-stats-history
-                                      (take time/ticks-per-day)
-                                      (map :stats.private/stabilization-payment)))}])]
-    [:table
-     [:caption {:tw "text-left text-sm text-gray-500"}
-      "amounts per day"]
-     [:tbody
-      [:tr
-       [:td {:tw "font-bold"} "Lot"]
-       [:td]
-       [:td {:tw "font-bold text-right px-4"} "Taxes"]
-       [:td {:tw "font-bold text-right px-4"} "Expenses"]
-       [:td {:tw "font-bold text-right px-4"} "Revenues"]
-       [:td {:tw "font-bold text-right px-4"} "Income"]]
-      (doall
-        (for [{:keys [id type improvement lot revenue-offer expense-offer deed-rate total]} lines]
-          ^{:key id}
-          [:tr
-           [:td
-            (case type
-              ::lot
-              [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
-                                                     :lot-id (:lot/id lot)}])}
-               (:lot/x lot) "," (:lot/y lot)]
-              ::loan
-              [:a {:href (pages/path-for [:page/bank {:island-id @state/island-id}])}
-               "loan"]
-              ::demurrage
-              [ui/label-with-info
-               "eq"
-               "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"])]
-           [:td
-            [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
-                                                   :lot-id (:lot/id lot)}])}
-             (let [blueprint (blueprints/blueprints (:improvement/type improvement))]
-               (:blueprint/icon blueprint))]]
-           [:td {:tw "text-right tabular-nums px-4"}
-            deed-rate]
-           [:td {:tw "text-right tabular-nums px-4"}
-            [offer-cell expense-offer]]
-           [:td {:tw "text-right tabular-nums px-4"}
-            [offer-cell revenue-offer]]
-           [:td {:tw ["text-right tabular-nums px-4"
-                      (if (< total 0)
-                        "text-red-600"
-                        "text-blue-600")]}
-            (ui/format total 2)]]))
-      [:tr
-       [:td {:tw "font-bold"} "Totals"]
-       [:td]
-       [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :deed-rate lines)) 2)]
-       [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :expense-offer lines))) 2)]
-       [:td {:tw "text-right tabular-nums px-4 font-bold"} (ui/format (reduce + (map :offer/net-amount (map :revenue-offer lines))) 2)]
-       (let [total (reduce + (map :total lines))]
-         [:td {:tw ["text-right tabular-nums px-4 font-bold"
-                    (if (< total 0)
-                      "text-red-600"
-                      "text-blue-600")]}
-          (ui/format total 2)])]]]))
+                                :total (- (:loan/daily-payment-amount loan))})))]
+    (concat lot-lines
+            debt-lines
+            [{:type ::demurrage
+              :id ::demurrage
+              :label "eq"
+              ;; stabilization payment is per-tick; show per-day
+              :total (per-day-total
+                       (->> @state/private-stats-history
+                            (take time/ticks-per-day)
+                            (map :stats.private/stabilization-payment)))}])))
+
+(defn cashflow-table []
+  [table/sortable-table
+   {:table/caption "amounts per day"
+    :table/rows (cashflow-lines)
+    :table/row-key :id
+    :table/columns
+    [{:column/key :column/lot
+      :column/label "Lot"
+      :column/value :label
+      :column/render (fn [{:keys [type lot label]}]
+                       (case type
+                         ::lot
+                         [lot-link lot label]
+                         ::loan
+                         [:a {:href (pages/path-for [:page/bank {:island-id @state/island-id}])}
+                          label]
+                         ::demurrage
+                         [ui/label-with-info
+                          label
+                          "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"]))
+      :column/footer (fn [_]
+                       "Totals")}
+     {:column/key :column/improvement
+      :column/value (fn [line]
+                      (str (:improvement/type (:improvement line))))
+      :column/render (fn [{:keys [type lot improvement]}]
+                       (when (= ::lot type)
+                         [lot-link lot (:blueprint/icon (blueprints/blueprints (:improvement/type improvement)))]))}
+     {:column/key :column/taxes
+      :column/label "Taxes"
+      :column/alignment :alignment/right
+      :column/value :deed-rate
+      :column/render (fn [line]
+                       (ui/format (:deed-rate line) 2))
+      :column/footer (fn [lines]
+                       (ui/format (->> lines
+                                       (map :deed-rate)
+                                       (reduce +))
+                                  2))}
+     {:column/key :column/expenses
+      :column/label "Expenses"
+      :column/alignment :alignment/right
+      :column/value (fn [line]
+                      (:offer/net-amount (:expense-offer line)))
+      :column/render (fn [line]
+                       [offer-cell (:expense-offer line)])
+      :column/footer (fn [lines]
+                       (ui/format (->> lines
+                                       (map :expense-offer)
+                                       (map :offer/net-amount)
+                                       (reduce +))
+                                  2))}
+     {:column/key :column/revenues
+      :column/label "Revenues"
+      :column/alignment :alignment/right
+      :column/value (fn [line]
+                      (:offer/net-amount (:revenue-offer line)))
+      :column/render (fn [line]
+                       [offer-cell (:revenue-offer line)])
+      :column/footer (fn [lines]
+                       (ui/format (->> lines
+                                       (map :revenue-offer)
+                                       (map :offer/net-amount)
+                                       (reduce +))
+                                  2))}
+     {:column/key :column/income
+      :column/label "Income"
+      :column/alignment :alignment/right
+      :column/value :total
+      :column/render (fn [line]
+                       [amount (:total line)])
+      :column/footer (fn [lines]
+                       [amount (->> lines
+                                    (map :total)
+                                    (reduce +))])}]}])
 
 (defn financial-report-view []
   [:section

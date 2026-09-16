@@ -4,32 +4,76 @@
     [georgetown.client.state :as state]
     [georgetown.client.ui.common :as ui]
     [georgetown.client.ui.map :as map]
+    [georgetown.client.ui.table :as table]
     [georgetown.sim.time :as time]))
 
-(defn citizen-row
-  [citizen citizen-state]
-  [:tr {:tw "cursor-pointer hover:bg-blue-100"
-        :on-click (fn [_]
-                    (pages/navigate-to! [:page/citizen {:island-id @state/island-id
-                                                        :citizen-id (:citizen/id citizen)}]))}
-   [:td {:tw "text-sm font-bold pr-2"}
-    [ui/resource-icon :resource/citizen] " " (ui/citizen-display-name citizen)]
-   [:td {:tw "text-right tabular-nums pr-2"}
-    (ui/format (:citizen/savings citizen) 0)]
-   [:td {:tw "text-right tabular-nums pr-2"}
-    (ui/format (time/ticks->years (:citizen/residency-ticks citizen)) 1)]
-   [:td {:tw "text-right tabular-nums pr-2"}
-    (ui/format (:citizen/physical-stress citizen) 2)]
-   [:td {:tw "text-right tabular-nums pr-2"}
-    (ui/format (:citizen/mental-stress citizen) 2)]
-   [:td {:tw "text-center text-xs font-bold text-red-600 pr-2"}
-    (when (:citizen-state/hungry? citizen-state)
-      "HUNGRY")]
-   [:td {:tw "text-center text-xs font-bold text-red-600 pr-2"}
-    (when (:citizen-state/unhoused? citizen-state)
-      "UNHOUSED")]
-   [:td
-    [ui/last-activity-view (:citizen-state/last-activity citizen-state)]]])
+(def columns
+  [{:column/key :column/citizen
+    :column/label "Citizen"
+    :column/class "text-sm font-bold"
+    :column/value (fn [row]
+                    (ui/citizen-display-name (:citizen row)))
+    :column/render (fn [row]
+                     [:<>
+                      [ui/resource-icon :resource/citizen]
+                      " "
+                      (ui/citizen-display-name (:citizen row))])}
+   {:column/key :column/savings
+    :column/label "💰"
+    :column/title "savings"
+    :column/alignment :alignment/right
+    :column/value (fn [row]
+                    (:citizen/savings (:citizen row)))
+    :column/render (fn [row]
+                     (ui/format (:citizen/savings (:citizen row)) 0))}
+   {:column/key :column/residency
+    :column/label "🏝️"
+    :column/title "years on island"
+    :column/alignment :alignment/right
+    :column/value (fn [row]
+                    (:citizen/residency-ticks (:citizen row)))
+    :column/render (fn [row]
+                     (ui/format (time/ticks->years (:citizen/residency-ticks (:citizen row))) 1))}
+   {:column/key :column/physical-stress
+    :column/label "😰"
+    :column/title "physical stress"
+    :column/alignment :alignment/right
+    :column/value (fn [row]
+                    (:citizen/physical-stress (:citizen row)))
+    :column/render (fn [row]
+                     (ui/format (:citizen/physical-stress (:citizen row)) 2))}
+   {:column/key :column/mental-stress
+    :column/label "🤯"
+    :column/title "mental stress"
+    :column/alignment :alignment/right
+    :column/value (fn [row]
+                    (:citizen/mental-stress (:citizen row)))
+    :column/render (fn [row]
+                     (ui/format (:citizen/mental-stress (:citizen row)) 2))}
+   {:column/key :column/hungry
+    :column/label "Hungry?"
+    :column/alignment :alignment/center
+    :column/class "text-xs font-bold text-red-600"
+    :column/value (fn [row]
+                    (:citizen-state/hungry? (:citizen-state row)))
+    :column/render (fn [row]
+                     (when (:citizen-state/hungry? (:citizen-state row))
+                       "HUNGRY"))}
+   {:column/key :column/unhoused
+    :column/label "Unhoused?"
+    :column/alignment :alignment/center
+    :column/class "text-xs font-bold text-red-600"
+    :column/value (fn [row]
+                    (:citizen-state/unhoused? (:citizen-state row)))
+    :column/render (fn [row]
+                     (when (:citizen-state/unhoused? (:citizen-state row))
+                       "UNHOUSED"))}
+   {:column/key :column/activity
+    :column/label "Activity"
+    :column/value (fn [row]
+                    (str (:citizen-state/last-activity (:citizen-state row))))
+    :column/render (fn [row]
+                     [ui/last-activity-view (:citizen-state/last-activity (:citizen-state row))])}])
 
 (defn citizens-view []
   (let [citizens (:island/citizens @state/island)
@@ -37,26 +81,18 @@
     [:section
      [:h1 "Citizens"]
      [:p (count citizens) " citizens"]
-     [:table
-      [:thead
-       [:tr {:tw "text-xs text-gray-500"}
-        [:th {:tw "text-left pr-2"} "Citizen"]
-        [:th {:tw "text-right pr-2"
-              :title "savings"} "💰"]
-        [:th {:tw "text-right pr-2"
-              :title "years on island"} "🏝️"]
-        [:th {:tw "text-right pr-2"
-              :title "physical stress"} "😰"]
-        [:th {:tw "text-right pr-2"
-              :title "mental stress"} "🤯"]
-        [:th {:tw "pr-2"} "Hungry?"]
-        [:th {:tw "pr-2"} "Unhoused?"]
-        [:th {:tw "text-left"} "Activity"]]]
-      [:tbody
-       (doall
-         (for [citizen citizens]
-           ^{:key (:citizen/id citizen)}
-           [citizen-row citizen (get citizen-states (:citizen/id citizen))]))]]]))
+     [table/sortable-table
+      {:table/columns columns
+       :table/rows (for [citizen citizens]
+                     {:citizen citizen
+                      :citizen-state (get citizen-states (:citizen/id citizen))})
+       :table/row-key (fn [row]
+                        (:citizen/id (:citizen row)))
+       :table/row-attributes (fn [row]
+                               {:tw "cursor-pointer hover:bg-blue-100"
+                                :on-click (fn [_]
+                                            (pages/navigate-to! [:page/citizen {:island-id @state/island-id
+                                                                                :citizen-id (:citizen/id (:citizen row))}]))})}]]))
 
 (defn page [_]
   [map/page-wrapper
