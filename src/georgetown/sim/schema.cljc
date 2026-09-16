@@ -118,7 +118,6 @@
                :dat/unique :dat.unique/identity}
     :event/epoch {:dat/type :db.type/long
                   :dat/spec types/PosInt}
-    ;; canonical list of types lives in georgetown.client.ui.events
     :event/type {:dat/type :db.type/keyword}
     :event/source {:dat/type :db.type/keyword
                    :dat/spec [:enum :source/player :source/simulation]}
@@ -126,8 +125,8 @@
                        :dat/spec [:enum :visibility/public :visibility/limited :visibility/system]}
     ;; only for :visibility/limited; not a component (retracting an event must not retract players)
     :event/visibility-players {:dat/rel [:dat.rel/many :entity/player :player/id]}
-    ;; plain ids + denormalized display data; no db refs (referenced entities may be retracted)
-    :event/data {}}
+    ;; display dsl, interpreted by georgetown.client.ui.events; plain data, no db refs
+    :event/render {}}
 
    :entity/loan
    {:loan/id {:dat/type :db.type/uuid

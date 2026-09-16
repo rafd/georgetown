@@ -1,5 +1,6 @@
 (ns georgetown.sim.rules.money
   (:require
+    [event.render :as-alias render]
     [georgetown.sim.constants :as constants]
     [georgetown.sim.debt :as debt]
     [georgetown.sim.world :as world]))
@@ -33,7 +34,7 @@
                                  :event/source :source/simulation
                                  :event/visibility :visibility/limited
                                  :event/visibility-player-ids #{(:loan/owner-id loan)}
-                                 :event/data {:amount (:loan/amount loan)}})))
+                                 :event/render ["You paid off a loan"]})))
      :world/player-debt-deltas (->> payments
                                     (reduce (fn [memo {:keys [loan payment-amount]}]
                                               (update memo (:loan/owner-id loan)
@@ -230,7 +231,8 @@
                         (mapv (fn [player-id]
                                 {:event/type :event.type/player-bankrupt
                                  :event/source :source/simulation
-                                 :event/data {:player-id player-id}})))}))
+                                 :event/render [[::render/player {:player-id player-id}]
+                                                " went bankrupt"]})))}))
 
 (def rules
   [#'loan-payments

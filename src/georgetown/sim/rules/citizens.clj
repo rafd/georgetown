@@ -1,5 +1,6 @@
 (ns georgetown.sim.rules.citizens
   (:require
+    [event.render :as-alias render]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.citizen :as citizen]
     [georgetown.sim.constants :as constants]
@@ -65,8 +66,9 @@
                         (mapv (fn [citizen]
                                 {:event/type :event.type/citizen-died
                                  :event/source :source/simulation
-                                 :event/data {:citizen-id (:citizen/id citizen)
-                                              :age-years (int (citizen/age-in-years citizen))}})))}))
+                                 :event/render [[::render/citizen {:citizen-id (:citizen/id citizen)
+                                                                   :citizen-name (:citizen/name citizen)}]
+                                                " died at age " (int (citizen/age-in-years citizen))]})))}))
 
 (defn emigration-chance
   "Very stressed citizens are likely to leave the island."
@@ -95,8 +97,10 @@
                         (mapv (fn [citizen]
                                 {:event/type :event.type/citizen-emigrated
                                  :event/source :source/simulation
-                                 :event/data {:citizen-id (:citizen/id citizen)
-                                              :residency-years (int (citizen/residency-in-years citizen))}})))}))
+                                 :event/render [[::render/citizen {:citizen-id (:citizen/id citizen)
+                                                                   :citizen-name (:citizen/name citizen)}]
+                                                " emigrated after " (int (citizen/residency-in-years citizen))
+                                                " years on the island"]})))}))
 
 (defn randomize [n odds]
   (->> (repeatedly (fn [] (< (rand) odds)))
@@ -118,8 +122,9 @@
                         (mapv (fn [citizen]
                                 {:event/type :event.type/citizen-born
                                  :event/source :source/simulation
-                                 :event/data {:citizen-id (:citizen/id citizen)
-                                              :citizen-name (:citizen/name citizen)}})))}))
+                                 :event/render [[::render/citizen {:citizen-id (:citizen/id citizen)
+                                                                   :citizen-name (:citizen/name citizen)}]
+                                                " was born"]})))}))
 
 (defn immigration
   {:rule/description "Occasionally, a citizen immigrates to the island"
@@ -134,8 +139,9 @@
                         (mapv (fn [citizen]
                                 {:event/type :event.type/citizen-immigrated
                                  :event/source :source/simulation
-                                 :event/data {:citizen-id (:citizen/id citizen)
-                                              :citizen-name (:citizen/name citizen)}})))}))
+                                 :event/render [[::render/citizen {:citizen-id (:citizen/id citizen)
+                                                                   :citizen-name (:citizen/name citizen)}]
+                                                 " immigrated"]})))}))
 
 (def rules
   [#'citizen-maintenance

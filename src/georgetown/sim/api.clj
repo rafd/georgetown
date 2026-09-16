@@ -1,6 +1,7 @@
 (ns georgetown.sim.api
   (:require
     [bloom.commons.uuid :as uuid]
+    [event.render :as-alias render]
     [georgetown.server.db :as db]
     [georgetown.server.events :as events]
     [georgetown.server.state :as s]
@@ -52,8 +53,8 @@
               :user/players -1]]
             (events/event-txs island-id
                               {:event/type :event.type/player-joined
-                               :event/data {:user-id user-id
-                                            :player-id player-id}})))))}
+                               :event/render [[::render/player {:player-id player-id}]
+                                              " joined the island"]})))))}
 
    {:id :command/buy-lot!
     :params {:user-id :user/id
@@ -85,16 +86,16 @@
             purchase-event-txs
             (events/event-txs island-id
                               {:event/type :event.type/lot-purchased
-                               :event/data (merge {:user-id user-id
-                                                   :player-id player-id
-                                                   :lot-id lot-id
-                                                   :lot-x (:lot/x lot)
-                                                   :lot-y (:lot/y lot)
-                                                   :rate (if deed
-                                                           (inc (:deed/rate deed))
-                                                           0)}
-                                                  (when deed
-                                                    {:previous-owner-player-id (:player/id (:player/_deeds deed))}))})]
+                               ;; into, not concat: the stored value must be a vector
+                               :event/render (cond-> [[::render/player {:player-id player-id}]
+                                                      " bought "
+                                                      [::render/lot {:lot-id lot-id
+                                                                     :lot-x (:lot/x lot)
+                                                                     :lot-y (:lot/y lot)}]]
+                                               deed
+                                               (into [" from "
+                                                      [::render/player
+                                                       {:player-id (:player/id (:player/_deeds deed))}]]))})]
         (if deed
           (let [refund-amount (or (:blueprint/price (blueprints/blueprints (:improvement/type (:lot/improvement lot))))
                                   0)]
@@ -169,9 +170,10 @@
                current-epoch (s/qget [:deed/id deed-id] [:lot/_deed :island/_lots :island/epoch])]
            (not (:locked? (time/deed-rate-lock changed-at current-epoch))))]])
     :effect
-    (fn [{:keys [user-id deed-id]}]
+    (fn [{:keys [deed-id]}]
       (let [island-id (s/qget [:deed/id deed-id]
                               [:lot/_deed :island/_lots :island/id])
+            lot-id (s/qget [:deed/id deed-id] [:lot/_deed :lot/id])
             lot-x (s/qget [:deed/id deed-id] [:lot/_deed :lot/x])
             lot-y (s/qget [:deed/id deed-id] [:lot/_deed :lot/y])]
         (db/transact!
@@ -179,9 +181,10 @@
             [[:db/retractEntity [:deed/id deed-id]]]
             (events/event-txs island-id
                               {:event/type :event.type/lot-abandoned
-                               :event/data {:user-id user-id
-                                            :lot-x lot-x
-                                            :lot-y lot-y}})))))}
+                               :event/render [[::render/lot {:lot-id lot-id
+                                                             :lot-x lot-x
+                                                             :lot-y lot-y}]
+                                              " was abandoned"]})))))}
 
    {:id :command/build!
     :params {:user-id :user/id
@@ -219,12 +222,12 @@
              [:fn/withdraw player-id amount]]
             (events/event-txs island-id
                               {:event/type :event.type/built
-                               :event/data {:user-id user-id
-                                            :player-id player-id
-                                            :improvement-type improvement-type
-                                            :lot-id lot-id
-                                            :lot-x (:lot/x lot)
-                                            :lot-y (:lot/y lot)}})))))}
+                               :event/render [[::render/player {:player-id player-id}]
+                                              " built "
+                                              [::render/improvement {:improvement-type improvement-type}]
+                                              " on " [::render/lot {:lot-id lot-id
+                                                                    :lot-x (:lot/x lot)
+                                                                    :lot-y (:lot/y lot)}]]})))))}
 
    {:id :command/demolish!
     :params {:user-id :user/id
@@ -239,6 +242,7 @@
       (let [improvement (s/by-id [:improvement/id improvement-id] [:improvement/type])
             island-id (s/qget [:improvement/id improvement-id]
                               [:lot/_improvement :island/_lots :island/id])
+            lot-id (s/qget [:improvement/id improvement-id] [:lot/_improvement :lot/id])
             lot-x (s/qget [:improvement/id improvement-id] [:lot/_improvement :lot/x])
             lot-y (s/qget [:improvement/id improvement-id] [:lot/_improvement :lot/y])
             ;; get back only half
@@ -252,10 +256,12 @@
               amount]]
             (events/event-txs island-id
                               {:event/type :event.type/demolished
-                               :event/data {:user-id user-id
-                                            :improvement-type (:improvement/type improvement)
-                                            :lot-x lot-x
-                                            :lot-y lot-y}})))))}
+                               :event/render [[::render/improvement
+                                               {:improvement-type (:improvement/type improvement)}]
+                                              " on " [::render/lot {:lot-id lot-id
+                                                                    :lot-x lot-x
+                                                                    :lot-y lot-y}]
+                                              " was demolished"]})))))}
 
    {:id :command/set-offer!
     :params {:user-id :user/id
@@ -319,8 +325,8 @@
                               {:event/type :event.type/loan-borrowed
                                :event/visibility :visibility/limited
                                :event/visibility-player-ids #{player-id}
-                               :event/data {:amount (:loan/amount loan)
-                                            :annual-interest-rate (:loan/annual-interest-rate loan)}})))))}
+                               :event/render ["You borrowed " [::render/money {:amount (:loan/amount loan)}]
+                                              " from the bank"]})))))}
 
    {:id :command/set-loan-daily-payment-amount!
     :params {:user-id :user/id
@@ -368,7 +374,7 @@
                                   {:event/type :event.type/loan-paid-off
                                    :event/visibility :visibility/limited
                                    :event/visibility-player-ids #{player-id}
-                                   :event/data {:amount (:loan/amount loan)}}))))
+                                   :event/render ["You paid off a loan"]}))))
           (db/transact!
             [[:db/add [:loan/id loan-id]
               :loan/amount (- (:loan/amount loan) amount)]
