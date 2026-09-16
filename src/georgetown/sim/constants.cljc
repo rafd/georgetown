@@ -24,7 +24,8 @@
 (def birth-chance-per-citizen-per-tick (/ 1.0 (* 25 time/ticks-per-year)))
 (def citizen-immigration-chance (/ 1 200))
 (def max-emigration-chance (/ 1 8))
-(def money-supply-target-per-citizen 600)
+(def money-supply-target-per-citizen 0)
+(def citizens-dividend-rate 0.04)
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights

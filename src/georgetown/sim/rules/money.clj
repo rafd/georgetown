@@ -67,15 +67,17 @@
    :rule/inputs #{:world/government-money-balance :world/player-tax-deltas
                   :world/citizens :world/players}
    :rule/outputs #{:world/citizens :world/government-money-balance :world/helicopter-money}}
-  ;; government: taxes come in, everything goes back out as a citizens dividend,
-  ;; plus helicopter money, to keep the money supply proportional to population
+  ;; government: taxes come in, a fraction of the government balance goes out
+  ;; as a citizens dividend, plus helicopter money, to keep the money supply
+  ;; proportional to population
   [{:world/keys [government-money-balance player-tax-deltas citizens players] :as world}]
   (let [population (count citizens)
         government-revenues (->> player-tax-deltas
                                  vals
                                  (reduce + 0)
                                  -)
-        dividend (+ government-money-balance government-revenues)
+        government-balance (+ government-money-balance government-revenues)
+        dividend (* constants/citizens-dividend-rate government-balance)
         total-citizen-savings (->> citizens
                                    vals
                                    (map :citizen/savings)
@@ -84,7 +86,7 @@
                             vals
                             (map :player/money-balance)
                             (reduce + 0))
-        net-money-balance (+ dividend
+        net-money-balance (+ government-balance
                              total-citizen-savings
                              player-balance)
         helicopter-money (max 0
@@ -98,7 +100,7 @@
                   (world/update-citizen-savings memo citizen-id per-citizen-dividend))
                 world
                 (keys citizens))
-        (assoc :world/government-money-balance 0
+        (assoc :world/government-money-balance (- government-balance dividend)
                :world/helicopter-money helicopter-money)
         (select-keys [:world/citizens
                       :world/government-money-balance
