@@ -30,9 +30,11 @@
 
                  ;; db
                  [com.github.rafd/dat "0.0.1-20260705-0"]
-                 [datalevin "1.0.0"]
+                 [org.datalevin/datalevin-embedded "1.0.2"]
                  [com.taoensso/nippy "3.3.0"]
                  [io.airlift/aircompressor "0.26"]]
+  :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
   :main georgetown.core
   :plugins [[io.bloomventures/omni "0.34.0"]]
   :omni-config georgetown.server.omni-config/omni-config
