@@ -13,6 +13,12 @@
 
 (def kv-row-tw "flex justify-between items-center gap-2")
 
+(def resource-id->in-need
+  {:resource/food {:label "hungry"
+                   :stat :sim.out/hungry-count}
+   :resource/shelter {:label "unhoused"
+                      :stat :sim.out/unhoused-count}})
+
 (defn stats-view
   [island]
   [:section
@@ -79,18 +85,6 @@
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/population])]]]
        [:tr
-        [:td {:tw "align-top"} "in need"]
-        [:td {:tw "text-right align-top"}
-         [:div {:tw kv-row-tw}
-          [:span "hungry"]
-          [ui/resource-amount (:sim.out/hungry-count stats) 0 :resource/citizen]]
-         [:div {:tw kv-row-tw}
-          [:span "unhoused"]
-          [ui/resource-amount (:sim.out/unhoused-count stats) 0 :resource/citizen]]]
-        [:td
-         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/hungry-count])]]
-         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/unhoused-count])]]]]
-       [:tr
         [:td {:tw "align-top"} "stress"]
         [:td {:tw "text-right align-top"}
          [:div {:tw kv-row-tw}
@@ -127,12 +121,16 @@
        (doall
          (for [resource-id [:resource/food :resource/shelter]]
            (let [resource (types/resources resource-id)
+                 in-need (resource-id->in-need resource-id)
                  {:keys [demand available-supply supply clearing-price cost]}
                  (get-in stats [:sim.out/resources resource-id])]
              ^{:key resource-id}
              [:tr
               [:td {:tw "align-top"} (:resource/label resource)]
               [:td {:tw "text-right tabular-nums align-top"}
+               [:div {:tw kv-row-tw}
+                [:span (:label in-need)]
+                [ui/resource-amount (stats (:stat in-need)) 0 :resource/citizen]]
                [:div {:tw kv-row-tw}
                 [:span "available"]
                 [ui/resource-amount available-supply 0 resource-id]]
@@ -149,6 +147,8 @@
                 [:span "cost"]
                 [ui/resource-amount cost 0 :resource/money]]]
               [:td
+               [:span {:tw "text-xs"} (:label in-need)]
+               [dataviz/multi-sparkline (x-stats [x/ALL (:stat in-need)])]
                [:span {:tw "text-xs"} "supply, demand"]
                [dataviz/multi-sparkline
                 (x-stats [x/ALL :sim.out/resources resource-id :supply])
