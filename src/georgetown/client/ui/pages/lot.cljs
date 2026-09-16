@@ -112,6 +112,46 @@
          [abandon-button-view {:deed deed
                                :locked? locked?}])])))
 
+(defn blueprint-info-view
+  [blueprint]
+  [:div {:tw "hidden group-hover:block absolute pointer-events-none z-10 top-full left-0 w-14rem bg-white border-1 p-1 space-y-1 shadow-md"}
+   [:div {:tw "text-xs"} (:blueprint/description blueprint)]
+   (for [offerable (:blueprint/offerables blueprint)]
+     ^{:key (:offerable/id offerable)}
+     [:div {:tw "flex gap-1 items-center flex-wrap"}
+      [:span {:tw "text-xs"}
+       (:offerable/icon offerable) " "
+       (:offerable/label offerable)]
+      [offerable-effects-view nil offerable]])])
+
+(defn build-option-view
+  [{:keys [lot blueprint]}]
+  [:div {:tw "group relative bg-gray-200 rounded p-1 flex flex-col items-center gap-1"}
+   [:div {:tw "flex items-center gap-1 whitespace-nowrap"}
+    [:span {:tw "text-xl"} (:blueprint/icon blueprint)]
+    [:span {:tw "text-sm"} (:blueprint/label blueprint)]]
+   [ui/button {:disabled (< @state/money-balance (:blueprint/price blueprint))
+               :on-click (fn []
+                           (state/exec!
+                             :command/build!
+                             {:lot-id (:lot/id lot)
+                              :improvement-type (:blueprint/id blueprint)}))}
+    "Build"
+    " ("
+    [ui/resource-amount (- (:blueprint/price blueprint)) 0 :resource/money]
+    ")"]
+   [blueprint-info-view blueprint]])
+
+(defn build-options-view
+  [lot]
+  [:div {:tw "flex flex-wrap gap-1 items-start"}
+   (for [blueprint (->> blueprints/blueprints
+                        vals
+                        (sort-by :blueprint/label))]
+     ^{:key (:blueprint/id blueprint)}
+     [build-option-view {:lot lot
+                         :blueprint blueprint}])])
+
 (defn sidebar
   [lot-id]
   (let [lot (->> @state/island
@@ -186,32 +226,7 @@
            [block {:label "Improvement"}
             (if (nil? improvement)
               [block {:label "Build..."}
-               [:div {:tw "space-y-2"}
-                (for [blueprint (vals blueprints/blueprints)]
-                  ^{:key (:blueprint/id blueprint)}
-                  [:div {:tw "bg-gray-200 rounded p-1 flex justify-between items-center gap-1"}
-                   [:div {:tw "text-3xl"} (:blueprint/icon blueprint)]
-                   [:div {:tw "grow"}
-                    [:div (:blueprint/label blueprint)]
-                    [:div {:tw "text-xs"} (:blueprint/description blueprint)]
-                    [:div {:tw "space-y-1"}
-                     (for [offerable (:blueprint/offerables blueprint)]
-                       ^{:key (:offerable/id offerable)}
-                       [:div {:tw "flex gap-1 items-center flex-wrap"}
-                        [:span {:tw "text-xs"}
-                         (:offerable/icon offerable) " "
-                         (:offerable/label offerable)]
-                        [offerable-effects-view nil offerable]])]]
-                   [ui/button {:disabled (< @state/money-balance (:blueprint/price blueprint))
-                               :on-click (fn []
-                                           (state/exec!
-                                             :command/build!
-                                             {:lot-id (:lot/id lot)
-                                              :improvement-type (:blueprint/id blueprint)}))}
-                     "Build"
-                     " ("
-                     [ui/resource-amount (- (:blueprint/price blueprint)) 0 :resource/money]
-                     ")"]])]]
+               [build-options-view lot]]
               (let [blueprint (blueprints/blueprints (:improvement/type improvement))]
                 [:div
                  [:div
