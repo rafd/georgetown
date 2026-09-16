@@ -135,13 +135,14 @@
                            (let [blueprint (blueprints/blueprints (:improvement/type improvement))]
                              (:blueprint/icon blueprint))]
                           [:div.offers
-                           {:tw "absolute bottom-0 left-0 right-0 flex justify-between flex-row-reverse"
+                           {:tw "absolute bottom-0 left-0 right-0 flex justify-between"
                             :style {:font-size "0.3em"}}
                            (for [offer (->> improvement
                                             :improvement/id
                                             improvement-id->offers
                                             (filter blueprints/offer-active?)
-                                            (sort-by :offer/type))
+                                            (sort-by (fn [offer]
+                                                       (blueprints/offerable-id->order (:offer/type offer)))))
                                  :let [offerable (blueprints/offerables (:offer/type offer))]]
                              ^{:key (:offer/id offer)}
                              [:div.offer

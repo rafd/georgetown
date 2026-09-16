@@ -506,6 +506,14 @@
        (mapcat :blueprint/offerables)
        (types/key-by :offerable/id)))
 
+(def offerable-id->order
+  (->> blueprints
+       vals
+       (mapcat :blueprint/offerables)
+       (map :offerable/id)
+       (map-indexed (fn [index offerable-id] [offerable-id index]))
+       (into {})))
+
 (def offerable-id->blueprint
   (->> blueprints
        vals
