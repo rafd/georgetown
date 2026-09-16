@@ -3,6 +3,7 @@
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
     [georgetown.client.ui.common :as ui]
+    [georgetown.client.ui.dataviz :as dataviz]
     [georgetown.client.ui.map :as map]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.constants :as constants]
@@ -137,6 +138,16 @@
                [day-state-count-cell day-states :citizen-state/hungry?]
                [day-state-count-cell day-states :citizen-state/unhoused?]]))]]])]))
 
+(defn savings-history-view
+  [citizen-id]
+  (let [savings (->> @state/public-stats-history
+                     (keep (fn [stats]
+                             (get-in stats [:sim.out/citizen-states citizen-id :citizen-state/savings]))))]
+    (when (seq savings)
+      [:div
+       [:h4 {:tw "text-xs font-bold"} "Savings"]
+       [dataviz/multi-sparkline savings]])))
+
 (defn citizen-view
   [citizen-id]
   (let [citizen (->> (:island/citizens @state/island)
@@ -152,6 +163,7 @@
        [:div {:tw "space-y-2"}
         [:h1 {:tw "text-sm font-bold"}
          [ui/resource-icon :resource/citizen] " " (ui/citizen-display-name citizen)]
+        [savings-history-view citizen-id]
         [activity-history-view citizen-id]
         [:div {:tw "flex gap-2"}
          [:div

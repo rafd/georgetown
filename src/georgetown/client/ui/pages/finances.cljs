@@ -2,12 +2,13 @@
   (:require
     [bloom.commons.pages :as pages]
     [com.rpl.specter :as x]
-    [georgetown.client.ui.common :as ui]
-    [georgetown.sim.blueprints :as blueprints]
     [georgetown.client.state :as state]
+    [georgetown.client.ui.cashflow :as cashflow]
+    [georgetown.client.ui.common :as ui]
     [georgetown.client.ui.dataviz :as dataviz]
     [georgetown.client.ui.map :as map]
     [georgetown.client.ui.table :as table]
+    [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.time :as time]))
 
 (defn cashflow-graph []
@@ -19,30 +20,6 @@
          (partition time/ticks-per-day)
          (map (fn [day-values]
                 (reduce + day-values))))]])
-
-(defn per-day-total
-  [per-tick-values]
-  ;; extrapolate to a full day when fewer ticks are cached
-  (if (seq per-tick-values)
-    (* time/ticks-per-day
-       (/ (reduce + per-tick-values)
-          (count per-tick-values)))
-    0))
-
-(defn offer-with-net-amount
-  [offer direction]
-  (let [offerable (blueprints/offerables (:offer/type offer))
-        per-unit (blueprints/effect-sum offer direction :resource/money)]
-    (when (pos? per-unit)
-      (let [tick-utilizations (->> @state/offer-utilization-history
-                                   (map (fn [offer-id->utilization]
-                                          (or (offer-id->utilization (:offer/id offer))
-                                              0))))]
-        (assoc offer
-          :offer/tick-utilizations tick-utilizations
-          :offer/net-amount (* (per-day-total tick-utilizations)
-                               (or (:offerable/capacity offerable) 1)
-                               per-unit))))))
 
 (defn offer-cell
   [offer]
@@ -62,13 +39,6 @@
      [:span {:tw "grow"}
       (ui/format (:offer/net-amount offer) 2)]]))
 
-(defn amount
-  [value]
-  [:span {:tw (if (< value 0)
-                "text-red-600"
-                "text-blue-600")}
-   (ui/format value 2)])
-
 (defn lot-link
   [lot content]
   [:a {:href (pages/path-for [:page/lot {:island-id @state/island-id
@@ -77,36 +47,16 @@
 
 (defn cashflow-lines []
   (let [player-id (:player/id @state/player)
-        improvement-id->offers (->> @state/offers
-                                    (group-by (fn [offer]
-                                                (:improvement/id (:improvement/_offers offer)))))
+        improvement-id->offers (cashflow/improvement-id->offers)
         lot-lines (for [lot (->> @state/island
                                  :island/lots)
                         :let [deed (:lot/deed lot)]
                         :when (= (:player/id (:player/_deeds deed))
-                                 player-id)
-                        :let [improvement (:lot/improvement lot)
-                              revenue-offer (->> (improvement-id->offers (:improvement/id improvement))
-                                                 (keep (fn [offer]
-                                                         (offer-with-net-amount offer :effect.direction/to-player)))
-                                                 first)
-                              expense-offer (->> (improvement-id->offers (:improvement/id improvement))
-                                                 (keep (fn [offer]
-                                                         (offer-with-net-amount offer :effect.direction/from-player)))
-                                                 first)]]
-                    ;; deed rate is charged each tick; show per-day
-                    (let [deed-rate-per-day (- (* time/ticks-per-day (:deed/rate deed)))]
-                      {:type ::lot
-                       :id (:lot/id lot)
-                       :label (str (:lot/x lot) "," (:lot/y lot))
-                       :lot lot
-                       :improvement improvement
-                       :revenue-offer revenue-offer
-                       :expense-offer expense-offer
-                       :deed-rate deed-rate-per-day
-                       :total (+ (:offer/net-amount revenue-offer)
-                                 (- (:offer/net-amount expense-offer))
-                                 deed-rate-per-day)}))
+                                 player-id)]
+                    (merge {:type ::lot
+                            :id (:lot/id lot)
+                            :label (str (:lot/x lot) "," (:lot/y lot))}
+                           (cashflow/lot-cashflow-line lot improvement-id->offers)))
         debt-lines (->> @state/player
                         :player/loans
                         (map (fn [loan]
@@ -121,7 +71,7 @@
               :id ::demurrage
               :label "eq"
               ;; stabilization payment is per-tick; show per-day
-              :total (per-day-total
+              :total (cashflow/per-day-total
                        (->> @state/private-stats-history
                             (take time/ticks-per-day)
                             (map :stats.private/stabilization-payment)))}])))
@@ -196,9 +146,9 @@
       :column/alignment :alignment/right
       :column/value :total
       :column/render (fn [line]
-                       [amount (:total line)])
+                       [cashflow/amount (:total line)])
       :column/footer (fn [lines]
-                       [amount (->> lines
+                       [cashflow/amount (->> lines
                                     (map :total)
                                     (reduce +))])}]}])
 

@@ -113,7 +113,7 @@
                                               (take 360 (conj prev (:player/private-stats (:client-state/player client-state))))))
                                      (swap! offer-utilization-history
                                             (fn [prev]
-                                              (take time/ticks-per-day
+                                              (take (* 7 time/ticks-per-day)
                                                     (conj prev
                                                           (->> @offers
                                                                (map (fn [offer]

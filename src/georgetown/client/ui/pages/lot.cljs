@@ -4,11 +4,13 @@
     [bloom.commons.debounce :as debounce]
     [bloom.commons.pages :as pages]
     [georgetown.client.state :as state]
+    [georgetown.client.ui.cashflow :as cashflow]
+    [georgetown.client.ui.common :as ui]
+    [georgetown.client.ui.dataviz :as dataviz]
+    [georgetown.client.ui.map :as map]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.time :as time]
-    [georgetown.sim.types :as types]
-    [georgetown.client.ui.common :as ui]
-    [georgetown.client.ui.map :as map]))
+    [georgetown.sim.types :as types]))
 
 (defn block [{:keys [label]} & content]
   [:div {:tw "border-1 relative"}
@@ -152,6 +154,26 @@
      [build-option-view {:lot lot
                          :blueprint blueprint}])])
 
+(defn lot-income-view
+  [lot]
+  (let [line (cashflow/lot-cashflow-line lot (cashflow/improvement-id->offers))]
+    [:table {:tw "text-sm"}
+     [:caption {:tw "text-xs text-gray-500 text-left"} "per day"]
+     [:tbody
+      (doall
+        (for [[label value] [["Taxes" (:deed-rate line)]
+                             ["Expenses" (- (or (:offer/net-amount (:expense-offer line)) 0))]
+                             ["Revenues" (or (:offer/net-amount (:revenue-offer line)) 0)]]]
+          ^{:key label}
+          [:tr
+           [:td {:tw "pr-2"} label]
+           [:td {:tw "text-right tabular-nums"}
+            (ui/format value 2)]]))
+      [:tr {:tw "font-bold"}
+       [:td {:tw "pr-2"} "Income"]
+       [:td {:tw "text-right tabular-nums"}
+        [cashflow/amount (:total line)]]]]]))
+
 (defn sidebar
   [lot-id]
   (let [lot (->> @state/island
@@ -250,6 +272,7 @@
                         ^{:key resource}
                         [:div {:tw "bg-gray-100 rounded px-1"}
                          [ui/resource-amount (or amount 0) 1 resource]])]))
+
                  [:div.action
                   (doall
                     (for [offerable (:blueprint/offerables blueprint)
@@ -278,7 +301,9 @@
                            [ui/pie {:tw "w-0.6rem h-0.6rem"
                                     :bg-color "#ddd"
                                     :fg-color "green"}
-                            utilization]])]
+                            utilization]
+                           (when offer
+                             [dataviz/multi-sparkline (cashflow/offer-tick-utilizations offer)])])]
                        (doall
                          (for [offerable-var (:offerable/var offerable)]
                            ^{:key (:var/id offerable-var)}
@@ -291,6 +316,9 @@
                             (let [[_ money-resource per-resource] (:var/unit offerable-var)]
                               [ui/resource-icons [money-resource per-resource]])]))
                        [offerable-effects-view offer offerable]]))
+
+                  [lot-income-view lot]
+
                   [ui/button {:on-click
                               (fn []
                                 (state/exec!
