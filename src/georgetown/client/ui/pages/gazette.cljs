@@ -29,54 +29,47 @@
                       :border-spacing "0.5em"}}
       [:tbody
        [:tr
-        [:td "total cash"]
-        [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
-        [:td
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]]]
-       [:tr
-        [:td "player cash"]
-        [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/player-money-balance stats) 0 :resource/money]]
-        [:td
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/player-money-balance])]]]
-       [:tr
-        [:td "government cash"]
-        [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/government-money-balance stats) 0 :resource/money]]
-        [:td
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]]]
-       [:tr
-        [:td "citizen cash"]
-        [:td {:tw "text-right"}
-         [ui/resource-amount (:sim.out/total-citizen-savings stats) 0 :resource/money]]
-        [:td
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/total-citizen-savings])]]]
-       [:tr
-        [:td {:tw "align-top"} "player:citizen cash ratio"]
+        [:td {:tw "align-top"} "money"]
         [:td {:tw "text-right align-top"}
          [:div {:tw kv-row-tw}
-          [:span "before"]
-          [ui/value (ui/format (:sim.out/cash-ratio-before stats) 3)]]
+          [:span "total"]
+          [ui/resource-amount (:sim.out/net-money-balance stats) 0 :resource/money]]
          [:div {:tw kv-row-tw}
-          [:span "after"]
-          [ui/value (ui/format (:sim.out/cash-ratio-after stats) 3)]]]
+          [:span "player"]
+          [ui/resource-amount (:sim.out/player-money-balance stats) 0 :resource/money]]
+         [:div {:tw kv-row-tw}
+          [:span "citizen"]
+          [ui/resource-amount (:sim.out/total-citizen-savings stats) 0 :resource/money]]
+         [:div {:tw kv-row-tw}
+          [:span "government"]
+          [ui/resource-amount (:sim.out/government-money-balance stats) 0 :resource/money]]
+         [:div {:tw kv-row-tw}
+          [ui/label-with-info
+           "ratio"
+           "player cash as a share of total cash"]
+          [ui/value (ui/format (:sim.out/cash-ratio-after stats) 3)]]
+         [:div {:tw kv-row-tw}
+          [ui/label-with-info
+           "demurrage"
+           "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"]
+          [ui/value (ui/format (:sim.out/stabilization-rate stats) 4)]]]
         [:td
-         [:div [dataviz/sparkline
-                {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
-                (x-stats [x/ALL :sim.out/cash-ratio-before])]]
-         [:div [dataviz/sparkline
-                {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
-                (x-stats [x/ALL :sim.out/cash-ratio-after])]]]]
-       [:tr
-        [:td
-         [ui/label-with-info
-          "stabilization rate"
-          "to stabilize the economy and discourage cash hoarding, the government may charge a demurrage fee on cash balances, or provide interest"]]
-        [:td {:tw "text-right"} [ui/value (ui/format (:sim.out/stabilization-rate stats) 4)]]
-        [:td [:div [dataviz/sparkline
-                    {:y-min 0.8 :y-max 1.2 :y-line 1.0 :bar-width 2}
-                    (x-stats [x/ALL :sim.out/stabilization-rate])]]]]]
+         [:span {:tw "text-xs"} "total"]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/net-money-balance])]
+         [:span {:tw "text-xs"} "players"]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/player-money-balance])]
+         [:span {:tw "text-xs"} "citizens"]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/total-citizen-savings])]
+         [:span {:tw "text-xs"} "government"]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]
+         [:span {:tw "text-xs"} "ratio"]
+         [dataviz/sparkline
+          {:y-min 0 :y-max 1 :y-line 0.5 :bar-width 2}
+          (x-stats [x/ALL :sim.out/cash-ratio-after])]
+         [:span {:tw "text-xs"} "demurrage"]
+         [dataviz/sparkline
+          {:y-min 0.8 :y-max 1.2 :y-line 1.0 :bar-width 2}
+          (x-stats [x/ALL :sim.out/stabilization-rate])]]]]
       [:tbody
        [:tr
         [:td "population"]
@@ -126,10 +119,7 @@
           [ui/resource-amount (:sim.out/job-openings stats) 0 :resource/citizen]]
          [:div {:tw kv-row-tw}
           [:span "filled"]
-          [ui/resource-amount (:sim.out/employed-count stats) 0 :resource/citizen]]
-         [:div {:tw kv-row-tw}
-          [:span "idle"]
-          [ui/resource-amount (:sim.out/idle-count stats) 0 :resource/citizen]]]
+          [ui/resource-amount (:sim.out/employed-count stats) 0 :resource/citizen]]]
         [:td
          [:span {:tw "text-xs"} "seeking, seekers hired"]
          [dataviz/multi-sparkline
@@ -138,9 +128,7 @@
          [:span {:tw "text-xs"} "openings, filled"]
          [dataviz/multi-sparkline
           (x-stats [x/ALL :sim.out/employed-count])
-          (x-stats [x/ALL :sim.out/job-openings])]
-         [:span {:tw "text-xs"} "idle"]
-         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/idle-count])]]]
+          (x-stats [x/ALL :sim.out/job-openings])]]]
        (doall
          (for [resource-id [:resource/food :resource/shelter]]
            (let [resource (types/resources resource-id)
