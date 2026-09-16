@@ -20,6 +20,7 @@
   [island-id]
   (let [island (db/q '[:find (pull ?island [:island/epoch
                                             :island/government-money-balance
+                                            :island/public-stats
                                             {:island/citizens [*]}]) .
                        :in $ ?island-id
                        :where
@@ -110,6 +111,7 @@
                      island-id)]
     {:world/epoch (:island/epoch island)
      :world/shift (constants/epoch->shift (:island/epoch island))
+     :world/previous-public-stats (:island/public-stats island)
      :world/government-money-balance (:island/government-money-balance island)
      :world/citizens (->> (:island/citizens island)
                       (map (fn [citizen]

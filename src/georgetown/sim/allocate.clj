@@ -7,10 +7,10 @@
     [georgetown.sim.util.ortools :as ortools]))
 
 (defn days-of-savings
+  "Food is bought every shift, shelter once a night"
   [savings {:keys [food-price shelter-price]}]
-  (let [daily-living-cost (* time/ticks-per-day
-                             (+ (or food-price 0.0)
-                                (or shelter-price 0.0)))]
+  (let [daily-living-cost (+ (* time/ticks-per-day (or food-price 0.0))
+                             (or shelter-price 0.0))]
     (/ savings (max daily-living-cost 0.01))))
 
 (defn job-seeker?
@@ -45,8 +45,9 @@
        long))
 
 (defn citizen-offer-joy
-  "Joy a citizen expects from spending the current shift on an offer (nil = idle)."
-  [citizen offer prices]
+  "Joy a citizen expects from spending the current shift on an offer
+  (nil = idle, which at night means going unhoused: :idle-stress)."
+  [citizen offer {:keys [idle-stress] :as prices}]
   (let [offerable (blueprints/offerables (:offer/type offer))
         weights (:offerable/skill-productivity-weights offerable)
         income (blueprints/effect-sum offer :effect.direction/to-citizen :resource/money)
@@ -68,13 +69,19 @@
                                                 (get citizen (blueprints/skill->talent skill))
                                                 (- 1 (get citizen skill)))))
                                       (reduce + 0.0)))
-        ;; stress-averse, stressed citizens value stress-reducing offers
+        ;; stress-averse citizens value the stress change that will actually occur (after clamp01)
         stress-relief-term (->> {:citizen/physical-stress :citizen/preference.physical-stress
                                  :citizen/mental-stress :citizen/preference.mental-stress}
                                 (map (fn [[stress-key preference]]
-                                       (* (- 1 (get citizen preference))
-                                          (get citizen stress-key)
-                                          (- (blueprints/effect-sum offer :effect.direction/to-citizen stress-key)))))
+                                       (let [stress (get citizen stress-key)
+                                             effect (if offer
+                                                      (blueprints/effect-sum offer :effect.direction/to-citizen stress-key)
+                                                      (or idle-stress 0.0))
+                                             change (-> effect
+                                                        (max (- stress))
+                                                        (min (- 1 stress)))]
+                                         (* (- 1 (get citizen preference))
+                                            (- change)))))
                                 (reduce + 0.0))]
     (max 0.0
          (+ (* constants/joy-weight-security security-term)
@@ -86,9 +93,10 @@
   "Assigns each citizen's current shift to at most one time-offer (nil = idle),
   maximizing the sum over citizens of sqrt(joy of the chosen offer), subject to
   offer capacities and player wage budgets."
-  [{:allocate.in/keys [citizens offers player-budgets food-price shelter-price]}]
+  [{:allocate.in/keys [citizens offers player-budgets food-price shelter-price idle-stress]}]
   (let [prices {:food-price food-price
-                :shelter-price shelter-price}
+                :shelter-price shelter-price
+                :idle-stress (or idle-stress 0.0)}
         idle-allocations (->> citizens
                               (map (fn [citizen]
                                      [(:citizen/id citizen) nil]))
@@ -166,9 +174,9 @@
   "job-seeker?"
   (let [prices {:food-price 5.0
                 :shelter-price 5.0}]
-    ;; daily living cost = 4 ticks * 10 = 40; halfway = 30 days = 1200
-    (job-seeker? {:citizen/savings 1160.0} prices) := true
-    (job-seeker? {:citizen/savings 1240.0} prices) := false)
+    ;; daily living cost = 4 ticks * 5 + 5 = 25; halfway = 30 days = 750
+    (job-seeker? {:citizen/savings 740.0} prices) := true
+    (job-seeker? {:citizen/savings 760.0} prices) := false)
 
   "job-openings"
   (let [job (fn [id owner wage capacity]

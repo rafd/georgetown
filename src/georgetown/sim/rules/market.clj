@@ -40,8 +40,7 @@
 (defn housing-tenders
   [world]
   (->> (:world/offers world)
-       (filter (fn [offer]
-                 (= :offer.category/housing (:offer/category offer))))
+       (filter blueprints/shelter-offer?)
        (map (fn [offer]
               (let [capacity (or (:offerable/capacity (blueprints/offerables (:offer/type offer)))
                                  0)]
@@ -52,23 +51,11 @@
                  :tender/supply [:resource/shelter capacity]
                  :tender/demand [:resource/money (* capacity (:offer/amount offer))]})))))
 
-(defn run-goods-market
-  "Aggregate market for food or shelter (every tick).
-  Two passes: pass 1 sets the clearing price; citizens that cannot afford it
-  go without (and gain stress); pass 2, at the reduced demand, determines
-  which suppliers actually sell."
-  [world resource]
-  (let [{:keys [stats-key unserved-ids-key]}
-        (case resource
-          :resource/food {:stats-key :world/food-stats
-                          :unserved-ids-key :world/hungry-citizen-ids}
-          :resource/shelter {:stats-key :world/shelter-stats
-                             :unserved-ids-key :world/unhoused-citizen-ids})
-        tenders (case resource
-                  :resource/food (food-sale-tenders world)
-                  :resource/shelter (housing-tenders world))
-        citizens (vals (:world/citizens world))
-        population (count citizens)
+(defn clear-market
+  "Two passes: pass 1 sets the clearing price; citizens that cannot afford it
+  go without; pass 2, at the reduced demand, determines which suppliers sell."
+  [resource citizens tenders]
+  (let [population (count citizens)
         total-savings (->> citizens
                            (map :citizen/savings)
                            (reduce + 0.0))
@@ -88,21 +75,31 @@
                   :resource/money (->> buyers
                                        (map :citizen/savings)
                                        (reduce + 0.0))
-                  tenders)
+                  tenders)]
+    {:clearing-price clearing-price
+     :buyers buyers
+     :demand-filled demand-filled
+     :supply-consumed supply-consumed
+     :final-tenders final-tenders
+     :available-supply (->> tenders
+                            (map (fn [tender]
+                                   (second (:tender/supply tender))))
+                            (reduce + 0))}))
+
+(defn run-food-market
+  [world]
+  (let [tenders (food-sale-tenders world)
+        citizens (vals (:world/citizens world))
+        population (count citizens)
+        {:keys [clearing-price buyers demand-filled supply-consumed final-tenders available-supply]}
+        (clear-market :resource/food citizens tenders)
         served-count (long demand-filled)
         average-price (if (pos? served-count)
                         (/ supply-consumed demand-filled)
                         0.0)
         served-citizens (take served-count (shuffle buyers))
         unserved-citizens (remove (set (map :citizen/id served-citizens))
-                              (map :citizen/id citizens))
-        stress-increase (case resource
-                          :resource/food constants/hungry-stress-increase
-                          :resource/shelter constants/unhoused-stress-increase)
-        available-supply (->> tenders
-                              (map (fn [tender]
-                                     (second (:tender/supply tender))))
-                              (reduce + 0))]
+                              (map :citizen/id citizens))]
     (-> world
         ;; buyers pay the average unit price, so money exactly matches supplier receipts
         (as-> world*
@@ -112,7 +109,7 @@
                   served-citizens))
         (as-> world*
           (reduce (fn [memo citizen-id]
-                    (update-in memo [:world/citizens citizen-id] citizen/stress-citizen stress-increase))
+                    (update-in memo [:world/citizens citizen-id] citizen/stress-citizen constants/hungry-stress-increase))
                   world*
                   unserved-citizens))
         (as-> world*
@@ -121,16 +118,14 @@
                           revenue (* fill-amount (:tender/unit-price tender))]
                       (-> memo
                           (world/update-player-money (:tender/player-id tender) revenue)
-                          (cond->
-                            (= :resource/food resource)
-                            (-> (world/update-player-stock (:tender/player-id tender) :resource/food - fill-amount)
-                                (world/update-improvement-stock (:tender/improvement-id tender) :resource/labour -
-                                                                (* fill-amount (:tender/labour-per-unit tender 0.0)))))
+                          (world/update-player-stock (:tender/player-id tender) :resource/food - fill-amount)
+                          (world/update-improvement-stock (:tender/improvement-id tender) :resource/labour -
+                                                          (* fill-amount (:tender/labour-per-unit tender 0.0)))
                           (assoc-in [:world/utilizations (:tender/offer-id tender)]
                                     (double (or (:tender/fill-ratio tender) 0))))))
                   world*
                   final-tenders))
-        (assoc stats-key
+        (assoc :world/food-stats
                {:demand population
                 :affordable-demand (count buyers)
                 :available-supply available-supply
@@ -139,7 +134,7 @@
                 :average-price average-price
                 :cost supply-consumed
                 :unserved-count (count unserved-citizens)})
-        (assoc unserved-ids-key (set unserved-citizens)))))
+        (assoc :world/hungry-citizen-ids (set unserved-citizens)))))
 
 (defn food-market
   {:rule/description "Citizens buy food from player food-sale offers"
@@ -149,7 +144,7 @@
                    :world/food-stats :world/hungry-citizen-ids}}
   [world]
   (-> world
-      (run-goods-market :resource/food)
+      run-food-market
       (select-keys [:world/citizens
                     :world/players
                     :world/improvements
@@ -158,18 +153,21 @@
                     :world/hungry-citizen-ids])))
 
 (defn shelter-market
-  {:rule/description "Citizens rent shelter from player housing offers"
-   :rule/inputs #{:world/offers :world/citizens :world/players :world/utilizations}
-   :rule/outputs #{:world/citizens :world/players :world/utilizations
-                   :world/shelter-stats :world/unhoused-citizen-ids}}
-  [world]
-  (-> world
-      (run-goods-market :resource/shelter)
-      (select-keys [:world/citizens
-                    :world/players
-                    :world/utilizations
-                    :world/shelter-stats
-                    :world/unhoused-citizen-ids])))
+  {:rule/description "At night, housing offers set the shelter clearing price; allocation decides who rents"
+   :rule/inputs #{:world/shift :world/offers :world/citizens :world/previous-public-stats}
+   :rule/outputs #{:world/shelter-stats}}
+  [{:world/keys [shift citizens previous-public-stats] :as world}]
+  {:world/shelter-stats
+   (if (= :time-shift/night shift)
+     (let [citizens (vals citizens)
+           {:keys [clearing-price buyers available-supply]}
+           (clear-market :resource/shelter citizens (housing-tenders world))]
+       {:demand (count citizens)
+        :affordable-demand (count buyers)
+        :available-supply available-supply
+        :clearing-price clearing-price})
+     ;; shelter is rented once a day, so day shifts report last night
+     (get-in previous-public-stats [:sim.out/resources :resource/shelter]))})
 
 (def rules
   [#'food-market

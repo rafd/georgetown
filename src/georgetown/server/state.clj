@@ -3,6 +3,7 @@
     [clojure.string :as string]
     [dat.api :as dat]
     [georgetown.server.db :as db]
+    [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.island :as island]
     [datalevin.interpret :as di]))
 
@@ -39,8 +40,23 @@
   (db/transact!
     [(island/generate)]))
 
+(defn retract-orphaned-offers!
+  "Offers whose offerable was removed from the blueprints"
+  []
+  (let [orphaned-offer-ids (->> (db/q '[:find [(pull ?offer [:offer/id :offer/type]) ...]
+                                        :where
+                                        [?offer :offer/id _]])
+                                (remove (fn [offer]
+                                          (contains? blueprints/offerables (:offer/type offer))))
+                                (map :offer/id))]
+    (when (seq orphaned-offer-ids)
+      (db/transact!
+        (for [offer-id orphaned-offer-ids]
+          [:db/retractEntity [:offer/id offer-id]])))))
+
 (defn initialize! []
-  (register-functions!))
+  (register-functions!)
+  (retract-orphaned-offers!))
 
 ;; generics ----
 

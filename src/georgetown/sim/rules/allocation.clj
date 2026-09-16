@@ -4,6 +4,7 @@
     [hyperfiddle.rcf :as rcf]
     [georgetown.sim.allocate :as allocate]
     [georgetown.sim.blueprints :as blueprints]
+    [georgetown.sim.citizen :as citizen]
     [georgetown.sim.constants :as constants]
     [georgetown.sim.util.math :as math]
     [georgetown.sim.world :as world]))
@@ -99,15 +100,24 @@
                    (and (some? (:allocate/capacity offer))
                         (zero? (:allocate/capacity offer))))))))
 
+(defn previous-unhoused-citizen-ids
+  [previous-public-stats]
+  (->> (:sim.out/citizen-states previous-public-stats)
+       (keep (fn [[citizen-id citizen-state]]
+               (when (:citizen-state/unhoused? citizen-state)
+                 citizen-id)))
+       set))
+
 (defn allocation
-  {:rule/description "Citizens are assigned to time offers (jobs & leisure) for the shift"
+  {:rule/description "Citizens are assigned to time offers (jobs, leisure and, at night, shelter) for the shift"
    :rule/inputs #{:world/shift :world/offers :world/citizens :world/players
                   :world/improvements :world/utilizations
-                  :world/food-stats :world/shelter-stats}
+                  :world/food-stats :world/shelter-stats :world/previous-public-stats}
    :rule/outputs #{:world/citizens :world/players :world/improvements :world/utilizations
-                   :world/allocation-stats}}
+                   :world/allocation-stats :world/shelter-stats :world/unhoused-citizen-ids}}
   [world]
-  (let [time-offers (shift-time-offers world)
+  (let [night? (= :time-shift/night (:world/shift world))
+        time-offers (shift-time-offers world)
         player-budgets (->> (:world/players world)
                             (map (fn [[player-id player]]
                                    [player-id
@@ -120,7 +130,10 @@
                        :allocate.in/offers time-offers
                        :allocate.in/player-budgets player-budgets
                        :allocate.in/food-price (:food-price prices)
-                       :allocate.in/shelter-price (:shelter-price prices)})
+                       :allocate.in/shelter-price (:shelter-price prices)
+                       :allocate.in/idle-stress (if night?
+                                                  constants/unhoused-stress-increase
+                                                  0.0)})
         offers-by-id (->> time-offers
                           (map (fn [offer]
                                  [(:offer/id offer) offer]))
@@ -140,7 +153,23 @@
                             (keep (fn [[citizen-id citizen]]
                                     (when (allocate/job-seeker? citizen prices)
                                       citizen-id)))
-                            set)]
+                            set)
+        housed-citizen-ids (->> allocations
+                                (keep (fn [[citizen-id offer-id]]
+                                        (when (some->> offer-id
+                                                       offers-by-id
+                                                       blueprints/shelter-offer?)
+                                          citizen-id)))
+                                set)
+        unhoused-citizen-ids (if night?
+                               (->> (keys (:world/citizens world))
+                                    (remove housed-citizen-ids)
+                                    set)
+                               (previous-unhoused-citizen-ids (:world/previous-public-stats world)))
+        rent-paid (->> housed-citizen-ids
+                       (map (fn [citizen-id]
+                              (:allocate/citizen-money-cost (offers-by-id (allocations citizen-id)))))
+                       (reduce + 0.0))]
     (-> (reduce (fn [world* [citizen-id offer-id]]
                   (if offer-id
                     (apply-assignment-effects world* citizen-id (offers-by-id offer-id))
@@ -158,6 +187,22 @@
                                     (if (pos? assigned) 1 0))))))
                   world*
                   offers-by-id))
+        (cond->
+          night?
+          (-> (as-> world*
+                (reduce (fn [memo citizen-id]
+                          (update-in memo [:world/citizens citizen-id]
+                                     citizen/stress-citizen constants/unhoused-stress-increase))
+                        world*
+                        unhoused-citizen-ids))
+              (update :world/shelter-stats merge
+                      {:supply (count housed-citizen-ids)
+                       :cost rent-paid
+                       :average-price (if (seq housed-citizen-ids)
+                                        (/ rent-paid (count housed-citizen-ids))
+                                        0.0)
+                       :unserved-count (count unhoused-citizen-ids)})))
+        (assoc :world/unhoused-citizen-ids unhoused-citizen-ids)
         (assoc :world/allocation-stats
                {:citizen-activities (->> allocations
                                          (map (fn [[citizen-id offer-id]]
@@ -179,7 +224,9 @@
                       :world/players
                       :world/improvements
                       :world/utilizations
-                      :world/allocation-stats]))))
+                      :world/allocation-stats
+                      :world/shelter-stats
+                      :world/unhoused-citizen-ids]))))
 
 (def rules
   [#'allocation])
@@ -235,4 +282,20 @@
     (capacities-by-offer-id (world-with-labour 100.0))
     := {:workout 15
         :gym-job 1
-        :stroll 10}))
+        :stroll 10})
+
+  "rental is a night time-offer whose money cost is the rent"
+  (let [world {:world/improvements {:house {:improvement/type :improvement.type/house
+                                            :improvement/stocks {}}}
+               :world/offers [{:offer/id :rental
+                               :offer/type :offer/house.rental
+                               :offer/amount 3
+                               :offer/owner-id :player-1
+                               :offer/improvement-id :house
+                               :offer/category :offer.category/time}]}]
+    (->> (shift-time-offers (assoc world :world/shift :time-shift/night))
+         (map (fn [offer]
+                [(:offer/id offer) (:allocate/citizen-money-cost offer) (:allocate/wage offer) (:allocate/capacity offer)])))
+    := [[:rental 3 0 2]]
+    (shift-time-offers (assoc world :world/shift :time-shift/morning))
+    := []))

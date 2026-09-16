@@ -13,53 +13,23 @@
          :blueprint/offerables
          [{:offerable/id :offer/house.rental
            :offerable/label "Rental"
-           :offerable/icon "🔑"
-           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.0
-                                        :citizen/preference.social-activity 0.0
-                                        :citizen/preference.physical-activity 0.0
-                                        :citizen/preference.intellectual-activity 0.0}
-           :offerable/capacity 2
-           :offerable/time-shifts #{:time-shift/morning
-                                    :time-shift/afternoon
-                                    :time-shift/evening
-                                    :time-shift/night}
-           :offerable/var [{:var/id :var/rent-rate
-                            :var/label "Rent"
-                            :var/unit [:/ :resource/money :resource/shelter]}]
-           :offerable/effects
-           [[:effect.direction/from-citizen :resource/money :var/rent-rate]
-            [:effect.direction/to-citizen :resource/shelter 1]
-            [:effect.direction/to-player :resource/money :var/rent-rate]]}
-          {:offerable/id :offer/house.sleep
-           :offerable/label "A Good Nights Sleep"
-           :offerable/icon "😴"
+           :offerable/icon "🛏️"
            :offerable/activity-weights {:citizen/preference.spiritual-activity 0.0
                                         :citizen/preference.social-activity 0.0
                                         :citizen/preference.physical-activity 0.0
                                         :citizen/preference.intellectual-activity 0.0}
            :offerable/capacity 2
            :offerable/time-shifts #{:time-shift/night}
-           :offerable/var []
+           :offerable/var [{:var/id :var/rent-rate
+                            :var/label "Rent"
+                            :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+            [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-player :resource/money :var/rent-rate]
             [:effect.direction/to-citizen :citizen/physical-stress -0.1]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
-          {:offerable/id :offer/house.relax
-           :offerable/label "Relaxing at Home"
-           :offerable/icon "🛋️"
-           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.1
-                                        :citizen/preference.social-activity 0.1
-                                        :citizen/preference.physical-activity 0.0
-                                        :citizen/preference.intellectual-activity 0.1}
-           :offerable/capacity 2
-           :offerable/time-shifts #{:time-shift/morning
-                                    :time-shift/afternoon
-                                    :time-shift/evening}
-           :offerable/var []
-           :offerable/effects
-           [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/to-citizen :citizen/physical-stress -0.01]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.01]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
 
         {:blueprint/id :improvement.type/apartment
          :blueprint/label "Apartment"
@@ -70,53 +40,23 @@
          :blueprint/offerables
          [{:offerable/id :offer/apartment.rental
            :offerable/label "Rental"
-           :offerable/icon "🔑"
-           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.0
-                                        :citizen/preference.social-activity 0.0
-                                        :citizen/preference.physical-activity 0.0
-                                        :citizen/preference.intellectual-activity 0.0}
-           :offerable/capacity 25
-           :offerable/time-shifts #{:time-shift/morning
-                                    :time-shift/afternoon
-                                    :time-shift/evening
-                                    :time-shift/night}
-           :offerable/var [{:var/id :var/rent-rate
-                            :var/label "Rent"
-                            :var/unit [:/ :resource/money :resource/shelter]}]
-           :offerable/effects
-           [[:effect.direction/from-citizen :resource/money :var/rent-rate]
-            [:effect.direction/to-citizen :resource/shelter 1]
-            [:effect.direction/to-player :resource/money :var/rent-rate]]}
-          {:offerable/id :offer/apartment.sleep
-           :offerable/label "A Good Nights Sleep"
-           :offerable/icon "😴"
+           :offerable/icon "🛏️"
            :offerable/activity-weights {:citizen/preference.spiritual-activity 0.0
                                         :citizen/preference.social-activity 0.0
                                         :citizen/preference.physical-activity 0.0
                                         :citizen/preference.intellectual-activity 0.0}
            :offerable/capacity 25
            :offerable/time-shifts #{:time-shift/night}
-           :offerable/var []
+           :offerable/var [{:var/id :var/rent-rate
+                            :var/label "Rent"
+                            :var/unit [:/ :resource/money :resource/shelter]}]
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/rent-rate]
+            [:effect.direction/to-citizen :resource/shelter 1]
+            [:effect.direction/to-player :resource/money :var/rent-rate]
             [:effect.direction/to-citizen :citizen/physical-stress -0.1]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}
-          {:offerable/id :offer/apartment.relax
-           :offerable/label "Relaxing at Home"
-           :offerable/icon "🛋️"
-           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.1
-                                        :citizen/preference.social-activity 0.1
-                                        :citizen/preference.physical-activity 0.0
-                                        :citizen/preference.intellectual-activity 0.1}
-           :offerable/capacity 25
-           :offerable/time-shifts #{:time-shift/morning
-                                    :time-shift/afternoon
-                                    :time-shift/evening}
-           :offerable/var []
-           :offerable/effects
-           [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.1]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
 
 
         {:blueprint/id :improvement.type/park
@@ -133,7 +73,7 @@
                                         :citizen/preference.social-activity 0.1
                                         :citizen/preference.physical-activity 0.3
                                         :citizen/preference.intellectual-activity 0.1}
-           :offerable/capacity 10
+           :offerable/capacity 50
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
@@ -563,6 +503,10 @@
               (resolve-effect-amount offer effect)))
        (reduce + 0)))
 
+(defn shelter-offer?
+  [offer]
+  (pos? (effect-sum offer :effect.direction/to-citizen :resource/shelter)))
+
 (defn offer-category
   [offer]
   (let [offerable (offerables (:offer/type offer))
@@ -573,8 +517,6 @@
     (cond
       (contains? direction-targets [:effect.direction/to-citizen :resource/food])
       :offer.category/food-sale
-      (contains? direction-targets [:effect.direction/to-citizen :resource/shelter])
-      :offer.category/housing
       (contains? direction-targets [:effect.direction/from-citizen :resource/time])
       :offer.category/time
       :else
