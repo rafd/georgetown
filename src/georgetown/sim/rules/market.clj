@@ -18,8 +18,11 @@
                    (reduce
                      (fn [{:keys [remaining-food tenders]} offer]
                        (let [labour-needed (blueprints/effect-sum offer :effect.direction/from-self :resource/labour)
+                             capacity (or (:offerable/capacity (blueprints/offerables (:offer/type offer)))
+                                          ##Inf)
                              quantity (Math/floor
                                         (min remaining-food
+                                             capacity
                                              (world/offer-stock-limited-uses world offer)))]
                          {:remaining-food (- remaining-food quantity)
                           :tenders (conj tenders

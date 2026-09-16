@@ -211,6 +211,7 @@
                                         :citizen/preference.social-activity 0.0
                                         :citizen/preference.physical-activity 0.0
                                         :citizen/preference.intellectual-activity 0.0}
+           :offerable/capacity 25
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
