@@ -6,18 +6,53 @@
     [georgetown.sim.time :as time]
     [georgetown.sim.util.ortools :as ortools]))
 
+(defn days-of-savings
+  [savings {:keys [food-price shelter-price]}]
+  (let [daily-living-cost (* time/ticks-per-day
+                             (+ (or food-price 0.0)
+                                (or shelter-price 0.0)))]
+    (/ savings (max daily-living-cost 0.01))))
+
+(defn job-seeker?
+  "Savings cover fewer than security-halfway-days of living costs"
+  [citizen prices]
+  (< (days-of-savings (:citizen/savings citizen) prices)
+     constants/security-halfway-days))
+
+(defn paid-offer?
+  [offer]
+  (pos? (:allocate/wage offer)))
+
+(defn job-openings
+  "Paid slots this shift; per owner, capped by how many wages the budget covers.
+  Uses the owner's lowest wage, so mixed-wage owners get an upper bound."
+  [offers player-budgets]
+  (->> offers
+       (filter paid-offer?)
+       (group-by :offer/owner-id)
+       (map (fn [[owner-id owner-offers]]
+              (let [capacity-sum (->> owner-offers
+                                      (map (fn [offer]
+                                             (or (:allocate/capacity offer)
+                                                 ##Inf)))
+                                      (reduce + 0.0))
+                    budget-slots (Math/floor (/ (get player-budgets owner-id 0)
+                                                (->> owner-offers
+                                                     (map :allocate/wage)
+                                                     (reduce min))))]
+                (min capacity-sum budget-slots))))
+       (reduce + 0.0)
+       long))
+
 (defn citizen-offer-joy
   "Joy a citizen expects from spending the current shift on an offer (nil = idle)."
-  [citizen offer {:keys [food-price shelter-price]}]
+  [citizen offer prices]
   (let [offerable (blueprints/offerables (:offer/type offer))
         weights (:offerable/skill-productivity-weights offerable)
         income (blueprints/effect-sum offer :effect.direction/to-citizen :resource/money)
         money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
         savings-after (max 0.0 (+ (:citizen/savings citizen) (- income money-cost)))
-        daily-living-cost (* time/ticks-per-day
-                             (+ (or food-price 0.0)
-                                (or shelter-price 0.0)))
-        days-of-savings (/ savings-after (max daily-living-cost 0.01))
+        days-of-savings (days-of-savings savings-after prices)
         security-term (* (:citizen/preference.security citizen)
                          (/ days-of-savings
                             (+ days-of-savings constants/security-halfway-days)))
@@ -106,7 +141,7 @@
             budget-constraints
             (->> pairs
                  (filter (fn [pair]
-                           (pos? (:allocate/wage (:pair/offer pair)))))
+                           (paid-offer? (:pair/offer pair))))
                  (group-by (fn [pair]
                              (:offer/owner-id (:pair/offer pair))))
                  (map (fn [[owner-id owner-pairs]]
@@ -128,6 +163,43 @@
 #_(rcf/enable!)
 
 (rcf/tests
+  "job-seeker?"
+  (let [prices {:food-price 5.0
+                :shelter-price 5.0}]
+    ;; daily living cost = 4 ticks * 10 = 40; halfway = 30 days = 1200
+    (job-seeker? {:citizen/savings 1160.0} prices) := true
+    (job-seeker? {:citizen/savings 1240.0} prices) := false)
+
+  "job-openings"
+  (let [job (fn [id owner wage capacity]
+              {:offer/id id
+               :offer/owner-id owner
+               :allocate/wage wage
+               :allocate/capacity capacity})]
+
+    "capacity-limited"
+    (job-openings [(job :a :player-1 10 3)] {:player-1 1000}) := 3
+
+    "budget-limited"
+    (job-openings [(job :a :player-1 10 3)] {:player-1 25}) := 2
+
+    "unlimited capacity counts as budget-limited"
+    (job-openings [(job :a :player-1 10 nil)] {:player-1 45}) := 4
+
+    "leisure (wage 0) and broke owners contribute nothing"
+    (job-openings [(job :stroll :player-1 0 10)
+                   (job :b :player-2 10 5)]
+                  {:player-1 1000
+                   :player-2 0})
+    := 0
+
+    "summed across owners"
+    (job-openings [(job :a :player-1 10 3)
+                   (job :b :player-2 20 2)]
+                  {:player-1 1000
+                   :player-2 20})
+    := 4)
+
   "allocate-shift"
   (let [base-citizen {:citizen/savings 100.0
                       :citizen/preference.security 0.5

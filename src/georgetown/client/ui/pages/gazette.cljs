@@ -47,7 +47,7 @@
         [:td
          [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/government-money-balance])]]]
        [:tr
-        [:td "citizen savings"]
+        [:td "citizen cash"]
         [:td {:tw "text-right"}
          [ui/resource-amount (:sim.out/total-citizen-savings stats) 0 :resource/money]]
         [:td
@@ -110,14 +110,37 @@
         [:td {:tw "align-top"} "work"]
         [:td {:tw "text-right align-top"}
          [:div {:tw kv-row-tw}
-          [:span "employed"]
+          [ui/label-with-info
+           "seeking"
+           "citizens whose savings cover fewer than 30 days of food and shelter"]
+          [ui/resource-amount (:sim.out/job-seeker-count stats) 0 :resource/citizen]]
+         [:div {:tw kv-row-tw}
+          [ui/label-with-info
+           "seekers hired"
+           "job seekers who got a paid job this shift"]
+          [ui/resource-amount (:sim.out/job-seekers-employed-count stats) 0 :resource/citizen]]
+         [:div {:tw kv-row-tw}
+          [ui/label-with-info
+           "openings"
+           "paid job slots this shift, limited by employer cash"]
+          [ui/resource-amount (:sim.out/job-openings stats) 0 :resource/citizen]]
+         [:div {:tw kv-row-tw}
+          [:span "filled"]
           [ui/resource-amount (:sim.out/employed-count stats) 0 :resource/citizen]]
          [:div {:tw kv-row-tw}
           [:span "idle"]
           [ui/resource-amount (:sim.out/idle-count stats) 0 :resource/citizen]]]
         [:td
-         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/employed-count])]]
-         [:div [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/idle-count])]]]]
+         [:span {:tw "text-xs"} "seeking, seekers hired"]
+         [dataviz/multi-sparkline
+          (x-stats [x/ALL :sim.out/job-seekers-employed-count])
+          (x-stats [x/ALL :sim.out/job-seeker-count])]
+         [:span {:tw "text-xs"} "openings, filled"]
+         [dataviz/multi-sparkline
+          (x-stats [x/ALL :sim.out/employed-count])
+          (x-stats [x/ALL :sim.out/job-openings])]
+         [:span {:tw "text-xs"} "idle"]
+         [dataviz/multi-sparkline (x-stats [x/ALL :sim.out/idle-count])]]]
        (doall
          (for [resource-id [:resource/food :resource/shelter]]
            (let [resource (types/resources resource-id)

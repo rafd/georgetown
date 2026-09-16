@@ -1,5 +1,6 @@
 (ns georgetown.sim.rules.allocation
   (:require
+    [clojure.set :as set]
     [hyperfiddle.rcf :as rcf]
     [georgetown.sim.allocate :as allocate]
     [georgetown.sim.blueprints :as blueprints]
@@ -107,16 +108,19 @@
                    :world/allocation-stats}}
   [world]
   (let [time-offers (shift-time-offers world)
+        player-budgets (->> (:world/players world)
+                            (map (fn [[player-id player]]
+                                   [player-id
+                                    (max 0 (:player/money-balance player))]))
+                            (into {}))
+        prices {:food-price (get-in world [:world/food-stats :clearing-price])
+                :shelter-price (get-in world [:world/shelter-stats :clearing-price])}
         allocations (allocate/allocate-shift
                       {:allocate.in/citizens (vals (:world/citizens world))
                        :allocate.in/offers time-offers
-                       :allocate.in/player-budgets (->> (:world/players world)
-                                                          (map (fn [[player-id player]]
-                                                                 [player-id
-                                                                  (max 0 (:player/money-balance player))]))
-                                                          (into {}))
-                       :allocate.in/food-price (get-in world [:world/food-stats :clearing-price])
-                       :allocate.in/shelter-price (get-in world [:world/shelter-stats :clearing-price])})
+                       :allocate.in/player-budgets player-budgets
+                       :allocate.in/food-price (:food-price prices)
+                       :allocate.in/shelter-price (:shelter-price prices)})
         offers-by-id (->> time-offers
                           (map (fn [offer]
                                  [(:offer/id offer) offer]))
@@ -124,7 +128,19 @@
         assigned-counts (->> allocations
                              vals
                              (remove nil?)
-                             frequencies)]
+                             frequencies)
+        employed-citizen-ids (->> allocations
+                                  (keep (fn [[citizen-id offer-id]]
+                                          (when (some->> offer-id
+                                                         offers-by-id
+                                                         allocate/paid-offer?)
+                                            citizen-id)))
+                                  set)
+        job-seeker-ids (->> (:world/citizens world)
+                            (keep (fn [[citizen-id citizen]]
+                                    (when (allocate/job-seeker? citizen prices)
+                                      citizen-id)))
+                            set)]
     (-> (reduce (fn [world* [citizen-id offer-id]]
                   (if offer-id
                     (apply-assignment-effects world* citizen-id (offers-by-id offer-id))
@@ -150,16 +166,15 @@
                                                    (:offer/type (offers-by-id offer-id))
                                                    :activity/idle)]))
                                          (into {}))
-                :employed-count (->> allocations
-                                     vals
-                                     (keep offers-by-id)
-                                     (filter (fn [offer]
-                                               (pos? (:allocate/wage offer))))
-                                     count)
+                :employed-count (count employed-citizen-ids)
                 :idle-count (->> allocations
                                  vals
                                  (filter nil?)
-                                 count)})
+                                 count)
+                :job-seeker-count (count job-seeker-ids)
+                :job-seekers-employed-count (count (set/intersection job-seeker-ids
+                                                                    employed-citizen-ids))
+                :job-openings (allocate/job-openings time-offers player-budgets)})
         (select-keys [:world/citizens
                       :world/players
                       :world/improvements

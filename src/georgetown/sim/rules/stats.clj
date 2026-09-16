@@ -57,6 +57,9 @@
                                       0)
         :sim.out/employed-count (:employed-count allocation-stats)
         :sim.out/idle-count (:idle-count allocation-stats)
+        :sim.out/job-seeker-count (:job-seeker-count allocation-stats)
+        :sim.out/job-seekers-employed-count (:job-seekers-employed-count allocation-stats)
+        :sim.out/job-openings (:job-openings allocation-stats)
         :sim.out/hungry-count (:unserved-count food-stats)
         :sim.out/unhoused-count (:unserved-count shelter-stats)
         :sim.out/citizen-states
