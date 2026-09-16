@@ -109,6 +109,8 @@
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.05]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.01]
             [:effect.direction/from-player :resource/money :var/job-rate]
             [:effect.direction/to-player :resource/food 6]]}]}
 
@@ -141,6 +143,7 @@
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
             [:effect.direction/to-citizen :citizen/physical-stress 0.02]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.02]
             [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
 
@@ -192,7 +195,8 @@
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
-            [:effect.direction/to-citizen :citizen/physical-stress 0.02]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.04]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.01]
             [:effect.direction/from-player :resource/money :var/job-rate]
             [:effect.direction/to-player :resource/food 20]]}]}
 
@@ -224,6 +228,7 @@
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
             [:effect.direction/to-citizen :citizen/physical-stress 0.01]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.02]
             [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
           {:offerable/id :offer/movie-theatre.screening
@@ -275,6 +280,7 @@
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
             [:effect.direction/to-citizen :citizen/physical-stress 0.02]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.01]
             [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
           {:offerable/id :offer/gym.workout
@@ -350,7 +356,8 @@
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
-            [:effect.direction/to-citizen :citizen/physical-stress 0.02]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.01]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.03]
             [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
           {:offerable/id :offer/pub.night-out
@@ -402,7 +409,8 @@
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
             [:effect.direction/to-citizen :resource/money :var/job-rate]
-            [:effect.direction/to-citizen :citizen/physical-stress 0.02]
+            [:effect.direction/to-citizen :citizen/physical-stress 0.01]
+            [:effect.direction/to-citizen :citizen/mental-stress 0.02]
             [:effect.direction/to-self :resource/labour 1]
             [:effect.direction/from-player :resource/money :var/job-rate]]}
           {:offerable/id :offer/spa.treatment
