@@ -30,6 +30,7 @@
                                           :tender/player-id owner-id
                                           :tender/improvement-id (:offer/improvement-id offer)
                                           :tender/unit-price (:offer/amount offer)
+                                          :tender/capacity capacity
                                           :tender/labour-per-unit labour-needed
                                           :tender/supply [:resource/food quantity]
                                           :tender/demand [:resource/money (* quantity (:offer/amount offer))]})}))
@@ -86,6 +87,17 @@
                                    (second (:tender/supply tender))))
                             (reduce + 0))}))
 
+(defn offer-utilization
+  ;; the tender fill ratio is relative to the stock-limited quantity,
+  ;; so it reads as full when the player runs out of food or labour
+  [fill-amount capacity]
+  (double
+    (if (= ##Inf capacity)
+      (if (pos? fill-amount)
+        1
+        0)
+      (/ fill-amount capacity))))
+
 (defn run-food-market
   [world]
   (let [tenders (food-sale-tenders world)
@@ -122,7 +134,7 @@
                           (world/update-improvement-stock (:tender/improvement-id tender) :resource/labour -
                                                           (* fill-amount (:tender/labour-per-unit tender 0.0)))
                           (assoc-in [:world/utilizations (:tender/offer-id tender)]
-                                    (double (or (:tender/fill-ratio tender) 0))))))
+                                    (offer-utilization fill-amount (:tender/capacity tender))))))
                   world*
                   final-tenders))
         (assoc :world/food-stats
