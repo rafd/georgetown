@@ -131,41 +131,40 @@
 (def encoder
   (m/create mj/options))
 
+(defn encode-client-state
+  [client-state]
+  {:status 200
+   ;; async channels skip middleware, so encoding is applied here
+   :headers {"Content-Type" "application/transit+json; charset=utf-8"}
+   ;; muuntaja returns a one-shot input stream; a byte array can be sent to several channels
+   :body (.readAllBytes (m/encode encoder "application/transit+json" client-state))})
+
 (defn on-db-change!
   []
   ;; minimally calculate the various states
   ;; island-state is the same for all watchers of an island
   ;; user-state and player-state would be the same for a user with multiple sessions open
-  (let [s @subscriptions ;; deref here and reuse, to avoid race conditions
-        island-states (let [island-ids (->> (vals s)
+  (let [subscriptions-snapshot @subscriptions ;; deref once and reuse, to avoid race conditions
+        island-states (let [island-ids (->> (vals subscriptions-snapshot)
                                             (map :sub/island-id)
                                             set)]
                         (zipmap island-ids
-                                (->> island-ids
-                                     (map island-state))))
-        user-states (let [user-ids (->> (vals s)
+                                (map island-state island-ids)))
+        user-states (let [user-ids (->> (vals subscriptions-snapshot)
                                         (map :sub/user-id)
                                         set)]
                       (zipmap user-ids
-                              (map user-state user-ids)))
-        player-states (let [user-island-ids (->> (vals s)
-                                                   (map (juxt :sub/user-id :sub/island-id))
-                                                   set)]
-                          (zipmap user-island-ids
-                                  (map (fn [[user-id island-id]] (player-state user-id island-id)) user-island-ids)))]
-    (->> s
-         (pmap (fn [[session-id {:sub/keys [user-id island-id channel]}]]
-                 (http/send! channel
-                             ;; async channels skip middleware (?)
-                             ;; so have to reapply encoding
-                             {:status 200
-                              :headers {"Content-Type" "application/transit+json; charset=utf-8"}
-                              :body
-                              (m/encode encoder "application/transit+json"
-                                        {:client-state/island (island-states island-id)
-                                         :client-state/user (user-states user-id)
-                                         :client-state/player (player-states [user-id island-id])})})))
-         doall)))
+                              (map user-state user-ids)))]
+    ;; sessions with the same user and island get identical payloads,
+    ;; so encode once per group
+    (doseq [[[user-id island-id] group-subscriptions] (group-by (juxt :sub/user-id :sub/island-id)
+                                                                (vals subscriptions-snapshot))]
+      (let [response (encode-client-state
+                       {:client-state/island (island-states island-id)
+                        :client-state/user (user-states user-id)
+                        :client-state/player (player-state user-id island-id)})]
+        (doseq [{:sub/keys [channel]} group-subscriptions]
+          (http/send! channel response))))))
 
 (defn initialize!
   []
