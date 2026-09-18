@@ -77,11 +77,15 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
-           :offerable/var []
+           :offerable/var [{:var/id :var/entry-fee
+                            :var/label "Entry Fee"
+                            :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/entry-fee]
             [:effect.direction/to-citizen :citizen/physical-stress -0.02]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.02]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.02]
+            [:effect.direction/to-player :resource/money :var/entry-fee]]}]}
 
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
@@ -234,10 +238,10 @@
           {:offerable/id :offer/movie-theatre.screening
            :offerable/label "Movie Screening"
            :offerable/icon "🍿"
-           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.2
+           :offerable/activity-weights {:citizen/preference.spiritual-activity 0.0
                                         :citizen/preference.social-activity 0.3
                                         :citizen/preference.physical-activity 0.0
-                                        :citizen/preference.intellectual-activity 0.4}
+                                        :citizen/preference.intellectual-activity 0.7}
            :offerable/capacity 30
            :offerable/time-shifts #{:time-shift/afternoon
                                     :time-shift/evening}
@@ -324,11 +328,15 @@
            :offerable/time-shifts #{:time-shift/morning
                                     :time-shift/afternoon
                                     :time-shift/evening}
-           :offerable/var []
+           :offerable/var [{:var/id :var/entry-fee
+                            :var/label "Entry Fee"
+                            :var/unit [:/ :resource/money :resource/time]}]
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
+            [:effect.direction/from-citizen :resource/money :var/entry-fee]
             [:effect.direction/to-citizen :citizen/skill.intellect 0.01]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.05]
+            [:effect.direction/to-player :resource/money :var/entry-fee]]}]}
 
         {:blueprint/id :improvement.type/pub
          :blueprint/label "Pub"

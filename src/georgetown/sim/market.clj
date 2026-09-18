@@ -62,8 +62,11 @@
                              (<= supply-remaining supply-consumed))
                          (let [ratio (min (/ demand-remaining
                                              demand-filled)
-                                          (/ supply-remaining
-                                             supply-consumed))
+                                          ;; free tenders (price 0) consume no supply
+                                          (if (pos? supply-consumed)
+                                            (/ supply-remaining
+                                               supply-consumed)
+                                            1))
                                ;; requiring integer amounts of non-money
                                ratio (if (zero? ratio)
                                        0
@@ -361,5 +364,32 @@
                       :tender/fill-amount (* 1000 (/ 600 6000))
                       :tender/fill-ratio (/ 600 6000)}
                      ]}
+
+  "free (price 0), no $"
+  (market
+    :resource/food
+    500
+    :resource/money
+    0.0
+    [{:tender/supply [:resource/food 1000]
+      :tender/demand [:resource/money 0]
+      :tender/id 1}
+     {:tender/supply [:resource/food 1000]
+      :tender/demand [:resource/money 1000]
+      :tender/id 2}])
+  :=
+  #:market{:clearing-unit-price 0
+           :demand-filled 500
+           :supply-consumed 0
+           :tenders [{:tender/supply [:resource/food 1000]
+                      :tender/demand [:resource/money 0]
+                      :tender/id 1
+                      :tender/fill-ratio 1/2
+                      :tender/fill-amount 500N}
+                     {:tender/supply [:resource/food 1000]
+                      :tender/demand [:resource/money 1000]
+                      :tender/id 2
+                      :tender/fill-ratio 0
+                      :tender/fill-amount 0}]}
 
   nil)

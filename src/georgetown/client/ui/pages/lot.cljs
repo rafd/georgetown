@@ -50,7 +50,7 @@
    [:input {:type "number"
             :tw "border p-1 w-18 -m-1 bg-yellow-100 rounded text-right tabular-nums"
             :name "offer-amount"
-            :min 1
+            :min 0
             :default-value offer-amount
             :step 1
             :on-change (debounce/debounce

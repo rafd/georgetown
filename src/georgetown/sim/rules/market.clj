@@ -67,7 +67,7 @@
         buyers (if clearing-price
                  (->> citizens
                       (filter (fn [citizen]
-                                (> (:citizen/savings citizen) clearing-price))))
+                                (>= (:citizen/savings citizen) clearing-price))))
                  [])
         {demand-filled :market/demand-filled
          supply-consumed :market/supply-consumed

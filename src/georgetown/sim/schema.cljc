@@ -186,7 +186,7 @@
                  :dat/spec (into [:enum] (keys blueprints/offerables))}
     ;; currently assuming only one var per offer
     :offer/amount {:dat/type :db.type/long
-                   :dat/spec types/PosInt}
+                   :dat/spec types/NonNegInt}
     :offer/utilization {:dat/type :db.type/float
                         :dat/spec [:double {:min 0 :max 1}]}
     }})

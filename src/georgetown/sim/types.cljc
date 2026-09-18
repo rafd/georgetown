@@ -58,6 +58,8 @@
 
 (def PosInt pos-int?)
 
+(def NonNegInt nat-int?)
+
 (def Blueprint
   [:map {:closed true}
    [:blueprint/id [:qualified-keyword {:namespace :improvement.type}]]
