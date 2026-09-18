@@ -25,7 +25,7 @@
 (def citizen-immigration-chance (/ 1 100))
 (def max-emigration-chance (/ 1 100))
 (def money-supply-target-per-citizen 0)
-(def citizens-dividend-rate 0.04)
+(def citizens-dividend-rate 0.001)
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights
