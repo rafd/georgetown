@@ -16,16 +16,29 @@
 
 (defonce scheduler (atom nil))
 
+(def tick-period (Duration/ofSeconds 5))
+
+(defn late?
+  [scheduled-time]
+  (-> (Duration/between scheduled-time (Instant/now))
+      (.compareTo tick-period)
+      (pos?)))
+
+(defn job [scheduled-time]
+  (if (late? scheduled-time)
+    (tap> (str "Skipping late tick scheduled for " scheduled-time))
+    (tick-all!)))
+
 (defn initialize!
   []
   (when @scheduler
     (.close @scheduler))
   (reset! scheduler
-            (chime/chime-at
-              (chime/periodic-seq (Instant/now)
-                                  (Duration/ofSeconds 2))
-              (fn [_time]
-                (tick-all!))
-              {:on-finished (fn []
-                              (tap> "Schedule finished."))}))
+          (chime/chime-at
+           (chime/periodic-seq (Instant/now) tick-period)
+           ;; chime does not skip missed times, so a slow tick would
+           ;; otherwise be followed by a burst of catch-up ticks
+           job
+           {:on-finished (fn []
+                           (tap> "Schedule finished."))}))
   nil)
