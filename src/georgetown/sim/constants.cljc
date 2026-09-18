@@ -33,5 +33,8 @@
 (def joy-weight-activity 1.0)
 (def joy-weight-self-improvement 1.0)
 (def joy-weight-stress 1.0)
-;; days of savings at which the security term reaches half its maximum
-(def security-halfway-days 30.0)
+;; days of savings at which the security term reaches half its maximum;
+;; low, so that one shift's wage matters to a citizen with no savings
+(def security-halfway-days 3.0)
+;; citizens with fewer days of savings than this count as job seekers (stats only)
+(def job-seeker-days 30.0)

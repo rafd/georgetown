@@ -14,10 +14,10 @@
     (/ savings (max daily-living-cost 0.01))))
 
 (defn job-seeker?
-  "Savings cover fewer than security-halfway-days of living costs"
+  "Savings cover fewer than job-seeker-days of living costs"
   [citizen prices]
   (< (days-of-savings (:citizen/savings citizen) prices)
-     constants/security-halfway-days))
+     constants/job-seeker-days))
 
 (defn paid-offer?
   [offer]
@@ -46,13 +46,18 @@
 
 (defn citizen-offer-joy
   "Joy a citizen expects from spending the current shift on an offer
-  (nil = idle, which at night means going unhoused: :idle-stress)."
-  [citizen offer {:keys [idle-stress] :as prices}]
+  (nil = idle, which at night means going unhoused: :idle-stress).
+  Ending the shift unable to afford the next meal counts as expected hunger stress."
+  [citizen offer {:keys [idle-stress food-price] :as prices}]
   (let [offerable (blueprints/offerables (:offer/type offer))
         weights (:offerable/skill-productivity-weights offerable)
         income (blueprints/effect-sum offer :effect.direction/to-citizen :resource/money)
         money-cost (blueprints/effect-sum offer :effect.direction/from-citizen :resource/money)
         savings-after (max 0.0 (+ (:citizen/savings citizen) (- income money-cost)))
+        anticipated-stress (+ (if offer 0.0 (or idle-stress 0.0))
+                              (if (< savings-after (or food-price 0.0))
+                                constants/hungry-stress-increase
+                                0.0))
         days-of-savings (days-of-savings savings-after prices)
         security-term (* (:citizen/preference.security citizen)
                          (/ days-of-savings
@@ -74,9 +79,10 @@
                                  :citizen/mental-stress :citizen/preference.mental-stress}
                                 (map (fn [[stress-key preference]]
                                        (let [stress (get citizen stress-key)
-                                             effect (if offer
-                                                      (blueprints/effect-sum offer :effect.direction/to-citizen stress-key)
-                                                      (or idle-stress 0.0))
+                                             effect (+ anticipated-stress
+                                                       (if offer
+                                                         (blueprints/effect-sum offer :effect.direction/to-citizen stress-key)
+                                                         0.0))
                                              change (-> effect
                                                         (max (- stress))
                                                         (min (- 1 stress)))]
@@ -174,7 +180,7 @@
   "job-seeker?"
   (let [prices {:food-price 5.0
                 :shelter-price 5.0}]
-    ;; daily living cost = 4 ticks * 5 + 5 = 25; halfway = 30 days = 750
+    ;; daily living cost = 4 ticks * 5 + 5 = 25; job-seeker-days = 30 days = 750
     (job-seeker? {:citizen/savings 740.0} prices) := true
     (job-seeker? {:citizen/savings 760.0} prices) := false)
 
@@ -293,4 +299,64 @@
                                     :allocate/citizen-money-cost 0
                                     :allocate/wage 100}]
               :allocate.in/player-budgets {:player-1 1000}}))
-    := {:broke :farm-job}))
+    := {:broke :farm-job}
+
+    "broke bookworm takes a low-wage job over free reading"
+    (allocate-shift
+      {:allocate.in/food-price 2.0
+       :allocate.in/shelter-price 5.0
+       :allocate.in/citizens [(merge base-citizen
+                                     {:citizen/id :bookworm
+                                      :citizen/savings 0.0
+                                      :citizen/preference.intellectual-activity 0.7
+                                      :citizen/preference.self-improvement 0.3
+                                      :citizen/skill.intellect 0.8
+                                      :citizen/skill.fitness 0.8
+                                      :citizen/skill.social 0.8
+                                      :citizen/physical-stress 0.05
+                                      :citizen/mental-stress 0.05})]
+       :allocate.in/offers [{:offer/id :reading
+                             :offer/type :offer/library.reading
+                             :offer/owner-id :player-1
+                             :allocate/citizen-money-cost 0
+                             :allocate/wage 0
+                             :allocate/capacity 20}
+                            {:offer/id :market-job
+                             :offer/type :offer/food-market.job
+                             :offer/amount 8
+                             :offer/owner-id :player-1
+                             :allocate/citizen-money-cost 0
+                             :allocate/wage 8
+                             :allocate/capacity 1}]
+       :allocate.in/player-budgets {:player-1 1000}})
+    := {:bookworm :market-job}
+
+    "funded bookworm keeps reading"
+    (allocate-shift
+      {:allocate.in/food-price 2.0
+       :allocate.in/shelter-price 5.0
+       :allocate.in/citizens [(merge base-citizen
+                                     {:citizen/id :bookworm
+                                      :citizen/savings 500.0
+                                      :citizen/preference.intellectual-activity 0.7
+                                      :citizen/preference.self-improvement 0.3
+                                      :citizen/skill.intellect 0.8
+                                      :citizen/skill.fitness 0.8
+                                      :citizen/skill.social 0.8
+                                      :citizen/physical-stress 0.05
+                                      :citizen/mental-stress 0.05})]
+       :allocate.in/offers [{:offer/id :reading
+                             :offer/type :offer/library.reading
+                             :offer/owner-id :player-1
+                             :allocate/citizen-money-cost 0
+                             :allocate/wage 0
+                             :allocate/capacity 20}
+                            {:offer/id :market-job
+                             :offer/type :offer/food-market.job
+                             :offer/amount 8
+                             :offer/owner-id :player-1
+                             :allocate/citizen-money-cost 0
+                             :allocate/wage 8
+                             :allocate/capacity 1}]
+       :allocate.in/player-budgets {:player-1 1000}})
+    := {:bookworm :reading}))
