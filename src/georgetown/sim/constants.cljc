@@ -14,7 +14,7 @@
 
 ;; cljs has no ratios, use division
 
-(def hungry-stress-increase 0.03)
+(def hungry-stress-increase 0.05)
 (def unhoused-stress-increase 0.10)
 (def learn-rate 0.001)
 (def stress-amp-base 0.0001)
@@ -23,16 +23,16 @@
 (def death-stress-factor 3.0)
 (def birth-chance-per-citizen-per-tick (/ 1.0 (* 25 time/ticks-per-year)))
 (def citizen-immigration-chance (/ 1 100))
-(def max-emigration-chance (/ 1 10))
+(def max-emigration-chance (/ 1 100))
 (def money-supply-target-per-citizen 0)
 (def citizens-dividend-rate 0.04)
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights
 (def joy-weight-security 5.0)
-(def joy-weight-activity 1.0)
+(def joy-weight-activity 0.5)
 (def joy-weight-self-improvement 1.0)
-(def joy-weight-stress 1.0)
+(def joy-weight-stress 2.0)
 ;; days of savings at which the security term reaches half its maximum;
 ;; low, so that one shift's wage matters to a citizen with no savings
 (def security-halfway-days 3.0)

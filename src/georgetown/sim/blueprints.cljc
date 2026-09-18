@@ -29,7 +29,7 @@
             [:effect.direction/to-citizen :resource/shelter 1]
             [:effect.direction/to-player :resource/money :var/rent-rate]
             [:effect.direction/to-citizen :citizen/physical-stress -0.1]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
+            [:effect.direction/to-citizen :citizen/mental-stress -0.1]]}]}
 
         {:blueprint/id :improvement.type/apartment
          :blueprint/label "Apartment"
@@ -80,8 +80,8 @@
            :offerable/var []
            :offerable/effects
            [[:effect.direction/from-citizen :resource/time 1]
-            [:effect.direction/to-citizen :citizen/physical-stress -0.05]
-            [:effect.direction/to-citizen :citizen/mental-stress -0.05]]}]}
+            [:effect.direction/to-citizen :citizen/physical-stress -0.02]
+            [:effect.direction/to-citizen :citizen/mental-stress -0.02]]}]}
 
         {:blueprint/id :improvement.type/farm
          :blueprint/label "Farm"
@@ -112,7 +112,7 @@
             [:effect.direction/to-citizen :citizen/physical-stress 0.05]
             [:effect.direction/to-citizen :citizen/mental-stress 0.01]
             [:effect.direction/from-player :resource/money :var/job-rate]
-            [:effect.direction/to-player :resource/food 6]]}]}
+            [:effect.direction/to-player :resource/food 10]]}]}
 
         {:blueprint/id :improvement.type/food-market
          :blueprint/label "Food Market"
