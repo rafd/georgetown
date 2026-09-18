@@ -25,12 +25,12 @@
 (def citizen-immigration-chance (/ 1 100))
 (def max-emigration-chance (/ 1 100))
 (def money-supply-target-per-citizen 0)
-(def citizens-dividend-rate 0.001)
+(def citizens-dividend-rate 0.005)
 (def event-retention-ticks (* 2 time/ticks-per-year))
 
 ;; shift-allocation joy weights
 (def joy-weight-security 5.0)
-(def joy-weight-activity 0.5)
+(def joy-weight-activity 0.25)
 (def joy-weight-self-improvement 1.0)
 (def joy-weight-stress 2.0)
 ;; days of savings at which the security term reaches half its maximum;
