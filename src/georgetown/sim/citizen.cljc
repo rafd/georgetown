@@ -25,6 +25,20 @@
         (:citizen/mental-stress citizen))
      2))
 
+(defn perceived-stress
+  "Mean stress, scaled by how little each stress type bothers the citizen.
+  Equals mean-stress when both preferences are at the 0.5 default."
+  [citizen]
+  (->> {:citizen/physical-stress :citizen/preference.physical-stress
+        :citizen/mental-stress :citizen/preference.mental-stress}
+       (map (fn [[stress-key preference-key]]
+              (math/clamp01
+                (* 2
+                   (- 1 (get citizen preference-key))
+                   (get citizen stress-key)))))
+       (reduce + 0.0)
+       (* 0.5)))
+
 (defn stress-citizen [citizen amount]
   (-> citizen
       (update :citizen/physical-stress (fn [stress] (math/clamp01 (+ stress amount))))

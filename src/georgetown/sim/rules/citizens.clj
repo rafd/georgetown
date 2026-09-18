@@ -71,10 +71,10 @@
                                                 " died at age " (int (citizen/age-in-years citizen))]})))}))
 
 (defn emigration-chance
-  "Very stressed citizens are likely to leave the island."
+  "Citizens who feel very stressed are likely to leave the island."
   [citizen]
   (* constants/max-emigration-chance
-     (Math/pow (citizen/mean-stress citizen) 4)))
+     (Math/pow (citizen/perceived-stress citizen) 4)))
 
 (defn emigration
   {:rule/description "Very stressed citizens may leave the island"
