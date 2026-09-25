@@ -7,10 +7,11 @@
     [java.time Instant Duration]))
 
 (defn tick-all! []
-  (doseq [island-id (db/q '[:find [?island-id ...]
+  (let [database (db/db)]
+    (doseq [island-id (db/q database '[:find [?island-id ...]
                             :where
                             [?island :island/id ?island-id]])]
-    (tick/tick! island-id)))
+      (tick/tick! database island-id))))
 
 #_(tick-all!)
 

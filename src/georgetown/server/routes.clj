@@ -1,13 +1,17 @@
 (ns georgetown.server.routes
   (:require
-    [tada.events.core :as tada]
-    [georgetown.server.tada :as server-tada]
-    [georgetown.server.push :as push]))
+   [tada.events.core :as tada]
+   [georgetown.server.tada :as server-tada]
+   [georgetown.server.push :as push]
+   [dat.api :as dat]
+   [georgetown.server.db :as db]))
 
 (defn dispatch-event!
   [event-id event-params]
   (try
-    (if-let [return (tada/do! server-tada/t event-id event-params)]
+    (if-let [return (dat/with-transaction [tx (db/db)]
+                      (tada/do! server-tada/t event-id
+                                (assoc event-params :tx tx)))]
       {:status 200
        :body return}
       {:status 200})

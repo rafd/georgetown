@@ -5,15 +5,15 @@
    [georgetown.server.tada :as tada]))
 
 (defn seed! []
-  #_(db/retract-all!)
-  (db/clear!)
+  #_(db/retract-all! (db/db))
+  (db/clear! (db/db))
   (db/connect!)
-  (s/initialize!)
-  (s/create-island!)
+  (s/initialize! (db/db))
+  (s/create-island! (db/db))
   nil)
 
 (defn seed-plus! []
-  (let [island (first (s/all-of-type :island/id [:island/id
+  (let [island (first (s/all-of-type (db/db) :island/id [:island/id
                                                  {:island/lots [:lot/id]}]))
         island-id (:island/id island)
         lots (vec (:island/lots island))]
@@ -21,11 +21,11 @@
                                 #_[1 "bob@example.com"]]]
       (tada/exec! :command/authenticate-user!
                   {:email email})
-      (let [user-id (s/email->user-id email)]
+      (let [user-id (s/email->user-id (db/db) email)]
         (tada/exec! :command/immigrate!
                     {:user-id user-id
                      :island-id island-id})
-        (let [player-id (s/->player-id user-id [:island/id island-id])]
+        (let [player-id (s/->player-id (db/db) user-id [:island/id island-id])]
           ;; 6 loans = 30000; builds below cost 25000
           ;; the 5000 buffer prevents tick-1 bankruptcy (taxes + loan payments)
           (dotimes [_ 6]
@@ -51,7 +51,7 @@
               (tada/exec! :command/buy-lot!
                           {:user-id user-id
                            :lot-id lot-id})
-              (let [deed-id (s/qget [:lot/id lot-id] [:lot/deed :deed/id])]
+              (let [deed-id (s/qget (db/db) [:lot/id lot-id] [:lot/deed :deed/id])]
                 (tada/exec! :command/change-rate!
                             {:user-id user-id
                              :deed-id deed-id
@@ -62,7 +62,7 @@
                                :lot-id lot-id
                                :improvement-type improvement-type})
                   (let [improvement-id (:improvement/id (:lot/improvement
-                                                         (s/by-id [:lot/id lot-id]
+                                                         (s/by-id (db/db) [:lot/id lot-id]
                                                                   [{:lot/improvement [:improvement/id]}])))]
                     (doseq [[offer-type vars] offers]
                       ;; :command/set-offer! assumes only a single var per offer

@@ -3,33 +3,33 @@
     [georgetown.server.db :as db]))
 
 ;; grant all residencies some money
-#_(doseq [r-id (db/q '[:find [?player ...]
+#_(doseq [r-id (db/q (db/db) '[:find [?player ...]
                        :where
                        [?player :player/id _]])]
-    (db/transact! [[:db/add r-id :player/money-balance 1000]]))
+    (db/transact! (db/db) [[:db/add r-id :player/money-balance 1000]]))
 
-#_(db/q '[:find [(pull ?player [*]) ...]
+#_(db/q (db/db) '[:find [(pull ?player [*]) ...]
         :where
         [?player :player/id _]])
 
 (defn clear-orphaned-improvements! []
-  (->> (db/q '[:find [?improvement ...]
+  (->> (db/q (db/db) '[:find [?improvement ...]
                :where
                [?lot :lot/improvement ?improvement]
                [(missing? $ ?lot :lot/deed)]])
        (map (fn [e]
               [:db/retractEntity e]))
-       (db/transact!)))
+       (db/transact! (db/db))))
 
 (defn remove-bankrupt-players! []
-  (->> (db/q '[:find [?e ...]
+  (->> (db/q (db/db) '[:find [?e ...]
                :where
                [?e :player/id _]
                [?e :player/money-balance ?balance]
                [(neg? ?balance)]])
        (map (fn [e-id]
               [:db/retractEntity e-id]))
-       (db/transact!)))
+       (db/transact! (db/db))))
 
 
 

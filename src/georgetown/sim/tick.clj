@@ -1,7 +1,7 @@
 (ns georgetown.sim.tick
   (:require
     [bloom.commons.uuid :as uuid]
-    [georgetown.server.db :as db]
+    [georgetown.server.db :as db-api]
     [georgetown.server.events :as events]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.constants :as constants]
@@ -17,8 +17,8 @@
        (into {})))
 
 (defn extract-world
-  [island-id]
-  (let [island (db/q '[:find (pull ?island [:island/epoch
+  [db island-id]
+  (let [island (db-api/q db '[:find (pull ?island [:island/epoch
                                             :island/government-money-balance
                                             :island/public-stats
                                             {:island/citizens [*]}]) .
@@ -26,7 +26,7 @@
                        :where
                        [?island :island/id ?island-id]]
                      island-id)
-        players (->> (db/q '[:find [(pull ?player
+        players (->> (db-api/q db '[:find [(pull ?player
                                           [:player/id
                                            :player/money-balance
                                            {:player/stocks [:stock/id
@@ -42,7 +42,7 @@
                                {:player/money-balance (:player/money-balance player)
                                 :player/stocks (stocks-by-resource (:player/stocks player))}]))
                        (into {}))
-        improvements (->> (db/q '[:find (pull ?improvement
+        improvements (->> (db-api/q db '[:find (pull ?improvement
                                               [:improvement/id
                                                :improvement/type
                                                {:improvement/offers [:offer/id
@@ -77,7 +77,7 @@
                                             :offer/improvement-id improvement-id
                                             :offer/owner-id (:improvement/owner-id improvement)
                                             :offer/category (blueprints/offer-category offer))))))))
-        loans (->> (db/q
+        loans (->> (db-api/q db
                      ;; need loan-id so that it doesn't dedupe
                      '[:find [(pull ?loan [* {:player/_loans
                                               [:player/id]}]) ...]
@@ -97,7 +97,7 @@
                             (-> loan
                                 (dissoc :player/_loans :db/id)
                                 (assoc :loan/owner-id (:player/id owner)))))))
-        deed-rates (db/q
+        deed-rates (db-api/q db
                      ;; need deed-id so that it doesn't dedupe
                      '[:find ?player-id ?rate ?deed-id
                        :in $ ?island-id
@@ -149,11 +149,11 @@
                                     (update :stock/amount double))]}))))))
 
 (defn tick!
-  [island-id]
-  (let [world (extract-world island-id)
+  [db island-id]
+  (let [world (extract-world db island-id)
         world (engine/run rules/all-rules world)
         new-epoch (inc (:world/epoch world))]
-    (db/transact!
+    (db-api/transact! db
       (concat
         (for [[k v] {:island/public-stats (:world/public-stats world)
                      :island/joy (long (:world/joy world))
@@ -189,9 +189,9 @@
         ;; (before the :world/txs retractions, so [:player/id ...] lookup refs still resolve)
         (->> (:world/events world)
              (mapcat (fn [event]
-                       (events/event-txs island-id
+                       (events/event-txs db island-id
                                          (assoc event :event/epoch new-epoch)))))
-        (events/prune-event-txs island-id (- new-epoch constants/event-retention-ticks))
+        (events/prune-event-txs db island-id (- new-epoch constants/event-retention-ticks))
         (:world/txs world)
         ;; births & immigration
         (when (seq (:world/new-citizens world))

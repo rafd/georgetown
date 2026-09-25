@@ -5,14 +5,14 @@
     [org.httpkit.server :as http]
     [muuntaja.core :as m]
     [georgetown.server.state :as s]
-    [georgetown.server.db :as db]
+    [georgetown.server.db :as db-api]
     [georgetown.server.events :as events]))
 
 (defn island-state
-  [island-id]
+  [db island-id]
   ;; events are queried separately, to keep limited/system events out of the public pull
   (some->
-    (db/q '[:find
+    (db-api/q db '[:find
           (pull ?island
                 ;; don't use [*] here, to avoid leaking private information
                 [:island/id
@@ -43,22 +43,22 @@
           :where
           [?island :island/id ?island-id]]
           island-id)
-    (assoc :island/events (events/recent-public-events island-id))))
+    (assoc :island/events (events/recent-public-events db island-id))))
 
 (defn user-state
-  [user-id]
+  [db user-id]
   (when user-id
-    (db/q '[:find (pull ?user [:user/id]) .
+    (db-api/q db '[:find (pull ?user [:user/id]) .
             :in $ ?user-id
             :where
             [?user :user/id ?user-id]]
           user-id)))
 
 (defn player-state
-  [user-id island-id]
+  [db user-id island-id]
   (when user-id
     (some->
-      (db/q '[:find (pull ?player
+      (db-api/q db '[:find (pull ?player
                         [:player/id
                          :player/money-balance
                          :player/private-stats
@@ -99,7 +99,7 @@
             island-id)
       (as-> player
         (assoc player :player/events
-               (events/recent-limited-events island-id (:player/id player)))))))
+               (events/recent-limited-events db island-id (:player/id player)))))))
 
 ;; map of session-id -> {:sub/channel ... :sub/user-id ... :sub/island-id ...}
 (defonce subscriptions (atom {}))
@@ -111,14 +111,15 @@
   ;; when force, then immediate reply
   (let [user-id (get-in request [:session :user-id])
         session-id (get-in request [:params :session-id])
-        island-id (uuid/from-string (get-in request [:params :island-id]))]
+        island-id (uuid/from-string (get-in request [:params :island-id]))
+        db (db-api/db)]
     (if (get-in request [:params :force])
-      (if (and island-id (s/exists? :island/id island-id))
+      (if (and island-id (s/exists? db :island/id island-id))
         {:status 200
          :body
-         {:client-state/island (island-state island-id)
-          :client-state/user (user-state user-id)
-          :client-state/player (player-state user-id island-id)}}
+         {:client-state/island (island-state db island-id)
+          :client-state/user (user-state db user-id)
+          :client-state/player (player-state db user-id island-id)}}
         {:status 400})
       (http/as-channel request
         {:on-open (fn [ch]
@@ -140,7 +141,7 @@
    :body (.readAllBytes (m/encode encoder "application/transit+json" client-state))})
 
 (defn on-db-change!
-  []
+  [db]
   ;; minimally calculate the various states
   ;; island-state is the same for all watchers of an island
   ;; user-state and player-state would be the same for a user with multiple sessions open
@@ -149,12 +150,12 @@
                                             (map :sub/island-id)
                                             set)]
                         (zipmap island-ids
-                                (map island-state island-ids)))
+                                (map (partial island-state db) island-ids)))
         user-states (let [user-ids (->> (vals subscriptions-snapshot)
                                         (map :sub/user-id)
                                         set)]
                       (zipmap user-ids
-                              (map user-state user-ids)))]
+                              (map (partial user-state db) user-ids)))]
     ;; sessions with the same user and island get identical payloads,
     ;; so encode once per group
     (doseq [[[user-id island-id] group-subscriptions] (group-by (juxt :sub/user-id :sub/island-id)
@@ -162,16 +163,14 @@
       (let [response (encode-client-state
                        {:client-state/island (island-states island-id)
                         :client-state/user (user-states user-id)
-                        :client-state/player (player-state user-id island-id)})]
+                        :client-state/player (player-state db user-id island-id)})]
         (doseq [{:sub/keys [channel]} group-subscriptions]
           (http/send! channel response))))))
 
 (defn initialize!
   []
-  (db/watch!
+  (db-api/watch!
     ::push
     (fn [_report]
-      (on-db-change!)))
+      (on-db-change! (db-api/db))))
   nil)
-
-

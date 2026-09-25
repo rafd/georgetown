@@ -28,9 +28,9 @@
              [:email :user/email]]
     :effect
     (fn [{:keys [email url]}]
-      (let [user-id (or (s/email->user-id (normalize email))
+      (let [user-id (or (s/email->user-id (db/db) (normalize email))
                         (let [id (uuid/random)]
-                          (db/transact!
+                          (db/transact! (db/db)
                             [{:user/id id
                               :user/email (normalize email)}])
                           id))]
@@ -45,9 +45,9 @@
              [:email :user/email]]
     :effect
     (fn [{:keys [email url]}]
-      (let [user-id (or (s/email->user-id (normalize email))
+      (let [user-id (or (s/email->user-id (db/db) (normalize email))
                         (let [id (uuid/random)]
-                          (db/transact!
+                          (db/transact! (db/db)
                             [{:user/id id
                               :user/email (normalize email)}])
                           id))]

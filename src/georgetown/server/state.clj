@@ -2,15 +2,16 @@
   (:require
     [clojure.string :as string]
     [dat.api :as dat]
-    [georgetown.server.db :as db]
+    [georgetown.server.db :as db-api]
     [georgetown.sim.blueprints :as blueprints]
     [georgetown.sim.island :as island]
     [datalevin.interpret :as di]))
 
+;; TODO let's add a transfer function here that guarantees money moves atomically between accounts
 ;; register functions
-(defn register-functions! []
+(defn register-functions! [db]
   #_:clj-kondo/ignore
-  (dat/register-fn! (db/db) :fn/withdraw
+  (dat/register-fn! db :fn/withdraw
     (di/inter-fn
       [db player-id amount]
       (if-let [player (datalevin.core/entity db [:player/id player-id])]
@@ -20,7 +21,7 @@
           (throw (ex-info "Insuffient funds" {})))
         (throw (ex-info (str "No player with id " player-id) {})))))
   #_:clj-kondo/ignore
-  (dat/register-fn! (db/db) :fn/deposit
+  (dat/register-fn! db :fn/deposit
     (di/inter-fn
       [db player-id amount]
       (if-let [player (datalevin.core/entity db [:player/id player-id])]
@@ -28,7 +29,7 @@
           (+ (:player/money-balance player) amount)]]
         (throw (ex-info (str "No player with id " player-id) {})))))
   #_:clj-kondo/ignore
-  (dat/register-fn! (db/db) :fn/transfer-to-government
+  (dat/register-fn! db :fn/transfer-to-government
     (di/inter-fn
       [db island-id amount]
       (if-let [island (datalevin.core/entity db [:island/id island-id])]
@@ -36,41 +37,41 @@
           (+ (:island/government-money-balance island) amount)]]
         (throw (ex-info (str "No island with id " island-id) {}))))))
 
-(defn create-island! []
-  (db/transact!
+(defn create-island! [db]
+  (db-api/transact! db
     [(island/generate)]))
 
 (defn retract-orphaned-offers!
   "Offers whose offerable was removed from the blueprints"
-  []
-  (let [orphaned-offer-ids (->> (db/q '[:find [(pull ?offer [:offer/id :offer/type]) ...]
+  [db]
+  (let [orphaned-offer-ids (->> (db-api/q db '[:find [(pull ?offer [:offer/id :offer/type]) ...]
                                         :where
                                         [?offer :offer/id _]])
                                 (remove (fn [offer]
                                           (contains? blueprints/offerables (:offer/type offer))))
                                 (map :offer/id))]
     (when (seq orphaned-offer-ids)
-      (db/transact!
+      (db-api/transact! db
         (for [offer-id orphaned-offer-ids]
           [:db/retractEntity [:offer/id offer-id]])))))
 
-(defn initialize! []
-  (register-functions!)
-  (retract-orphaned-offers!))
+(defn initialize! [db]
+  (register-functions! db)
+  (retract-orphaned-offers! db))
 
 ;; generics ----
 
-(defn exists? [attr value]
+(defn exists? [db attr value]
   (some?
-    (db/q '[:find ?e .
+    (db-api/q db '[:find ?e .
             :in $ ?attr ?value
             :where
             [?e ?attr ?value]]
           attr
           value)))
 
-(defn by-id [[id-attr id] pattern]
-  (db/q '[:find (pull ?e ?pattern) .
+(defn by-id [db [id-attr id] pattern]
+  (db-api/q db '[:find (pull ?e ?pattern) .
           :in $ ?attr ?value ?pattern
           :where
           [?e ?attr ?value]]
@@ -79,8 +80,8 @@
         pattern))
 
 (defn all-of-type
-  [id-attr pattern]
-  (db/q '[:find [(pull ?e ?pattern) ...]
+  [db id-attr pattern]
+  (db-api/q db '[:find [(pull ?e ?pattern) ...]
           :in $ ?attr ?pattern
           :where
           [?e ?attr _]]
@@ -88,8 +89,8 @@
         pattern))
 
 (defn qget
-  [[in-k in-v] path]
-  (db/q (concat [:find (symbol (str "?" (count path))) '.
+  [db [in-k in-v] path]
+  (db-api/q db (concat [:find (symbol (str "?" (count path))) '.
                  :in '$ '?input-k '?input-v
                  :where
                  ['?0 '?input-k '?input-v]]
@@ -108,8 +109,8 @@
         in-v))
 
 #_(defn qget
-  [[in-k in-v] path]
-  (->> (db/q (concat [:find (list 'pull '?e
+  [db [in-k in-v] path]
+  (->> (db-api/q db (concat [:find (list 'pull '?e
                               [{:island/_lots [:island/id]}]) '.
                       :in '$ '?input-k '?input-v
                       :where
@@ -125,8 +126,8 @@
 ;; misc helpers ----
 
 (defn email->user-id
-  [email]
-  (db/q '[:find ?user-id .
+  [db email]
+  (db-api/q db '[:find ?user-id .
           :in $ ?email
           :where
           [?user :user/email ?email]
@@ -134,10 +135,10 @@
         email))
 
 (defn ->player-id
-  [user-id [id-attr id]]
+  [db user-id [id-attr id]]
   (case id-attr
     :loan/id
-    (db/q '[:find ?player-id .
+    (db-api/q db '[:find ?player-id .
             :in $ ?user-id ?loan-id
             :where
             [?user :user/id ?user-id]
@@ -147,7 +148,7 @@
           user-id
           id)
     :island/id
-    (db/q '[:find ?player-id .
+    (db-api/q db '[:find ?player-id .
             :in $ ?user-id ?island-id
             :where
             [?user :user/id ?user-id]
@@ -158,7 +159,7 @@
           user-id
           id)
     :lot/id
-    (db/q '[:find ?player-id .
+    (db-api/q db '[:find ?player-id .
             :in $ ?user-id ?lot-id
             :where
             [?lot :lot/id ?lot-id]
@@ -170,7 +171,7 @@
           user-id
           id)
     :improvement/id
-    (db/q '[:find ?player-id .
+    (db-api/q db '[:find ?player-id .
             :in $ ?user-id ?improvement-id
             :where
             [?improvement :improvement/id ?improvement-id]
@@ -185,9 +186,9 @@
           id)))
 
 (defn can-afford?
-  [player-id amount]
+  [db player-id amount]
   (<= amount
-      (db/q '[:find ?balance .
+      (db-api/q db '[:find ?balance .
               :in $ ?player-id
               :where
               [?player :player/id ?player-id]
@@ -196,11 +197,11 @@
 
 (defn owns?
   ;; TODO rename to related-to?
-  [user-id [attr id]]
+  [db user-id [attr id]]
   (some?
     (case attr
       :deed/id
-      (db/q '[:find ?deed .
+      (db-api/q db '[:find ?deed .
               :in $ ?user-id ?deed-id
               :where
               [?deed :deed/id ?deed-id]
@@ -211,7 +212,7 @@
             id)
 
       :player/id
-      (db/q '[:find ?player .
+      (db-api/q db '[:find ?player .
               :in $ ?user-id ?player-id
               :where
               [?player :player/id ?player-id]
@@ -220,7 +221,7 @@
             user-id
             id)
       :loan/id
-      (db/q '[:find ?loan .
+      (db-api/q db '[:find ?loan .
               :in $ ?user-id ?loan-id
               :where
               [?loan :loan/id ?loan-id]
@@ -230,7 +231,7 @@
             user-id
             id)
       :lot/id
-      (db/q '[:find ?deed .
+      (db-api/q db '[:find ?deed .
               :in $ ?user-id ?lot-id
               :where
               [?lot :lot/id ?lot-id]
@@ -241,7 +242,7 @@
             user-id
             id)
       :improvement/id
-      (db/q '[:find ?deed .
+      (db-api/q db '[:find ?deed .
               :in $ ?user-id ?improvement-id
               :where
               [?improvement :improvement/id ?improvement-id]

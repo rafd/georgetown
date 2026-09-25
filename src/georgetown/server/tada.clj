@@ -8,7 +8,9 @@
 
 ;; temporarily hack around a flaw in tada
 (with-redefs [tada.events.core/valid? (fn [_ _] true)]
-  (tada/register! t (concat server-api/commands sim-api/commands)))
+  (tada/register! t (concat server-api/commands
+                            sim-api/commands
+                            sim-api/queries)))
 
 (defn exec! [k params]
   (tap> ["exec!" k params])

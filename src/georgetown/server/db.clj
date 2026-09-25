@@ -22,38 +22,36 @@
                  (some? v)))
        (into {})))
 
-(defn transact! [txs]
-  (dat/transact! (db) txs))
+(defn transact! [db txs]
+  (dat/transact! db txs))
 
 (defn add-citizen!
-  [island-id citizen]
-  (transact!
+  [db island-id citizen]
+  (transact! db
     [{:island/id island-id
       :island/citizens [citizen]}]))
 
-(defn q [query & args]
-  (apply dat/q query @(db) args))
+(defn q [db query & args]
+  (apply dat/q query @db args))
 
 #_(connect!)
 
 ;; all
-#_(q '[:find [?e ...]
+#_(q (db) '[:find [?e ...]
        :where [?e _ _]])
 
 ;; TODO close when app closes
 ;; or else lock gets stuck
 #_(dat/close! db-atom)
 
-(defn retract-all! []
-  (transact!
+(defn retract-all! [db]
+  (transact! db
     (map (fn [e] [:db/retractEntity e])
-         (q '[:find [?e ...]
-              :where [?e _ _]])))
-    nil)
+         (q db '[:find [?e ...]
+              :where [?e _ _]]))))
 
-(defn clear! []
-  (when @db-atom
-    (dat/clear! @db-atom)))
+(defn clear! [db]
+  (dat/clear! db))
 
 ;; WATCHERS
 ;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;

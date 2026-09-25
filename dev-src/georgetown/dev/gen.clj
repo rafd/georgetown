@@ -5,11 +5,11 @@
 
 (defn replace! [seed]
   (let [new-island (island/generate seed)
-        island-id (db/q
+        island-id (db/q (db/db)
                     '[:find ?id .
                       :where
                       [?e :island/id ?id]])
-        ->id (->> (db/q
+        ->id (->> (db/q (db/db)
                     '[:find ?id ?x ?y
                       :where
                       [?e :lot/id ?id]
@@ -18,7 +18,7 @@
                   (map (fn [[id x y]]
                          [[x y] id]))
                   (into {}))]
-    (db/transact!
+    (db/transact! (db/db)
       (conj
         (->> (:island/lots new-island)
              (map (fn [lot]
