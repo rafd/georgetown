@@ -3,6 +3,7 @@
     [bloom.omni.auth.token :as token]
     [bloom.commons.html :as html]
     [postal.core :as postal]
+    [georgetown.server.db :as db]
     [georgetown.server.config :as config]
     [georgetown.server.state :as state]
     [georgetown.server.log :as log]))
@@ -35,7 +36,7 @@
 
 (defn auth-email
   [{:keys [user-id url]}]
-  (let [user (state/by-id [:user/id user-id] [:user/email])]
+  (let [user (state/by-id (db/db) [:user/id user-id] [:user/email])]
     {:to (:user/email user)
      :subject "Your Georgetown Login Link"
      :body
