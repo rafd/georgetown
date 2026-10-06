@@ -95,10 +95,40 @@
             (* constants/joy-weight-self-improvement self-improvement-term)
             (* constants/joy-weight-stress stress-relief-term)))))
 
+(defn greedy-allocations
+  "Feasible {citizen-id offer-id}, highest coefficient first"
+  [{:keys [pairs player-budgets]}]
+  (->> pairs
+       (sort-by (fn [pair]
+                  (- (:pair/coefficient pair))))
+       (reduce (fn [{:keys [allocations remaining-capacities remaining-budgets] :as memo}
+                    {[citizen-id offer-id] :pair/id offer :pair/offer}]
+                 (let [owner-id (:offer/owner-id offer)
+                       wage (:allocate/wage offer)
+                       capacity (get remaining-capacities offer-id (:allocate/capacity offer))
+                       budget (get remaining-budgets owner-id (get player-budgets owner-id 0))]
+                   (if (or (contains? allocations citizen-id)
+                           (and capacity
+                                (< capacity 1))
+                           (and (paid-offer? offer)
+                                (< budget (Math/round (double wage)))))
+                     memo
+                     (cond-> (assoc-in memo [:allocations citizen-id] offer-id)
+                       capacity
+                       (assoc-in [:remaining-capacities offer-id] (dec capacity))
+                       (paid-offer? offer)
+                       (assoc-in [:remaining-budgets owner-id] (- budget (Math/round (double wage))))))))
+               {:allocations {}
+                :remaining-capacities {}
+                :remaining-budgets {}})
+       :allocations))
+
 (defn allocate-shift
   "Assigns each citizen's current shift to at most one time-offer (nil = idle),
   maximizing the sum over citizens of sqrt(joy of the chosen offer), subject to
-  offer capacities and player wage budgets."
+  offer capacities and player wage budgets.
+  The solver is time-limited; a greedy solution warm-starts it and is the fallback
+  when it finds nothing in time."
   [{:allocate.in/keys [citizens offers player-budgets food-price shelter-price idle-stress]}]
   (let [prices {:food-price food-price
                 :shelter-price shelter-price
@@ -107,34 +137,33 @@
                               (map (fn [citizen]
                                      [(:citizen/id citizen) nil]))
                               (into {}))
+        idle-sqrt-joy-by-citizen-id (->> citizens
+                                         (map (fn [citizen]
+                                                [(:citizen/id citizen)
+                                                 (Math/sqrt (citizen-offer-joy citizen nil prices))]))
+                                         (into {}))
+        ;; coefficients are net of idling, so leaving a citizen unassigned == idle,
+        ;; and pairs with a coefficient <= 0 can never improve the objective;
+        ;; jitter breaks ties randomly (the solver itself is deterministic)
         pairs (for [citizen citizens
                     offer offers
                     :when (and (<= (:allocate/citizen-money-cost offer)
                                    (:citizen/savings citizen))
                                (<= (:allocate/wage offer)
-                                   (get player-budgets (:offer/owner-id offer) 0)))]
+                                   (get player-budgets (:offer/owner-id offer) 0)))
+                    :let [coefficient (+ (Math/round
+                                           (* 1000.0
+                                              (- (Math/sqrt (citizen-offer-joy citizen offer prices))
+                                                 (idle-sqrt-joy-by-citizen-id (:citizen/id citizen)))))
+                                         (- (rand-int 3) 1))]
+                    :when (pos? coefficient)]
                 {:pair/id [(:citizen/id citizen) (:offer/id offer)]
-                 :pair/citizen citizen
-                 :pair/offer offer})]
+                 :pair/offer offer
+                 :pair/coefficient coefficient})]
     (if (empty? pairs)
       idle-allocations
-      (let [idle-sqrt-joy-by-citizen-id
-            (->> citizens
-                 (map (fn [citizen]
-                        [(:citizen/id citizen)
-                         (Math/sqrt (citizen-offer-joy citizen nil prices))]))
-                 (into {}))
-            ;; coefficients are net of idling, so leaving a citizen unassigned == idle;
-            ;; jitter breaks ties randomly (the solver itself is deterministic)
-            coefficient-by-pair-id
-            (->> pairs
-                 (map (fn [{:pair/keys [id citizen offer]}]
-                        [id (+ (Math/round
-                                 (* 1000.0
-                                    (- (Math/sqrt (citizen-offer-joy citizen offer prices))
-                                       (idle-sqrt-joy-by-citizen-id (:citizen/id citizen)))))
-                               (- (rand-int 3) 1))]))
-                 (into {}))
+      (let [greedy (greedy-allocations {:pairs pairs
+                                        :player-budgets player-budgets})
             citizen-constraints
             (->> pairs
                  (group-by (fn [pair]
@@ -166,13 +195,25 @@
                                   (into {}))
                          (long (Math/floor (double (get player-budgets owner-id 0))))])))
             solution (ortools/solve
-                       {:ortools/bool-vars (set (keys coefficient-by-pair-id))
+                       {:ortools/bool-vars (set (map :pair/id pairs))
                         :ortools/constraints (concat citizen-constraints
                                                      capacity-constraints
                                                      budget-constraints)
-                        :ortools/maximize coefficient-by-pair-id})]
+                        :ortools/maximize (->> pairs
+                                               (map (fn [pair]
+                                                      [(:pair/id pair) (:pair/coefficient pair)]))
+                                               (into {}))
+                        :ortools/hints (->> pairs
+                                            (map (fn [{[citizen-id offer-id] :pair/id :as pair}]
+                                                   [(:pair/id pair)
+                                                    (= offer-id (get greedy citizen-id))]))
+                                            (into {}))
+                        :ortools/max-time-seconds constants/allocation-max-solve-seconds
+                        :ortools/relative-gap-limit constants/allocation-relative-gap-limit})]
         (merge idle-allocations
-               (into {} (:solve/true-vars solution)))))))
+               (if solution
+                 (into {} (:solve/true-vars solution))
+                 greedy))))))
 
 #_(rcf/enable!)
 
@@ -213,6 +254,26 @@
                   {:player-1 1000
                    :player-2 20})
     := 4)
+
+  "greedy-allocations respects capacity and budget"
+  (let [pair (fn [citizen-id offer coefficient]
+               {:pair/id [citizen-id (:offer/id offer)]
+                :pair/offer offer
+                :pair/coefficient coefficient})
+        job {:offer/id :job
+             :offer/owner-id :player-1
+             :allocate/wage 10
+             :allocate/capacity 1}
+        farm {:offer/id :farm
+              :offer/owner-id :player-1
+              :allocate/wage 10}]
+    (greedy-allocations {:pairs [(pair :a job 5)
+                                 (pair :b job 9)
+                                 (pair :a farm 3)
+                                 (pair :c farm 1)]
+                         :player-budgets {:player-1 20}})
+    := {:b :job
+        :a :farm})
 
   "allocate-shift"
   (let [base-citizen {:citizen/savings 100.0

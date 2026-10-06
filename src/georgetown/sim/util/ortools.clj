@@ -14,7 +14,7 @@
   (delay (Loader/loadNativeLibraries)))
 
 (defn weighted-sum-expr
-  [bool-vars-by-id coefficient-by-var-id]
+  ^LinearExpr [bool-vars-by-id coefficient-by-var-id]
   ;; cp-sat only accepts integer coefficients
   {:pre [(every? integer? (vals coefficient-by-var-id))]}
   (LinearExpr/weightedSum
@@ -27,28 +27,41 @@
    {:ortools/bool-vars #{var-id ...}
     :ortools/constraints [[:at-most-one [var-id ...]]
                           [:<= {var-id integer-coefficient ...} integer-bound]]
-    :ortools/maximize {var-id integer-coefficient ...}}
+    :ortools/maximize {var-id integer-coefficient ...}
+    :ortools/hints {var-id boolean ...}           ; optional, unknown var-ids are ignored
+    :ortools/max-time-seconds double              ; optional
+    :ortools/relative-gap-limit double}           ; optional
   Returns {:solve/status ... :solve/objective ... :solve/true-vars #{var-id ...}},
-  or nil when infeasible."
-  [{:ortools/keys [bool-vars constraints maximize]}]
+  or nil when infeasible or when no solution is found in time."
+  [{:ortools/keys [bool-vars constraints maximize hints max-time-seconds relative-gap-limit]}]
   @load-natives!
   (let [model (CpModel.)
         bool-vars-by-id (->> bool-vars
                              (map (fn [var-id]
-                                    [var-id (.newBoolVar model (pr-str var-id))]))
+                                    [var-id (.newBoolVar model "")]))
                              (into {}))]
     (doseq [[constraint-type & args] constraints]
       (case constraint-type
         :at-most-one
         (let [[var-ids] args]
-          (.addAtMostOne model (into-array Literal (map bool-vars-by-id var-ids))))
+          (.addAtMostOne model ^"[Lcom.google.ortools.sat.Literal;"
+                               (into-array Literal (map bool-vars-by-id var-ids))))
         :<=
         (let [[coefficient-by-var-id bound] args]
           (.addLessOrEqual model
                            (weighted-sum-expr bool-vars-by-id coefficient-by-var-id)
                            (long bound)))))
     (.maximize model (weighted-sum-expr bool-vars-by-id maximize))
+    (doseq [[var-id value] hints
+            :let [bool-var (bool-vars-by-id var-id)]
+            :when bool-var]
+      (.addHint model ^Literal bool-var (boolean value)))
     (let [solver (CpSolver.)
+          parameters (.getParameters solver)
+          _ (when max-time-seconds
+              (.setMaxTimeInSeconds parameters (double max-time-seconds)))
+          _ (when relative-gap-limit
+              (.setRelativeGapLimit parameters (double relative-gap-limit)))
           status (.solve solver model)]
       (when (contains? #{CpSolverStatus/OPTIMAL CpSolverStatus/FEASIBLE} status)
         {:solve/status (if (= CpSolverStatus/OPTIMAL status)

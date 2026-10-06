@@ -38,3 +38,7 @@
 (def security-halfway-days 3.0)
 ;; citizens with fewer days of savings than this count as job seekers (stats only)
 (def job-seeker-days 30.0)
+
+;; allocation solver stops at whichever comes first
+(def allocation-max-solve-seconds 1.0)
+(def allocation-relative-gap-limit 0.05)
