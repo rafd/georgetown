@@ -1,15 +1,26 @@
 (ns georgetown.server.db
   (:require
     [dat.api :as dat]
+    [datalevin.core :as datalevin]
     [georgetown.sim.schema :as schema]
     [georgetown.server.config :as config]))
 
 (defonce db-atom (atom nil))
 
+;; env flags are not persisted, so must be set on every open
+(defn set-env-flags!
+  [db]
+  (let [lmdb (-> (:dat.api/conn @db)
+                 (datalevin/db)
+                 (.-store)
+                 (.-lmdb))]
+    (datalevin/set-env-flags lmdb #{:nometasync :nosync} true)))
+
 (defn connect! []
-  (reset! db-atom
-          (dat/init! :dat.db/datalevin schema/schema
-                     {:dir (config/get :db-dir)})))
+  (doto (reset! db-atom
+                (dat/init! :dat.db/datalevin schema/schema
+                           {:dir (config/get :db-dir)}))
+    (set-env-flags!)))
 
 (defn db []
   (if (nil? @db-atom)
@@ -51,7 +62,8 @@
               :where [?e _ _]]))))
 
 (defn clear! [db]
-  (dat/clear! db))
+  (dat/clear! db)
+  (set-env-flags! db))
 
 ;; WATCHERS
 ;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;
