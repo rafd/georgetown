@@ -131,15 +131,15 @@
                      (swap! subscriptions dissoc session-id))}))))
 
 (def encoder
-  (m/create mj/options))
+  ;; bytes (not muuntaja's default one-shot input stream), so one encoding can be sent to several channels
+  (m/create (assoc mj/options :return :bytes)))
 
 (defn encode-client-state
   [client-state]
   {:status 200
    ;; async channels skip middleware, so encoding is applied here
    :headers {"Content-Type" "application/transit+json; charset=utf-8"}
-   ;; muuntaja returns a one-shot input stream; a byte array can be sent to several channels
-   :body (.readAllBytes (m/encode encoder "application/transit+json" client-state))})
+   :body (m/encode encoder "application/transit+json" client-state)})
 
 (defn on-db-change!
   [db]
