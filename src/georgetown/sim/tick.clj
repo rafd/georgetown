@@ -1,6 +1,7 @@
 (ns georgetown.sim.tick
   (:require
     [bloom.commons.uuid :as uuid]
+    [taoensso.telemere :as t]
     [georgetown.server.db :as db-api]
     [georgetown.server.events :as events]
     [georgetown.sim.blueprints :as blueprints]
@@ -148,12 +149,22 @@
                                     (assoc :stock/id (uuid/random))
                                     (update :stock/amount double))]}))))))
 
-(defn tick!
-  [db island-id]
-  (let [world (extract-world db island-id)
-        world (engine/run rules/all-rules world)
-        new-epoch (inc (:world/epoch world))]
-    (db-api/transact! db
+(defn traced-rules
+  [rules]
+  (->> rules
+       (map engine/normalize-rule)
+       (map (fn [rule]
+              (update rule :rule/fn
+                      (fn [rule-fn]
+                        (fn [inputs]
+                          (t/trace! {:id :tick/rule
+                                     :data {:rule/id (:rule/id rule)}}
+                            (rule-fn inputs)))))))))
+
+(defn tick-txs
+  [db island-id world]
+  (let [new-epoch (inc (:world/epoch world))]
+    (doall
       (concat
         (for [[k v] {:island/public-stats (:world/public-stats world)
                      :island/joy (long (:world/joy world))
@@ -197,3 +208,16 @@
         (when (seq (:world/new-citizens world))
           [{:island/id island-id
             :island/citizens (vec (:world/new-citizens world))}])))))
+
+(defn tick!
+  [db island-id]
+  (t/trace! {:id :tick/tick!
+             :data {:island/id island-id}}
+    (let [world (t/trace! {:id :tick/extract-world}
+                  (extract-world db island-id))
+          world (t/trace! {:id :tick/run-rules}
+                  (engine/run (traced-rules rules/all-rules) world))
+          txs (t/trace! {:id :tick/build-txs}
+                (tick-txs db island-id world))]
+      (t/trace! {:id :tick/transact}
+        (db-api/transact! db txs)))))

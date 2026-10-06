@@ -4,6 +4,7 @@
     [bloom.commons.muuntaja :as mj]
     [org.httpkit.server :as http]
     [muuntaja.core :as m]
+    [taoensso.telemere :as t]
     [georgetown.server.state :as s]
     [georgetown.server.db :as db-api]
     [georgetown.server.events :as events]))
@@ -145,27 +146,29 @@
   ;; minimally calculate the various states
   ;; island-state is the same for all watchers of an island
   ;; user-state and player-state would be the same for a user with multiple sessions open
-  (let [subscriptions-snapshot @subscriptions ;; deref once and reuse, to avoid race conditions
-        island-states (let [island-ids (->> (vals subscriptions-snapshot)
-                                            (map :sub/island-id)
-                                            set)]
-                        (zipmap island-ids
-                                (map (partial island-state db) island-ids)))
-        user-states (let [user-ids (->> (vals subscriptions-snapshot)
-                                        (map :sub/user-id)
-                                        set)]
-                      (zipmap user-ids
-                              (map (partial user-state db) user-ids)))]
-    ;; sessions with the same user and island get identical payloads,
-    ;; so encode once per group
-    (doseq [[[user-id island-id] group-subscriptions] (group-by (juxt :sub/user-id :sub/island-id)
-                                                                (vals subscriptions-snapshot))]
-      (let [response (encode-client-state
-                       {:client-state/island (island-states island-id)
-                        :client-state/user (user-states user-id)
-                        :client-state/player (player-state db user-id island-id)})]
-        (doseq [{:sub/keys [channel]} group-subscriptions]
-          (http/send! channel response))))))
+  (t/trace! {:id :push/on-db-change
+             :data {:subscription-count (count @subscriptions)}}
+    (let [subscriptions-snapshot @subscriptions ;; deref once and reuse, to avoid race conditions
+          island-states (let [island-ids (->> (vals subscriptions-snapshot)
+                                              (map :sub/island-id)
+                                              set)]
+                          (zipmap island-ids
+                                  (map (partial island-state db) island-ids)))
+          user-states (let [user-ids (->> (vals subscriptions-snapshot)
+                                          (map :sub/user-id)
+                                          set)]
+                        (zipmap user-ids
+                                (map (partial user-state db) user-ids)))]
+      ;; sessions with the same user and island get identical payloads,
+      ;; so encode once per group
+      (doseq [[[user-id island-id] group-subscriptions] (group-by (juxt :sub/user-id :sub/island-id)
+                                                                  (vals subscriptions-snapshot))]
+        (let [response (encode-client-state
+                         {:client-state/island (island-states island-id)
+                          :client-state/user (user-states user-id)
+                          :client-state/player (player-state db user-id island-id)})]
+          (doseq [{:sub/keys [channel]} group-subscriptions]
+            (http/send! channel response)))))))
 
 (defn initialize!
   []
