@@ -29,7 +29,7 @@
                  [applied-science/js-interop "0.4.2"]
 
                  ;; db
-                 [com.github.rafd/dat "0.0.1-20260916-0"]
+                 [com.github.rafd/dat "0.0.1-20261006-0"]
                  [org.datalevin/datalevin-embedded "1.0.2"]
                  ;; telemetry
                  [com.taoensso/telemere "1.2.1"]
