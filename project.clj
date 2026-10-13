@@ -45,6 +45,9 @@
   :omni-config georgetown.server.omni-config/omni-config
   :profiles {:dev
              {:source-paths ["dev-src"]}
+             :profiling
+             {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
+              :dependencies [[com.clojure-goes-fast/clj-async-profiler "1.8.0"]]}
              :uberjar
              {:aot [georgetown.core]
               :prep-tasks ["javac"
