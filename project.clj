@@ -30,21 +30,25 @@
 
                  ;; db
                  [com.github.rafd/dat "0.0.1-20261013-0"]
-                 [org.datalevin/datalevin-embedded "1.0.2"]
+                 [datascript "1.8.1"]
+                 [com.taoensso/nippy "3.7.0"]
                  ;; telemetry
                  [com.taoensso/telemere "1.2.1"]
-                 ;; the versions datalevin wants; telemere needs encore >= 3.159
-                 ;; (else bloom commons' timbre 4 and nippy 3.3 pull in an old encore)
-                 [com.taoensso/encore "3.160.1"]
-                 [com.taoensso/timbre "6.5.0"]
-                 [io.airlift/aircompressor "0.26"]]
-  :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
-             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
+                 ;; telemere needs encore >= 3.159
+                 ;; (else bloom commons' timbre 4 and nippy 3.3 pull in an old encore);
+                 ;; timbre 4 does not load with that encore
+                 [com.taoensso/encore "3.161.0"]
+                 [com.taoensso/timbre "6.5.0"]]
   :main georgetown.core
   :plugins [[io.bloomventures/omni "0.34.0"]]
   :omni-config georgetown.server.omni-config/omni-config
   :profiles {:dev
              {:source-paths ["dev-src"]}
+             :datalevin
+             {:dependencies [[org.datalevin/datalevin-embedded "1.0.2"]
+                             [io.airlift/aircompressor "0.26"]]
+              :jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}
              :profiling
              {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
               :dependencies [[com.clojure-goes-fast/clj-async-profiler "1.8.0"]]}
