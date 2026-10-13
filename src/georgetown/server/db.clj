@@ -46,22 +46,26 @@
 
 (def datascript-dump-file "data/datascript.nippy")
 
+(defn write-datascript-dump!
+  [file datom-vectors]
+  (let [tmp-file (io/file (str file ".tmp"))]
+    (io/make-parents tmp-file)
+    (nippy/freeze-to-file tmp-file (vec datom-vectors))
+    (Files/move (.toPath tmp-file)
+                (.toPath (io/file file))
+                (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
+                                        StandardCopyOption/REPLACE_EXISTING]))))
+
 ;; :db/fn values are functions, so they are not dumped;
 ;; re-register them after restore (state/register-functions!)
 (defn dump-datascript!
   [db]
-  (let [tmp-file (io/file (str datascript-dump-file ".tmp"))]
-    (io/make-parents tmp-file)
-    (->> (datascript/datoms @(dat/conn db) :eavt)
-         (remove (fn [datom]
-                   (= :db/fn (:a datom))))
-         (mapv (fn [datom]
-                 [(:e datom) (:a datom) (:v datom) (:tx datom)]))
-         (nippy/freeze-to-file tmp-file))
-    (Files/move (.toPath tmp-file)
-                (.toPath (io/file datascript-dump-file))
-                (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
-                                        StandardCopyOption/REPLACE_EXISTING]))))
+  (->> (datascript/datoms @(dat/conn db) :eavt)
+       (remove (fn [datom]
+                 (= :db/fn (:a datom))))
+       (map (fn [datom]
+              [(:e datom) (:a datom) (:v datom) (:tx datom)]))
+       (write-datascript-dump! datascript-dump-file)))
 
 (defmethod init-db! :datascript-memory
   [_]
