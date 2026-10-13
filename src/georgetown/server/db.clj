@@ -1,25 +1,83 @@
 (ns georgetown.server.db
   (:require
+    [clojure.java.io :as io]
     [dat.api :as dat]
     [datalevin.core :as datalevin]
+    [datascript.core :as datascript]
+    [taoensso.nippy :as nippy]
     [georgetown.sim.schema :as schema]
-    [georgetown.server.config :as config]))
+    [georgetown.server.config :as config])
+  (:import
+    [java.nio.file CopyOption Files StandardCopyOption]))
+
+;; one of :datalevin, :datalevin-memory, :datascript-memory
+(def backend :datascript-memory)
 
 (defonce db-atom (atom nil))
+
+(defn datalevin? [db]
+  (= :dat.db/datalevin (:dat.api/db-type @db)))
+
+(defn datascript? [db]
+  (= :dat.db/datascript (:dat.api/db-type @db)))
 
 ;; env flags are not persisted, so must be set on every open
 (defn set-env-flags!
   [db]
-  (let [lmdb (-> (:dat.api/conn @db)
-                 (datalevin/db)
-                 (.-store)
-                 (.-lmdb))]
-    (datalevin/set-env-flags lmdb #{:nometasync :nosync} true)))
+  (when (datalevin? db)
+    (let [lmdb (-> (:dat.api/conn @db)
+                   (datalevin/db)
+                   (.-store)
+                   (.-lmdb))]
+      (datalevin/set-env-flags lmdb #{:nometasync :nosync} true))))
+
+(defmulti init-db! (fn [backend] backend))
+
+(defmethod init-db! :datalevin
+  [_]
+  (dat/init! :dat.db/datalevin schema/schema
+             {:dir (config/get :db-dir)}))
+
+(defmethod init-db! :datalevin-memory
+  [_]
+  (dat/init! :dat.db/datalevin schema/schema
+             {:dir nil
+              :opts {:kv-opts {:inmemory? true}}}))
+
+(def datascript-dump-file "data/datascript.nippy")
+
+;; :db/fn values are functions, so they are not dumped;
+;; re-register them after restore (state/register-functions!)
+(defn dump-datascript!
+  [db]
+  (let [tmp-file (io/file (str datascript-dump-file ".tmp"))]
+    (io/make-parents tmp-file)
+    (->> (datascript/datoms @(dat/conn db) :eavt)
+         (remove (fn [datom]
+                   (= :db/fn (:a datom))))
+         (mapv (fn [datom]
+                 [(:e datom) (:a datom) (:v datom) (:tx datom)]))
+         (nippy/freeze-to-file tmp-file))
+    (Files/move (.toPath tmp-file)
+                (.toPath (io/file datascript-dump-file))
+                (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
+                                        StandardCopyOption/REPLACE_EXISTING]))))
+
+(defmethod init-db! :datascript-memory
+  [_]
+  (let [db (dat/init! :dat.db/datascript schema/schema {})
+        conn (dat/conn db)]
+    (when (.exists (io/file datascript-dump-file))
+      (datascript/reset-conn! conn
+        (datascript/init-db
+          (->> (nippy/thaw-from-file datascript-dump-file)
+               (map (fn [[e a v tx]]
+                      (datascript/datom e a v tx))))
+          (datascript/schema @conn))))
+    db))
 
 (defn connect! []
-  (doto (reset! db-atom
-                (dat/init! :dat.db/datalevin schema/schema
-                           {:dir (config/get :db-dir)}))
+  (doto (reset! db-atom (init-db! backend))
     (set-env-flags!)))
 
 (defn db []
@@ -67,16 +125,16 @@
 
 ;; WATCHERS
 ;; datalevin conns aren't clojure.lang.IRef, so add-watch doesn't work on them;
-;; use datalevin.core/listen! instead, re-registering whenever the conn or watchers change
+;; use dat/listen! instead, re-registering whenever the conn or watchers change
 
 (defonce watchers (atom {}))
 
 (defn watch! [k f]
   (swap! watchers assoc k f))
 
-(defn- register-watchers! []
+(defn register-watchers! []
   (doseq [[k f] @watchers]
-    ((requiring-resolve 'datalevin.core/listen!) (dat/conn (db)) k f)))
+    (dat/listen! (db) k f)))
 
 (add-watch watchers
   ::watcher-watcher

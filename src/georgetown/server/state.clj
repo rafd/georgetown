@@ -2,14 +2,44 @@
   (:require
     [clojure.string :as string]
     [dat.api :as dat]
+    [datalevin.interpret :as di]
+    [datascript.core :as datascript]
     [georgetown.server.db :as db-api]
     [georgetown.sim.blueprints :as blueprints]
-    [georgetown.sim.island :as island]
-    [datalevin.interpret :as di]))
+    [georgetown.sim.island :as island]))
 
 ;; TODO let's add a transfer function here that guarantees money moves atomically between accounts
 ;; register functions
-(defn register-functions! [db]
+(defmulti register-functions!
+  (fn [db]
+    (:dat.api/db-type @db)))
+
+(defmethod register-functions! :dat.db/datascript
+  [db]
+  (dat/register-fn! db :fn/withdraw
+    (fn [db player-id amount]
+      (if-let [player (datascript/entity db [:player/id player-id])]
+        (if (<= amount (:player/money-balance player))
+          [[:db/add (:db/id player) :player/money-balance
+            (- (:player/money-balance player) amount)]]
+          (throw (ex-info "Insuffient funds" {})))
+        (throw (ex-info (str "No player with id " player-id) {})))))
+  (dat/register-fn! db :fn/deposit
+    (fn [db player-id amount]
+      (if-let [player (datascript/entity db [:player/id player-id])]
+        [[:db/add (:db/id player) :player/money-balance
+          (+ (:player/money-balance player) amount)]]
+        (throw (ex-info (str "No player with id " player-id) {})))))
+  (dat/register-fn! db :fn/transfer-to-government
+    (fn [db island-id amount]
+      (if-let [island (datascript/entity db [:island/id island-id])]
+        [[:db/add (:db/id island) :island/government-money-balance
+          (+ (:island/government-money-balance island) amount)]]
+        (throw (ex-info (str "No island with id " island-id) {}))))))
+
+;; datalevin persists tx fns, so they must be serializable inter-fns
+(defmethod register-functions! :dat.db/datalevin
+  [db]
   #_:clj-kondo/ignore
   (dat/register-fn! db :fn/withdraw
     (di/inter-fn
